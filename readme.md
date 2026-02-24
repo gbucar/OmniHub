@@ -66,3 +66,6 @@ tukaj so naštete obstoječe sheme, ki bi jih lahko uporabili (tako v bazi podat
 - [SAREF](https://saref.etsi.org/)
 	- [core](https://saref.etsi.org/core/v4.1.1/)
 	- mogoče malo bolj kompleksna? ne vidim plusa te sheme pred [OGC SensorThings API](https://developers.sensorup.com/docs/#introduction)
+
+## Uporabni linki
+- [hyperUI](https://www.hyperui.dev/components/application/range-inputs)
