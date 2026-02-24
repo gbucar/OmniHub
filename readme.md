@@ -34,12 +34,25 @@
 
 ## Uporabniška aplikacija
 ### Pregled informacij o študiji
-- relevantne informacije o študiji - predstavitev
+- uvodna stran z dobrodošlico in kratkim povzetkom ciljev študije
+- pogoji sodelovanja, privolitev (consent) in kontaktne informacije za raziskovalce
+- urnik, pomembni roki in navodila za sodelovanje
+- ključne informacije o zasebnosti in kako so podatki obdelani
 
 ### Izpolnjevanje anket
+- dinamične ankete, ki se prilagajajo odgovorom uporabnika
+- možnost začasnega shranjevanja, dela v offline načinu in kasnejše sinhronizacije
+- pregled stanja (kaj je izpolnjeno) in zgodovina odgovorov
+- enostaven vmesnik za hitro izpolnjevanje na mobilnih napravah
 
 ### Pregled podatkov
-- agregirani podatki, relevantni za uporabnika
+- osebni nadzorni panel z agregiranimi in vizualnimi prikazi (grafi, trendi)
+- pojasnila izmerjenih vrednostim
+- možnost izvozov
+
+### Povezovanje in podpora
+- vodnik za povezavo senzorjev (pairing), diagnostika in status naprav
+- pomoč: FAQ, kontaktna točka in sistem za prijavo težav
 
 ## Shema podatkov
 ### Obstoječi standardi
