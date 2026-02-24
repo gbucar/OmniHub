@@ -14,21 +14,23 @@
 
 ## Admin dashboard
 ### Upravljanje uporabnikov
-- pregled uporabnikov
-- nastavljanje gesel/podatkov za dostop
-- dodajanje uporabnikov
-- dodeljevanje senzorjev določenemu uporabniku
-- pregled napak
-	- uporabnik ni uspešno povezal senzorj(ev)
-	- uporabnik ni izpolnil ankete
-	- senzor, vezan na uporabnika, ne pošilja podatkov
+- seznam uporabnikov z iskanjem, filtriranjem in paginacijo
+- upravljanje vlog in pravic (npr. admin, raziskovalec, operator)
+- ustvarjanje, urejanje in deaktivacija uporabnikov
+- ponastavitev gesel in upravljanje dostopa (API ključi, 2FA)
+- dodeljevanje in odvzem senzorjev uporabnikom ali skupinam
+- uvoz/izvoz uporabnikov in bulk operacije
+- revizijska zgodovina (audit log) in sledenje sprememb
+- pregled napak in obvestila (npr. neuspešna povezava senzorjev; neizpolnjene ankete; senzor ne pošilja podatkov)
 
 ### Upravljanje senzorjev
-- pregled vseh senzorjev
-- dodajanje novih senzorjev
-- urejanje obstoječih senzorjev (menjava imena, nastavitev statusa ...)
-- pregled podatkov iz senzorja 
-- pregled napak (takoj se vidi, če senzor recimo nekaj časa že ni bil aktiven / ni poslal novih podatkov)
+- celovit pregled vseh senzorjev z iskanjem in filtriranjem
+- dodajanje novih senzorjev in razvrščanje po tipu/locaciji
+- urejanje nastavitev senzorjev (ime, status, metapodatki)
+- spremljanje stanja in aktivnosti senzorjev (zadnji prejeti podatki, uptime)
+- vizualizacija surovih in agregiranih podatkov za posamezni senzor
+- nastavitve obvestil in pragov (alerti ob izpadu ali anomalii)
+- skupinske operacije (bulk registracija, posodabljanje metapodatkov)
 
 ## Uporabniška aplikacija
 ### Pregled informacij o študiji
@@ -51,4 +53,3 @@ tukaj so naštete obstoječe sheme, ki bi jih lahko uporabili (tako v bazi podat
 - [SAREF](https://saref.etsi.org/)
 	- [core](https://saref.etsi.org/core/v4.1.1/)
 	- mogoče malo bolj kompleksna? ne vidim plusa te sheme pred [OGC SensorThings API](https://developers.sensorup.com/docs/#introduction)
-
