@@ -1,0 +1,265 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+CAUTION: Do not modify this file unless you know what you are doing.
+ Unexpected results may occur if the code is changed deliberately.
+-->
+<dbmodel pgmodeler-ver="1.2.2" use-changelog="false" max-obj-count="7"
+	 gen-disabled-objs-code="false" show-sys-schemas-rects="true"
+	 last-position="-323,0" last-zoom="0.55" scene-rect="-588,0,2312.46,1596.12"
+	 default-schema="public" default-owner="postgres"
+	 layers="Default layer"
+	 active-layers="0"
+	 layer-name-colors="#000000"
+	 layer-rect-colors="#b4b4b4"
+	 show-layer-names="false" show-layer-rects="false">
+<role name="researcher"
+ login="true">
+</role>
+
+<database name="postgres" is-template="false" allow-conns="true">
+</database>
+
+<schema name="public" layers="0" fill-color="#e1e1e1" name-color="#000000" sql-disabled="true">
+</schema>
+
+<extension name="postgis">
+	<schema name="public"/>
+</extension>
+
+<schema name="auth" layers="0" rect-visible="true" fill-color="#e1e1e1" name-color="#31363b">
+	<role name="postgres"/>
+</schema>
+
+<schema name="data" layers="0" rect-visible="true" fill-color="#e1e1e1" name-color="#31363b">
+	<role name="postgres"/>
+</schema>
+
+<table name="users" layers="0" collapse-mode="2" max-obj-count="4" z-value="0">
+	<schema name="auth"/>
+	<role name="postgres"/>
+	<position x="880" y="220"/>
+	<column name="id" not-null="true" default-value="uuidv7()">
+		<type name="uuid" length="0"/>
+	</column>
+	<column name="username">
+		<type name="text" length="0"/>
+	</column>
+	<column name="password" not-null="true">
+		<type name="text" length="0"/>
+	</column>
+	<column name="sys_created_at" not-null="true" default-value="NOW()">
+		<type name="timestamptz" length="0"/>
+	</column>
+	<constraint name="users_pk" type="pk-constr" table="auth.users">
+		<columns names="id" ref-type="src-columns"/>
+	</constraint>
+</table>
+
+<table name="sensors" layers="0" collapse-mode="2" max-obj-count="7" z-value="0">
+	<schema name="data"/>
+	<role name="postgres"/>
+	<position x="-540" y="180"/>
+	<column name="id" not-null="true">
+		<type name="bigserial" length="0"/>
+	</column>
+	<column name="name">
+		<type name="text" length="0"/>
+	</column>
+	<column name="description">
+		<type name="text" length="0"/>
+	</column>
+	<column name="encodingType">
+		<type name="text" length="0"/>
+	</column>
+	<column name="metadata">
+		<type name="text" length="0"/>
+	</column>
+	<column name="properties">
+		<type name="jsonb" length="0"/>
+	</column>
+	<constraint name="sensors_pk" type="pk-constr" table="data.sensors">
+		<columns names="id" ref-type="src-columns"/>
+	</constraint>
+</table>
+
+<table name="data_stream" layers="0" collapse-mode="2" max-obj-count="10" z-value="0">
+	<schema name="data"/>
+	<role name="postgres"/>
+	<position x="-560" y="720"/>
+	<column name="id" not-null="true">
+		<type name="bigserial" length="0"/>
+	</column>
+	<column name="sensor_id">
+		<type name="bigint" length="0"/>
+	</column>
+	<column name="name">
+		<type name="text" length="0"/>
+	</column>
+	<column name="description">
+		<type name="text" length="0"/>
+	</column>
+	<column name="unit_of_measurement">
+		<type name="jsonb" length="0"/>
+	</column>
+	<column name="observed_area">
+		<type name="geography" length="0"/>
+	</column>
+	<column name="phenomenon_time">
+		<type name="tstzrange" length="0"/>
+	</column>
+	<column name="properties">
+		<type name="jsonb" length="0"/>
+	</column>
+	<column name="result_time">
+		<type name="tstzrange" length="0"/>
+	</column>
+	<constraint name="data_stream_pk" type="pk-constr" table="data.data_stream">
+		<columns names="id" ref-type="src-columns"/>
+	</constraint>
+</table>
+
+<table name="ownerships" layers="0" collapse-mode="2" max-obj-count="4" z-value="0">
+	<schema name="data"/>
+	<role name="postgres"/>
+	<position x="80" y="180"/>
+	<column name="user_id" not-null="true">
+		<type name="uuid" length="0"/>
+	</column>
+	<column name="sensor_id" not-null="true">
+		<type name="bigint" length="0"/>
+	</column>
+	<column name="start_date" not-null="true">
+		<type name="timestamptz" length="0"/>
+	</column>
+	<column name="end_date" not-null="true">
+		<type name="timestamptz" length="0"/>
+	</column>
+	<constraint name="ownerships_pk" type="pk-constr" table="data.ownerships">
+		<columns names="user_id,sensor_id,start_date,end_date" ref-type="src-columns"/>
+	</constraint>
+</table>
+
+<table name="observations" layers="0" collapse-mode="2" max-obj-count="9" z-value="0">
+	<schema name="data"/>
+	<role name="postgres"/>
+	<position x="280" y="720"/>
+	<column name="id" not-null="true">
+		<type name="bigserial" length="0"/>
+	</column>
+	<column name="datastream_id" not-null="true">
+		<type name="bigint" length="0"/>
+	</column>
+	<column name="phenomenon_time">
+		<type name="tstzrange" length="0"/>
+		<comment> <![CDATA[The actual time or period when the measurement occurred in the real world (e.g., when the user's heart actually beat)]]> </comment>
+	</column>
+	<column name="result_time">
+		<type name="timestamptz" length="0"/>
+		<comment> <![CDATA[The specific moment when the measurement result was generated or made available by the device.]]> </comment>
+	</column>
+	<column name="valid_time">
+		<type name="tstzrange" length="0"/>
+		<comment> <![CDATA[The time period during which the observation result is considered accurate or applicable for use.]]> </comment>
+	</column>
+	<column name="result" not-null="true">
+		<type name="numeric" length="0"/>
+	</column>
+	<column name="properties">
+		<type name="jsonb" length="0"/>
+	</column>
+	<column name="features_of_interest_id">
+		<type name="bigint" length="0"/>
+	</column>
+	<constraint name="observation_pk" type="pk-constr" table="data.observations">
+		<columns names="id" ref-type="src-columns"/>
+	</constraint>
+</table>
+
+<table name="features_of_interest" layers="0" collapse-mode="2" max-obj-count="7" z-value="0">
+	<schema name="data"/>
+	<role name="postgres"/>
+	<position x="-480" y="1260"/>
+	<column name="id" not-null="true">
+		<type name="bigserial" length="0"/>
+	</column>
+	<column name="name">
+		<type name="text" length="0"/>
+	</column>
+	<column name="description">
+		<type name="text" length="0"/>
+	</column>
+	<column name="encoding_type">
+		<type name="text" length="0"/>
+	</column>
+	<column name="feature">
+		<type name="geography" length="0"/>
+	</column>
+	<column name="properties">
+		<type name="jsonb" length="0"/>
+	</column>
+	<constraint name="feature_of_interest_pk" type="pk-constr" table="data.features_of_interest">
+		<columns names="id" ref-type="src-columns"/>
+	</constraint>
+</table>
+
+<constraint name="data_stream_sensor_fk" type="fk-constr" comparison-type="MATCH SIMPLE"
+	 upd-action="CASCADE" del-action="RESTRICT" ref-table="data.sensors" table="data.data_stream">
+	<columns names="sensor_id" ref-type="src-columns"/>
+	<columns names="id" ref-type="dst-columns"/>
+</constraint>
+
+<constraint name="ownerships_users_fk" type="fk-constr" comparison-type="MATCH SIMPLE"
+	 upd-action="NO ACTION" del-action="NO ACTION" ref-table="auth.users" table="data.ownerships">
+	<columns names="user_id" ref-type="src-columns"/>
+	<columns names="id" ref-type="dst-columns"/>
+</constraint>
+
+<constraint name="ownerships_sensors_fk" type="fk-constr" comparison-type="MATCH SIMPLE"
+	 upd-action="NO ACTION" del-action="NO ACTION" ref-table="data.sensors" table="data.ownerships">
+	<columns names="sensor_id" ref-type="src-columns"/>
+	<columns names="id" ref-type="dst-columns"/>
+</constraint>
+
+<constraint name="observations_datastreams_fk" type="fk-constr" comparison-type="MATCH SIMPLE"
+	 upd-action="NO ACTION" del-action="NO ACTION" ref-table="data.data_stream" table="data.observations">
+	<columns names="datastream_id" ref-type="src-columns"/>
+	<columns names="id" ref-type="dst-columns"/>
+</constraint>
+
+<constraint name="observations_features_of_interest_fk" type="fk-constr" comparison-type="MATCH SIMPLE"
+	 upd-action="NO ACTION" del-action="NO ACTION" ref-table="data.features_of_interest" table="data.observations">
+	<columns names="features_of_interest_id" ref-type="src-columns"/>
+	<columns names="id" ref-type="dst-columns"/>
+</constraint>
+
+<relationship name="rel_data_stream_sensors" type="relfk" layers="0"
+	 src-table="data.data_stream"
+	 dst-table="data.sensors" reference-fk="data_stream_sensor_fk"
+	 src-required="false" dst-required="false"/>
+
+<relationship name="rel_ownerships_users" type="relfk" layers="0"
+	 src-table="data.ownerships"
+	 dst-table="auth.users" reference-fk="ownerships_users_fk"
+	 src-required="false" dst-required="true"/>
+
+<relationship name="rel_ownerships_sensors" type="relfk" layers="0"
+	 src-table="data.ownerships"
+	 dst-table="data.sensors" reference-fk="ownerships_sensors_fk"
+	 src-required="false" dst-required="false"/>
+
+<relationship name="rel_observation_data_stream" type="relfk" layers="0"
+	 src-table="data.observations"
+	 dst-table="data.data_stream" reference-fk="observations_datastreams_fk"
+	 src-required="false" dst-required="true"/>
+
+<relationship name="rel_observations_features_of_interest" type="relfk" layers="0"
+	 src-table="data.observations"
+	 dst-table="data.features_of_interest" reference-fk="observations_features_of_interest_fk"
+	 src-required="false" dst-required="false"/>
+
+<permission>
+	<object name="auth.users" type="table"/>
+	<roles names="researcher"/>
+	<privileges select="true" delete="true" insert="true" update="true"/>
+</permission>
+</dbmodel>

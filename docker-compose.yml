@@ -1,0 +1,18 @@
+services:
+  db:
+    image: docker.io/timescale/timescaledb-ha:pg18
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGREST_DB_PASSWORD: ${POSTGREST_DB_PASSWORD}
+      AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD}
+      RESEARCHER_DB_PASSWORD: ${RESEARCHER_DB_PASSWORD}
+      SCRIPT_ADD_USERS_DB_PASSWORD: ${SCRIPT_ADD_USERS_DB_PASSWORD}
+      SCRIPT_INSERT_METADATA_DB_PASSWORD: ${SCRIPT_INSERT_METADATA_DB_PASSWORD}
+      SCRIPT_INSERT_RESULTS_DB_PASSWORD: ${SCRIPT_INSERT_RESULTS_DB_PASSWORD}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - ./app_data/db:/var/lib/postgresql:z
+      - ./src/db/init.sql:/docker-entrypoint-initdb.d/01_init.sql:z
+      - ./src/db/set_passwords.sh:/docker-entrypoint-initdb.d/99_set_passwords.sh:z
