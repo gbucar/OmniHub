@@ -3,9 +3,9 @@
 CAUTION: Do not modify this file unless you know what you are doing.
  Unexpected results may occur if the code is changed deliberately.
 -->
-<dbmodel pgmodeler-ver="1.2.2" use-changelog="false" max-obj-count="12"
+<dbmodel pgmodeler-ver="1.2.2" use-changelog="false" max-obj-count="10"
 	 gen-disabled-objs-code="false" show-sys-schemas-rects="true"
-	 last-position="164,156" last-zoom="0.45" scene-rect="-668,0,2727.99,1476.12"
+	 last-position="0,0" last-zoom="0.5" scene-rect="-1128,0,2927.99,1676.12"
 	 default-schema="public" default-owner="postgres"
 	 layers="Default layer"
 	 active-layers="0"
@@ -35,10 +35,6 @@ CAUTION: Do not modify this file unless you know what you are doing.
 <schema name="public" layers="0" fill-color="#e1e1e1" name-color="#000000" sql-disabled="true">
 </schema>
 
-<extension name="postgis">
-	<schema name="public"/>
-</extension>
-
 <schema name="auth" layers="0" rect-visible="true" fill-color="#ff0000" name-color="#31363b">
 	<role name="postgres"/>
 </schema>
@@ -51,10 +47,14 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<role name="postgres"/>
 </schema>
 
-<table name="users" layers="0" collapse-mode="2" rls-enabled="true" max-obj-count="3" z-value="0">
+<extension name="postgis">
+	<schema name="public"/>
+</extension>
+
+<table name="users" layers="0" collapse-mode="2" pagination="true" attribs-page="0" ext-attribs-page="0" rls-enabled="true" max-obj-count="3" z-value="0">
 	<schema name="auth"/>
 	<role name="postgres"/>
-	<position x="1640" y="160"/>
+	<position x="1380" y="220"/>
 	<column name="id" not-null="true" default-value="uuidv7()">
 		<type name="uuid" length="0"/>
 	</column>
@@ -72,7 +72,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 <table name="sensors" layers="0" collapse-mode="2" max-obj-count="7" z-value="0">
 	<schema name="data"/>
 	<role name="postgres"/>
-	<position x="-620" y="160"/>
+	<position x="-860" y="200"/>
 	<column name="id" not-null="true">
 		<type name="bigserial" length="0"/>
 	</column>
@@ -99,7 +99,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 <table name="data_stream" layers="0" collapse-mode="2" max-obj-count="10" z-value="0">
 	<schema name="data"/>
 	<role name="postgres"/>
-	<position x="-640" y="700"/>
+	<position x="-960" y="740"/>
 	<column name="id" not-null="true">
 		<type name="bigserial" length="0"/>
 	</column>
@@ -135,7 +135,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 <table name="ownerships" layers="0" collapse-mode="2" max-obj-count="4" z-value="0">
 	<schema name="data"/>
 	<role name="postgres"/>
-	<position x="0" y="160"/>
+	<position x="-180" y="240"/>
 	<column name="user_id" not-null="true">
 		<type name="uuid" length="0"/>
 	</column>
@@ -153,29 +153,21 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	</constraint>
 </table>
 
-<table name="features_of_interest" layers="0" collapse-mode="2" max-obj-count="7" z-value="0">
+<table name="locations" layers="0" collapse-mode="2" max-obj-count="3" z-value="0">
 	<schema name="data"/>
 	<role name="postgres"/>
-	<position x="-560" y="1240"/>
+	<comment> <![CDATA[Represents a single geographic location]]> </comment>
+	<position x="360" y="860"/>
 	<column name="id" not-null="true">
 		<type name="bigserial" length="0"/>
 	</column>
-	<column name="name">
-		<type name="text" length="0"/>
-	</column>
-	<column name="description">
-		<type name="text" length="0"/>
-	</column>
-	<column name="encoding_type">
-		<type name="text" length="0"/>
-	</column>
-	<column name="feature">
+	<column name="geog">
 		<type name="geography" length="0"/>
 	</column>
 	<column name="properties">
 		<type name="jsonb" length="0"/>
 	</column>
-	<constraint name="feature_of_interest_pk" type="pk-constr" table="data.features_of_interest">
+	<constraint name="features_of_interest_pk" type="pk-constr" table="data.locations">
 		<columns names="id" ref-type="src-columns"/>
 	</constraint>
 </table>
@@ -183,7 +175,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 <table name="participants" layers="0" collapse-mode="2" max-obj-count="2" z-value="0">
 	<schema name="data"/>
 	<role name="postgres"/>
-	<position x="700" y="180"/>
+	<position x="640" y="100"/>
 	<column name="user_id" not-null="true">
 		<type name="uuid" length="0"/>
 	</column>
@@ -192,10 +184,11 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	</constraint>
 </table>
 
-<table name="observations" layers="0" collapse-mode="2" max-obj-count="9" z-value="0">
+<table name="observations" layers="0" collapse-mode="2" max-obj-count="8" z-value="0">
 	<schema name="data"/>
 	<role name="postgres"/>
-	<position x="200" y="700"/>
+	<comment> <![CDATA[Represents a single measurement]]> </comment>
+	<position x="-340" y="800"/>
 	<column name="id" not-null="true">
 		<type name="bigserial" length="0"/>
 	</column>
@@ -210,17 +203,14 @@ CAUTION: Do not modify this file unless you know what you are doing.
 		<type name="timestamptz" length="0"/>
 		<comment> <![CDATA[The specific moment when the measurement result was generated or made available by the device.]]> </comment>
 	</column>
-	<column name="valid_time">
-		<type name="tstzrange" length="0"/>
-		<comment> <![CDATA[The time period during which the observation result is considered accurate or applicable for use.]]> </comment>
-	</column>
 	<column name="result" not-null="true">
 		<type name="numeric" length="0"/>
+		<comment> <![CDATA[The measured value]]> </comment>
 	</column>
 	<column name="properties">
 		<type name="jsonb" length="0"/>
 	</column>
-	<column name="features_of_interest_id">
+	<column name="location_id">
 		<type name="bigint" length="0"/>
 	</column>
 	<constraint name="observation_pk" type="pk-constr" table="data.observations">
@@ -228,10 +218,10 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	</constraint>
 </table>
 
-<view name="users" layers="0" check-option="cascaded" security-invoker="true" collapse-mode="0" max-obj-count="0" z-value="0">
+<view name="participants" layers="0" check-option="cascaded" security-invoker="true" collapse-mode="0" max-obj-count="0" z-value="0">
 	<schema name="api"/>
 	<role name="postgres"/>
-	<position x="1100" y="800"/>
+	<position x="1180" y="860"/>
 	<definition> <![CDATA[select * from data.participants]]> </definition>
 </view>
 
@@ -243,9 +233,9 @@ CAUTION: Do not modify this file unless you know what you are doing.
 <view name="participant_observations" layers="0" collapse-mode="2" max-obj-count="0" z-value="0">
 	<schema name="api"/>
 	<role name="postgres"/>
-	<position x="1100" y="920"/>
+	<position x="1180" y="980"/>
 	<definition> <![CDATA[select 
-	* 
+	p.* 
 from 
 	data.participants p
 left join data.ownerships o on p.user_id = o.user_id
@@ -273,21 +263,21 @@ left join data.features_of_interest f on f.id = ob.features_of_interest_id]]> </
 	<columns names="id" ref-type="dst-columns"/>
 </constraint>
 
+<constraint name="participants_users_fk" type="fk-constr" comparison-type="MATCH SIMPLE"
+	 upd-action="NO ACTION" del-action="NO ACTION" ref-table="auth.users" table="data.participants">
+	<columns names="user_id" ref-type="src-columns"/>
+	<columns names="id" ref-type="dst-columns"/>
+</constraint>
+
 <constraint name="observations_datastreams_fk" type="fk-constr" comparison-type="MATCH SIMPLE"
 	 upd-action="NO ACTION" del-action="NO ACTION" ref-table="data.data_stream" table="data.observations">
 	<columns names="data_stream_id" ref-type="src-columns"/>
 	<columns names="id" ref-type="dst-columns"/>
 </constraint>
 
-<constraint name="observations_features_of_interest_fk" type="fk-constr" comparison-type="MATCH SIMPLE"
-	 upd-action="NO ACTION" del-action="NO ACTION" ref-table="data.features_of_interest" table="data.observations">
-	<columns names="features_of_interest_id" ref-type="src-columns"/>
-	<columns names="id" ref-type="dst-columns"/>
-</constraint>
-
-<constraint name="participants_users_fk" type="fk-constr" comparison-type="MATCH SIMPLE"
-	 upd-action="NO ACTION" del-action="NO ACTION" ref-table="auth.users" table="data.participants">
-	<columns names="user_id" ref-type="src-columns"/>
+<constraint name="observation_location_fk" type="fk-constr" comparison-type="MATCH SIMPLE"
+	 upd-action="NO ACTION" del-action="NO ACTION" ref-table="data.locations" table="data.observations">
+	<columns names="location_id" ref-type="src-columns"/>
 	<columns names="id" ref-type="dst-columns"/>
 </constraint>
 
@@ -306,11 +296,6 @@ left join data.features_of_interest f on f.id = ob.features_of_interest_id]]> </
 	 dst-table="data.data_stream" reference-fk="observations_datastreams_fk"
 	 src-required="false" dst-required="true"/>
 
-<relationship name="rel_observations_features_of_interest" type="relfk" layers="0"
-	 src-table="data.observations"
-	 dst-table="data.features_of_interest" reference-fk="observations_features_of_interest_fk"
-	 src-required="false" dst-required="false"/>
-
 <relationship name="rel_participant_users" type="relfk" layers="0"
 	 src-table="data.participants"
 	 dst-table="auth.users" reference-fk="participants_users_fk"
@@ -320,6 +305,11 @@ left join data.features_of_interest f on f.id = ob.features_of_interest_id]]> </
 	 src-table="data.ownerships"
 	 dst-table="data.participants" reference-fk="ownerships_users_fk"
 	 src-required="false" dst-required="true"/>
+
+<relationship name="rel_observations_locations" type="relfk" layers="0"
+	 src-table="data.observations"
+	 dst-table="data.locations" reference-fk="observation_location_fk"
+	 src-required="false" dst-required="false"/>
 
 <permission>
 	<object name="data" type="schema"/>
@@ -347,11 +337,6 @@ left join data.features_of_interest f on f.id = ob.features_of_interest_id]]> </
 	<privileges select="true"/>
 </permission>
 <permission>
-	<object name="data.features_of_interest" type="table"/>
-	<roles names="webuser"/>
-	<privileges select="true"/>
-</permission>
-<permission>
 	<object name="api.participant_observations" type="view"/>
 	<roles names="webuser"/>
 	<privileges select="true"/>
@@ -362,7 +347,7 @@ left join data.features_of_interest f on f.id = ob.features_of_interest_id]]> </
 	<privileges usage="true"/>
 </permission>
 <permission>
-	<object name="api.users" type="view"/>
+	<object name="api.participants" type="view"/>
 	<roles names="webuser"/>
 	<privileges select="true" update="true"/>
 </permission>

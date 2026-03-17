@@ -176,14 +176,14 @@ COMMENT ON COLUMN data.observations.valid_time IS E'The time period during which
 ALTER TABLE data.observations OWNER TO postgres;
 -- ddl-end --
 
--- object: api.users | type: VIEW --
--- DROP VIEW IF EXISTS api.users CASCADE;
-CREATE OR REPLACE VIEW api.users
+-- object: api.participants | type: VIEW --
+-- DROP VIEW IF EXISTS api.participants CASCADE;
+CREATE OR REPLACE VIEW api.participants
 WITH (check_option=cascaded, security_invoker=true)
 AS 
 select * from data.participants;
 -- ddl-end --
-ALTER VIEW api.users OWNER TO postgres;
+ALTER VIEW api.participants OWNER TO postgres;
 -- ddl-end --
 
 -- object: allow_users_to_update_their_details | type: POLICY --
@@ -201,7 +201,7 @@ CREATE POLICY allow_users_to_update_their_details ON auth.users
 CREATE OR REPLACE VIEW api.participant_observations
 AS 
 select 
-	* 
+	p.* 
 from 
 	data.participants p
 left join data.ownerships o on p.user_id = o.user_id
@@ -234,6 +234,13 @@ REFERENCES data.sensors (id) MATCH SIMPLE
 ON DELETE NO ACTION ON UPDATE NO ACTION;
 -- ddl-end --
 
+-- object: participants_users_fk | type: CONSTRAINT --
+-- ALTER TABLE data.participants DROP CONSTRAINT IF EXISTS participants_users_fk CASCADE;
+ALTER TABLE data.participants ADD CONSTRAINT participants_users_fk FOREIGN KEY (user_id)
+REFERENCES auth.users (id) MATCH SIMPLE
+ON DELETE NO ACTION ON UPDATE NO ACTION;
+-- ddl-end --
+
 -- object: observations_datastreams_fk | type: CONSTRAINT --
 -- ALTER TABLE data.observations DROP CONSTRAINT IF EXISTS observations_datastreams_fk CASCADE;
 ALTER TABLE data.observations ADD CONSTRAINT observations_datastreams_fk FOREIGN KEY (data_stream_id)
@@ -245,13 +252,6 @@ ON DELETE NO ACTION ON UPDATE NO ACTION;
 -- ALTER TABLE data.observations DROP CONSTRAINT IF EXISTS observations_features_of_interest_fk CASCADE;
 ALTER TABLE data.observations ADD CONSTRAINT observations_features_of_interest_fk FOREIGN KEY (features_of_interest_id)
 REFERENCES data.features_of_interest (id) MATCH SIMPLE
-ON DELETE NO ACTION ON UPDATE NO ACTION;
--- ddl-end --
-
--- object: participants_users_fk | type: CONSTRAINT --
--- ALTER TABLE data.participants DROP CONSTRAINT IF EXISTS participants_users_fk CASCADE;
-ALTER TABLE data.participants ADD CONSTRAINT participants_users_fk FOREIGN KEY (user_id)
-REFERENCES auth.users (id) MATCH SIMPLE
 ON DELETE NO ACTION ON UPDATE NO ACTION;
 -- ddl-end --
 
@@ -319,9 +319,9 @@ GRANT USAGE
 -- ddl-end --
 
 
--- object: grant_rw_afd8703543 | type: PERMISSION --
+-- object: grant_rw_bd306875b3 | type: PERMISSION --
 GRANT SELECT,UPDATE
-   ON TABLE api.users
+   ON TABLE api.participants
    TO webuser;
 
 -- ddl-end --
