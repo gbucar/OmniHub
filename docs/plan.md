@@ -1,43 +1,46 @@
 # Načrt Omnihub
 ## Baza podatkov
 - [ ] sheme
-	- [ ] `data` (RLS)
+	- [x] `data` (RLS)
 		- podatki o fizičnih napravah/senzorjih
-		- podatki iz fizičnih naprav/ senzorjev (poenostavljen OGC SensorThings  API)
+		- podatki iz fizičnih naprav/senzorjev (poenostavljen OGC SensorThings  API)
 		- podatki o udeležencih
-	- [ ] `auth` (samo auth procedure in admin)
+	- [x] `auth` (samo auth procedure in admin)
 		- avtorizacijski podatki o udeležencih (username + password)
 	- [ ] `api` (pogledi: pass-through, procedure: security-definer)
-		- procedura, ki omogoča prijavo
+		- [x]  procedura, ki omogoča prijavo
 			- prejme uporabniško ime + geslo
 			- vrne JWT 200 / napako 401
-		- procedura, ki omogoča zamenjavo gesla
+		- [x] procedura, ki omogoča zamenjavo gesla
 			- prejme uporabniško ime + geslo + novo geslo + ponovitev novega gesla
 			- vrne OK 201 / napako 401
-		- pogledi, ki omogočajo dostop do tabel iz `data`, optimizirano za admin dashboard
+		- [ ] pogledi, ki omogočajo dostop do tabel iz `data`, optimizirano za admin dashboard
 			- pregled senzorjev
 			- pregled uporabnikov
 	- [ ] `log`
-		- podatki o delovanju povezovalnih enot (čas zagona, trajanje, količina prenešenih podatkov)
-		- podatki o delovanju spletne aplikacije (healthcheck, uspešni/neuspešni poskusi prijave)
+		- [x] podatki o delovanju povezovalnih enot (čas zagona, trajanje, količina prenešenih podatkov)
+		- [ ] podatki o delovanju spletne aplikacije (healthcheck, uspešni/neuspešni poskusi prijave)
 
 - [ ] vloge in pravice
-	- [ ] `webuser` predstavlja uporabnika spletne aplikacije
-		- [ ] `data` 
-			- [ ] `r/w` dostop do svojih podatkov
-			- [ ] `r` dostop do podatkov o in iz tistih naprav, ki so mu dodeljene
-		- [ ] `api`
-			- [ ] pogledi
-			- [ ] procedure za prijavo in zamenjavo gesla
-	- [ ] `researcher` predstavlja raziskovalca, v smislu nekoga, ki ga zanimajo podatki
-		- [ ] `r` dostop do data
-	- [ ] `admin` predstavlja nekoga, ki upravlja z napravami/prostovoljci
-		- [ ] `r/w`dostop do podatkov o udeležencih
-		- [ ] `r/w`dostop do podatkov o napravah
-		- [ ] `r`dostop do podatkov iz naprav
-	- [ ] `integration` predstavlja program, ki prenaša podatke iz senzorjev v bazo
-		- [ ] `w` dostop do podatkov iz naprav
-		- [ ] `w` dostop do `log`
+	- [x] `webuser` predstavlja uporabnika spletne aplikacije
+		- [x] `data` 
+			- [x] `r/w` dostop do svojih podatkov
+			- [x] `r` dostop do podatkov o in iz tistih naprav, ki so mu dodeljene
+		- [x] `api`
+			- [x] pogledi
+			- [x] procedure za prijavo in zamenjavo gesla
+	- [x] `researcher` predstavlja raziskovalca, v smislu nekoga, ki ga zanimajo samo podatki
+		- [x] `r` dostop do data
+	- [x] `admin` predstavlja nekoga, ki upravlja z napravami/prostovoljci
+		- [x] `r/w`dostop do podatkov o udeležencih
+		- [x] `r/w`dostop do podatkov o napravah
+		- [x] `r`dostop do podatkov iz naprav
+	- [x] `integration` predstavlja program, ki prenaša podatke iz senzorjev v bazo
+		- [x] `w` dostop do podatkov iz naprav
+		- [x] `w` dostop do `log`
+		- [x] `r` dostop do naprav + credentials
+	- [x] `anon` - anonimni postgrest uporabnik
+		- [x] login procedura
 ## Admin dashboard
 - [ ] pregled uporabnikov
 	- [ ] prikaz vseh uporabnikov

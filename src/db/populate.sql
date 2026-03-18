@@ -1,42 +1,77 @@
-insert into data.sensors (name, description, properties)
-values 
-('atmotube', '', '{"atmotube_id": "e6:3c:bb:62:1a:ab","tag":"3"}'),
-('atmotube', '', '{"atmotube_id": "fc:99:19:9a:8b:2f","tag":"4"}'),
-('atmotube', '', '{"atmotube_id": "df:ad:1c:76:93:81","tag":"1"}'),
-('atmotube', '', '{"atmotube_id": "ec:85:bd:ea:ab:bf","tag":"5"}'),
-('atmotube', '', '{"atmotube_id": "ed:5f:f5:33:19:c3","tag":"6"}'),
-('atmotube', '', '{"atmotube_id": "e1:29:dd:7b:4d:c3","tag":"8"}'),
-('atmotube', '', '{"atmotube_id": "f6:4f:0c:c6:4b:7b","tag":"10"}'),
-('atmotube', '', '{"atmotube_id": "e0:06:6c:05:50:4e","tag":"2"}'),
-('atmotube', '', '{"atmotube_id": "c8:4b:08:35:34:81","tag":"7"}'),
-('atmotube', '', '{"atmotube_id": "ed:a1:88:a5:8f:10","tag":"9"}'),
-('atmotube', '', '{"atmotube_id": "db:99:85:8a:ed:8e","tag":"11"}'),
-('atmotube', '', '{"atmotube_id": "fd:33:c6:b6:b8:ac","tag":"12"}'),
-('atmotube', '', '{"atmotube_id": "f6:14:4b:8a:6e:9b","tag":"13"}'),
-('atmotube', '', '{"atmotube_id": "ca:8b:3d:09:63:a6","tag":"14"}'),
-('atmotube', '', '{"atmotube_id": "f6:32:e0:c9:de:a0","tag":"15"}'),
-('atmotube', '', '{"atmotube_id": "c2:ee:f9:6a:1c:f2","tag":"16"}'),
-('atmotube', '', '{"atmotube_id": "fa:b2:07:a7:38:ef","tag":"17"}'),
-('atmotube', '', '{"atmotube_id": "ce:7a:f4:5d:ab:da","tag":"18"}'),
-('atmotube', '', '{"atmotube_id": "ce:79:db:53:3b:4f","tag":"19"}'),
-('atmotube', '', '{"atmotube_id": "ca:7c:6e:bd:75:68","tag":"20"}'),
-('atmotube', '', '{"atmotube_id": "fd:ee:db:3f:8d:1e","tag":"21"}'),
-('atmotube', '', '{"atmotube_id": "ef:3f:94:33:a2:78","tag":"22"}'),
-('atmotube', '', '{"atmotube_id": "ff:a8:a6:9a:73:09","tag":"23"}'),
-('atmotube', '', '{"atmotube_id": "dd:1f:85:82:42:40","tag":"24"}'),
-('atmotube', '', '{"atmotube_id": "cf:21:e3:d6:76:4c","tag":"25"}'),
-('atmotube', '', '{"atmotube_id": "df:9d:38:5d:f5:c1","tag":"26"}'),
-('atmotube', '', '{"atmotube_id": "e6:fb:0c:ea:08:d8","tag":"27"}'),
-('atmotube', '', '{"atmotube_id": "fb:4d:10:0d:c4:34","tag":"28"}'),
-('atmotube', '', '{"atmotube_id": "d9:0e:4a:09:9e:d6","tag":"29"}'),
-('atmotube', '', '{"atmotube_id": "cd:d2:72:49:8d:c9","tag":"30"}'),
-('atmotube', '', '{"atmotube_id": "d9:c0:d8:20:f9:dc","tag":"31"}'),
-('atmotube', '', '{"atmotube_id": "ed:ad:56:7a:5d:cf","tag":"32"}'),
-('atmotube', '', '{"atmotube_id": "f8:fa:3a:4e:b1:b1","tag":"33"}'),
-('atmotube', '', '{"atmotube_id": "ce:b4:bd:f7:5e:61","tag":"34"}'),
-('atmotube', '', '{"atmotube_id": "e4:52:81:f1:af:c4","tag":"35"}'),
-('atmotube', '', '{"atmotube_id": "c8:85:5c:ba:d2:f1","tag":"36"}'),
-('atmotube', '', '{"atmotube_id": "da:ae:a4:9a:d7:9a","tag":"37"}'),
-('atmotube', '', '{"atmotube_id": "d1:49:11:25:4a:d5","tag":"38"}'),
-('atmotube', '', '{"atmotube_id": "f1:f9:c0:d7:f4:7b","tag":"39"}'),
-('atmotube', '', '{"atmotube_id": "f1:81:b6:46:a2:bc","tag":"40"}');
+-- Nastavitev poti
+SET search_path TO auth, data, public;
+-- 1. Vstavljanje ADMIN uporabnika
+INSERT INTO auth.users (username, password, role)
+VALUES ('admin_user', 'admin_geslo_123', 'admin');
+
+-- 2. Vstavljanje 5 WEBUSER uporabnikov
+INSERT INTO auth.users (username, password, role)
+VALUES 
+    ('janez_novak', 'geslo123', 'webuser'),
+    ('marija_reka', 'geslo123', 'webuser'),
+    ('luka_gora',   'geslo123', 'webuser'),
+    ('ana_sonce',   'geslo123', 'webuser'),
+    ('tine_hrib',   'geslo123', 'webuser');
+
+-- 1. POSODOBITEV UDELEŽENCEV (Participants)
+-- Zagotovimo, da vseh 5 webuserjev obstaja v tabeli participants
+INSERT INTO data.participants (user_id, properties)
+SELECT id, '{"type": "citizen_scientist"}'::jsonb
+FROM auth.users
+WHERE role = 'webuser'
+ON CONFLICT (user_id) DO NOTHING;
+
+-- 2. VSTAVLJANJE 2 SENZORJEV (Atmotube)
+INSERT INTO data.sensors (name, description, properties)
+VALUES 
+    ('Atmotube Pro 1', 'Prenosna naprava za kakovost zraka', '{"model": "Pro", "version": "2.0"}'::jsonb),
+    ('Atmotube Pro 2', 'Prenosna naprava za kakovost zraka', '{"model": "Pro", "version": "2.1"}'::jsonb);
+
+-- 3. VSTAVLJANJE LASTNIŠTVA (Ownerships)
+-- Vsakemu od 5 uporabnikov dodelimo eno napravo (prvim trem prvo, ostalima dvema drugo)
+INSERT INTO data.ownerships (user_id, sensor_id, start_date, end_date)
+SELECT 
+    p.user_id, 
+    CASE 
+        WHEN u.username IN ('janez_novak', 'marija_reka', 'luka_gora') THEN (SELECT id FROM data.sensors WHERE name = 'Atmotube Pro 1')
+        ELSE (SELECT id FROM data.sensors WHERE name = 'Atmotube Pro 2')
+    END as sensor_id,
+    NOW() - INTERVAL '30 days',
+    NOW() + INTERVAL '1 year'
+FROM data.participants p
+JOIN auth.users u ON p.user_id = u.id
+WHERE u.role = 'webuser';
+
+-- 4. VSTAVLJANJE DATASTREAM-ov (Pravilna uporaba unnest v JOIN-u)
+INSERT INTO data.data_stream (sensor_id, name, description, unit_of_measurement)
+SELECT 
+    s.id, 
+    t.st_name,
+    'Meritve okolja iz Atmotube',
+    CASE 
+        WHEN t.st_name = 'temperature' THEN '{"unit": "Celsius", "symbol": "°C"}'::jsonb
+        ELSE '{"unit": "Micrograms per Cubic Meter", "symbol": "µg/m³"}'::jsonb
+    END
+FROM data.sensors s
+CROSS JOIN (SELECT unnest(ARRAY['temperature', 'pm25']) AS st_name) t;
+
+-- 5. VSTAVLJANJE LOKACIJ
+INSERT INTO data.locations (geog, properties)
+VALUES 
+    (ST_GeogFromText('SRID=4326;POINT(14.5058 46.0569)'), '{"city": "Ljubljana", "station": "Center"}'::jsonb),
+    (ST_GeogFromText('SRID=4326;POINT(15.6459 46.5547)'), '{"city": "Maribor", "station": "Tezno"}'::jsonb);
+
+-- 6. VSTAVLJANJE OPAZOVANJ (Observations)
+-- Za vsak datastream vstavimo 2 meritvi
+INSERT INTO data.observations (data_stream_id, phenomenon_time, result, location_id)
+SELECT 
+    ds.id,
+    tstzrange(NOW() - (v.minut || ' minutes')::interval, NOW() - (v.minut || ' minutes')::interval, '[]'),
+    CASE 
+        WHEN ds.name = 'temperature' THEN (20 + (random() * 5))
+        ELSE (5 + (random() * 15))
+    END,
+    (SELECT id FROM data.locations ORDER BY random() LIMIT 1) -- Naključna lokacija
+FROM data.data_stream ds
+CROSS JOIN (SELECT unnest(ARRAY[5, 10]) AS minut) v;
+
