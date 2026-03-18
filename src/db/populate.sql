@@ -75,3 +75,9 @@ SELECT
 FROM data.data_stream ds
 CROSS JOIN (SELECT unnest(ARRAY[5, 10]) AS minut) v;
 
+-- 7. NASTAVITVE POSTGREST
+INSERT INTO config.app_settings
+(setting_value, setting_name)
+VALUES
+    ('testsecrettestsecrettestsecrettestsecret', 'POSTGREST_JWT_SECRET'),
+    ('3600', 'POSTGREST_JWT_DURATION_SECONDS');

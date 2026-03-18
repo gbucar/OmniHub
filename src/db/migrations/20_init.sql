@@ -46,7 +46,7 @@ CREATE ROLE integration WITH
 
 -- object: postgres | type: DATABASE --
 -- DROP DATABASE IF EXISTS postgres;
---CREATE DATABASE postgres;
+-- CREATE DATABASE postgres;
 -- ddl-end --
 
 
@@ -81,7 +81,14 @@ CREATE SCHEMA log;
 ALTER SCHEMA log OWNER TO postgres;
 -- ddl-end --
 
-SET search_path TO pg_catalog,public,auth,api,data,log;
+-- object: config | type: SCHEMA --
+-- DROP SCHEMA IF EXISTS config CASCADE;
+CREATE SCHEMA config;
+-- ddl-end --
+ALTER SCHEMA config OWNER TO postgres;
+-- ddl-end --
+
+SET search_path TO pg_catalog,public,auth,api,data,log,config;
 -- ddl-end --
 
 -- object: postgis | type: EXTENSION --
@@ -311,6 +318,8 @@ $function$
 declare
 _role name;
 _id uuid;
+_jwt_secret text;
+_jwt_duration_seconds bigint;
 begin
 SELECT role, id INTO _role, _id 
   FROM auth.get_user_by_username(login.username, login.password);
@@ -319,12 +328,18 @@ SELECT role, id INTO _role, _id
     raise invalid_password using message = 'invalid username or password';
   end if;
 
+  select setting_value into _jwt_secret
+  from config.app_settings s where s.setting_name = 'POSTGREST_JWT_SECRET';
+
+  select setting_value::bigint into _jwt_duration_seconds
+  from config.app_settings s where s.setting_name = 'POSTGREST_JWT_DURATION_SECONDS';
+
   select sign(
-      row_to_json(r), 'testsecrettestsecrettestsecrettestsecret'
+      row_to_json(r), _jwt_secret
     ) as token
     from (
       select _role as role, _id as id,
-         extract(epoch from now())::integer + 60*60 as exp
+         extract(epoch from now())::bigint + _jwt_duration_seconds as exp
     ) r
     into token;
 end;
@@ -714,6 +729,17 @@ CREATE POLICY allow_integration_insert_all_locations ON data.locations
 	FOR INSERT
 	TO integration
 	WITH CHECK (true);
+-- ddl-end --
+
+-- object: config.app_settings | type: TABLE --
+-- DROP TABLE IF EXISTS config.app_settings CASCADE;
+CREATE TABLE config.app_settings (
+	setting_value text NOT NULL,
+	setting_name text NOT NULL,
+	CONSTRAINT app_settings_pk PRIMARY KEY (setting_name)
+);
+-- ddl-end --
+ALTER TABLE config.app_settings OWNER TO postgres;
 -- ddl-end --
 
 -- object: fk_sensors_credentials_credential_id | type: CONSTRAINT --
