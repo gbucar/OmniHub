@@ -27,7 +27,7 @@ services:
       - PGRST_SERVER-CORS-ALLOWED-ORIGINS="*"
       # - PGRST_JWT_SECRET_IS_BASE64=${PGRST_JWT_SECRET_IS_BASE64}
     ports:
-      - "3000:3000"
+      - "${DB_PORT:-3000}:3000"
   apidocs:
     image: docker.io/swaggerapi/swagger-ui:latest
     restart: unless-stopped
