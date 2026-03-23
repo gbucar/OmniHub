@@ -305,8 +305,8 @@ ALTER FUNCTION auth.get_user_by_username(text,text) OWNER TO postgres;
 
 -- object: api.login | type: FUNCTION --
 -- DROP FUNCTION IF EXISTS api.login(text,text) CASCADE;
-CREATE OR REPLACE FUNCTION api.login (IN password text, IN username text, OUT token text)
-	RETURNS text
+CREATE OR REPLACE FUNCTION api.login (IN username text, IN password text)
+	RETURNS json
 	LANGUAGE plpgsql
 	VOLATILE 
 	CALLED ON NULL INPUT
@@ -320,12 +320,16 @@ _role name;
 _id uuid;
 _jwt_secret text;
 _jwt_duration_seconds bigint;
+_token text;
 begin
 SELECT role, id INTO _role, _id 
   FROM auth.get_user_by_username(login.username, login.password);
 
   if _role is null then
-    raise invalid_password using message = 'invalid username or password';
+    insert into log.login_attempts (username, success, properties) 
+      values (login.username, false, '{}');
+    perform set_config('response.status', '401', true);
+    return  json_build_object('error', 'invalid username or password') ;
   end if;
 
   select setting_value into _jwt_secret
@@ -341,7 +345,11 @@ SELECT role, id INTO _role, _id
       select _role as role, _id as id,
          extract(epoch from now())::bigint + _jwt_duration_seconds as exp
     ) r
-    into token;
+    into _token;
+
+  insert into log.login_attempts (username, success, properties) values (login.username, true, '{}');
+
+  return json_build_object('token', _token);
 end;
 $function$;
 -- ddl-end --
@@ -740,6 +748,19 @@ CREATE TABLE config.app_settings (
 );
 -- ddl-end --
 ALTER TABLE config.app_settings OWNER TO postgres;
+-- ddl-end --
+
+-- object: log.login_attempts | type: TABLE --
+-- DROP TABLE IF EXISTS log.login_attempts CASCADE;
+CREATE TABLE log.login_attempts (
+	username text NOT NULL,
+	sys_created_at timestamptz NOT NULL DEFAULT current_timestamp,
+	success boolean NOT NULL,
+	properties jsonb,
+	CONSTRAINT login_attempts_pk PRIMARY KEY (username,sys_created_at)
+);
+-- ddl-end --
+ALTER TABLE log.login_attempts OWNER TO postgres;
 -- ddl-end --
 
 -- object: fk_sensors_credentials_credential_id | type: CONSTRAINT --

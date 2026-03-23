@@ -5,7 +5,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 -->
 <dbmodel pgmodeler-ver="1.2.2" use-changelog="false" max-obj-count="37"
 	 gen-disabled-objs-code="false" show-sys-schemas-rects="true"
-	 last-position="0,0" last-zoom="0.4" scene-rect="-908,-170,2617.94,1519.12"
+	 last-position="-177,-101" last-zoom="0.6" scene-rect="-948,-170,2906.38,1519.12"
 	 default-schema="public" default-owner="postgres"
 	 layers="Default layer"
 	 active-layers="0"
@@ -98,7 +98,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<schema name="data"/>
 	<role name="postgres"/>
 	<comment> <![CDATA[Sensors of any kind, this can be a physical sensor, a mobile phone application, a sensor connected to a mobile phone app (fitbit) ... But, it has to be identifiable]]> </comment>
-	<position x="-820" y="440"/>
+	<position x="-920" y="400"/>
 	<column name="id" not-null="true">
 		<type name="bigserial" length="0"/>
 	</column>
@@ -127,7 +127,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<schema name="data"/>
 	<role name="postgres"/>
 	<comment> <![CDATA[Something that the sensor measures (temperature, humidity, speed ...) ]]> </comment>
-	<position x="-820" y="1000"/>
+	<position x="-920" y="960"/>
 	<column name="id" not-null="true">
 		<type name="bigserial" length="0"/>
 	</column>
@@ -154,7 +154,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 <table name="ownerships" layers="0" collapse-mode="2" pagination="true" attribs-page="0" ext-attribs-page="0" rls-enabled="true" max-obj-count="6" z-value="0">
 	<schema name="data"/>
 	<role name="postgres"/>
-	<position x="-80" y="440"/>
+	<position x="-180" y="400"/>
 	<column name="user_id" not-null="true">
 		<type name="uuid" length="0"/>
 	</column>
@@ -179,7 +179,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<schema name="data"/>
 	<role name="postgres"/>
 	<comment> <![CDATA[Geographic location where the observation was made]]> </comment>
-	<position x="780" y="1040"/>
+	<position x="680" y="1000"/>
 	<column name="id" not-null="true">
 		<type name="bigserial" length="0"/>
 	</column>
@@ -197,7 +197,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 <table name="participants" layers="0" collapse-mode="2" rls-enabled="true" max-obj-count="6" z-value="0">
 	<schema name="data"/>
 	<role name="postgres"/>
-	<position x="760" y="360"/>
+	<position x="660" y="320"/>
 	<column name="user_id" not-null="true">
 		<type name="uuid" length="0"/>
 	</column>
@@ -219,7 +219,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<schema name="data"/>
 	<role name="postgres"/>
 	<comment> <![CDATA[Measurement of the datastream]]> </comment>
-	<position x="-60" y="960"/>
+	<position x="-160" y="920"/>
 	<column name="id" not-null="true">
 		<type name="bigserial" length="0"/>
 	</column>
@@ -344,15 +344,12 @@ end;
 	<role name="postgres"/>
 	<language name="plpgsql"/>
 	<return-type>
-	<type name="text" length="0"/>
+	<type name="json" length="0"/>
 	</return-type>
-	<parameter name="password" in="true">
-		<type name="text" length="0"/>
-	</parameter>
 	<parameter name="username" in="true">
 		<type name="text" length="0"/>
 	</parameter>
-	<parameter name="token" out="true">
+	<parameter name="password" in="true">
 		<type name="text" length="0"/>
 	</parameter>
 	<definition> <![CDATA[declare
@@ -360,12 +357,16 @@ _role name;
 _id uuid;
 _jwt_secret text;
 _jwt_duration_seconds bigint;
+_token text;
 begin
 SELECT role, id INTO _role, _id 
   FROM auth.get_user_by_username(login.username, login.password);
 
   if _role is null then
-    raise invalid_password using message = 'invalid username or password';
+    insert into log.login_attempts (username, success, properties) 
+      values (login.username, false, '{}');
+    perform set_config('response.status', '401', true);
+    return  json_build_object('error', 'invalid username or password') ;
   end if;
 
   select setting_value into _jwt_secret
@@ -381,7 +382,11 @@ SELECT role, id INTO _role, _id
       select _role as role, _id as id,
          extract(epoch from now())::bigint + _jwt_duration_seconds as exp
     ) r
-    into token;
+    into _token;
+
+  insert into log.login_attempts (username, success, properties) values (login.username, true, '{}');
+
+  return json_build_object('token', _token);
 end;]]> </definition>
 </function>
 
@@ -662,6 +667,27 @@ join data.locations l on l.id = ob.location_id]]> </definition>
 	</column>
 	<constraint name="app_settings_pk" type="pk-constr" table="config.app_settings">
 		<columns names="setting_name" ref-type="src-columns"/>
+	</constraint>
+</table>
+
+<table name="login_attempts" layers="0" collapse-mode="2" max-obj-count="4" z-value="0">
+	<schema name="log"/>
+	<role name="postgres"/>
+	<position x="1660" y="-20"/>
+	<column name="username" not-null="true">
+		<type name="text" length="0"/>
+	</column>
+	<column name="sys_created_at" not-null="true" default-value="current_timestamp">
+		<type name="timestamptz" length="0"/>
+	</column>
+	<column name="success" not-null="true">
+		<type name="boolean" length="0"/>
+	</column>
+	<column name="properties">
+		<type name="jsonb" length="0"/>
+	</column>
+	<constraint name="login_attempts_pk" type="pk-constr" table="log.login_attempts">
+		<columns names="username,sys_created_at" ref-type="src-columns"/>
 	</constraint>
 </table>
 
