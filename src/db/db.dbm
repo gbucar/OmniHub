@@ -3,9 +3,9 @@
 CAUTION: Do not modify this file unless you know what you are doing.
  Unexpected results may occur if the code is changed deliberately.
 -->
-<dbmodel pgmodeler-ver="1.2.2" use-changelog="false" max-obj-count="37"
+<dbmodel pgmodeler-ver="1.2.2" use-changelog="false" max-obj-count="38"
 	 gen-disabled-objs-code="false" show-sys-schemas-rects="true"
-	 last-position="-177,-101" last-zoom="0.6" scene-rect="-948,-170,2906.38,1519.12"
+	 last-position="254,-102" last-zoom="0.6" scene-rect="-948,-170,2906.38,1519.12"
 	 default-schema="public" default-owner="postgres"
 	 layers="Default layer"
 	 active-layers="0"
@@ -405,9 +405,6 @@ end;]]> </definition>
 	<return-type>
 	<type name="void" length="0"/>
 	</return-type>
-	<parameter name="id" in="true">
-		<type name="text" length="0"/>
-	</parameter>
 	<parameter name="password" in="true">
 		<type name="text" length="0"/>
 	</parameter>
@@ -422,7 +419,7 @@ _role name;
 _id uuid;
 begin
 SELECT gu.role, gu.id INTO _role, _id 
-  FROM auth.get_user_by_id(change_password.id, change_password.password) as gu;
+  FROM auth.get_user_by_id((current_setting('request.jwt.claims', true)::json->>'id')::uuid, change_password.password) as gu;
 
   if _role is null then
     raise invalid_password using message = 'invalid username or password';
@@ -434,7 +431,7 @@ SELECT gu.role, gu.id INTO _role, _id
 
   update auth.users 
     set password = change_password.new_password
-    where auth.users.id = change_password.id::uuid;
+    where auth.users.id = _id;
 end;
 ]]> </definition>
 </function>
@@ -691,6 +688,45 @@ join data.locations l on l.id = ob.location_id]]> </definition>
 	</constraint>
 </table>
 
+<function name="add_participant"
+		window-func="false"
+		returns-setof="false"
+		behavior-type="CALLED ON NULL INPUT"
+		function-type="VOLATILE"
+		security-type="SECURITY INVOKER"
+		parallel-type="PARALLEL UNSAFE"
+		execution-cost="1"
+		row-amount="0">
+	<schema name="api"/>
+	<role name="postgres"/>
+	<language name="plpgsql"/>
+	<return-type>
+	<type name="void" length="0"/>
+	</return-type>
+	<parameter name="username" in="true">
+		<type name="text" length="0"/>
+	</parameter>
+	<parameter name="password" in="true">
+		<type name="text" length="0"/>
+	</parameter>
+	<parameter name="properties" in="true">
+		<type name="jsonb" length="0"/>
+	</parameter>
+	<definition> <![CDATA[declare
+	_user_id uuid;
+begin
+
+	insert into auth.users (username, password, role)
+	values (add_participant.username, add_participant.password, 'webuser')
+	returning auth.users.id into _user_id;
+	
+	insert into data.participants (user_id, properties)
+	values (_user_id, add_participant.properties);
+
+end;
+]]> </definition>
+</function>
+
 <constraint name="fk_sensors_credentials_credential_id" type="fk-constr" comparison-type="MATCH SIMPLE"
 	 upd-action="NO ACTION" del-action="NO ACTION" ref-table="auth.credentials" table="data.sensors">
 	<columns names="credential_id" ref-type="src-columns"/>
@@ -774,7 +810,7 @@ join data.locations l on l.id = ob.location_id]]> </definition>
 
 <permission>
 	<object name="data" type="schema"/>
-	<roles names="webuser,researcher"/>
+	<roles names="webuser,researcher,admin"/>
 	<privileges usage="true"/>
 </permission>
 <permission>
@@ -833,7 +869,7 @@ join data.locations l on l.id = ob.location_id]]> </definition>
 	<privileges select="true"/>
 </permission>
 <permission>
-	<object name="api.change_password(text,text,text,text)" type="function"/>
+	<object name="api.change_password(text,text,text)" type="function"/>
 	<roles names="webuser,admin"/>
 	<privileges execute="true"/>
 </permission>
@@ -926,5 +962,10 @@ join data.locations l on l.id = ob.location_id]]> </definition>
 	<object name="data.sensors" type="table"/>
 	<roles names="integration"/>
 	<privileges select="true"/>
+</permission>
+<permission>
+	<object name="api.add_participant(text,text,jsonb)" type="function"/>
+	<roles names="admin"/>
+	<privileges execute="true"/>
 </permission>
 </dbmodel>

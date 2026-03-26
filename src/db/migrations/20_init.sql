@@ -357,8 +357,8 @@ ALTER FUNCTION api.login(text,text) OWNER TO postgres;
 -- ddl-end --
 
 -- object: api.change_password | type: FUNCTION --
--- DROP FUNCTION IF EXISTS api.change_password(text,text,text,text) CASCADE;
-CREATE OR REPLACE FUNCTION api.change_password (IN id text, IN password text, IN new_password text, IN new_password_confirmation text)
+-- DROP FUNCTION IF EXISTS api.change_password(text,text,text) CASCADE;
+CREATE OR REPLACE FUNCTION api.change_password (IN password text, IN new_password text, IN new_password_confirmation text)
 	RETURNS void
 	LANGUAGE plpgsql
 	VOLATILE 
@@ -373,7 +373,7 @@ _role name;
 _id uuid;
 begin
 SELECT gu.role, gu.id INTO _role, _id 
-  FROM auth.get_user_by_id(change_password.id, change_password.password) as gu;
+  FROM auth.get_user_by_id((current_setting('request.jwt.claims', true)::json->>'id')::uuid, change_password.password) as gu;
 
   if _role is null then
     raise invalid_password using message = 'invalid username or password';
@@ -385,12 +385,12 @@ SELECT gu.role, gu.id INTO _role, _id
 
   update auth.users 
     set password = change_password.new_password
-    where auth.users.id = change_password.id::uuid;
+    where auth.users.id = _id;
 end;
 
 $function$;
 -- ddl-end --
-ALTER FUNCTION api.change_password(text,text,text,text) OWNER TO postgres;
+ALTER FUNCTION api.change_password(text,text,text) OWNER TO postgres;
 -- ddl-end --
 
 -- object: auth.get_user_by_id | type: FUNCTION --
@@ -763,6 +763,36 @@ CREATE TABLE log.login_attempts (
 ALTER TABLE log.login_attempts OWNER TO postgres;
 -- ddl-end --
 
+-- object: api.add_participant | type: FUNCTION --
+-- DROP FUNCTION IF EXISTS api.add_participant(text,text,jsonb) CASCADE;
+CREATE OR REPLACE FUNCTION api.add_participant (IN username text, IN password text, IN properties jsonb)
+	RETURNS void
+	LANGUAGE plpgsql
+	VOLATILE 
+	CALLED ON NULL INPUT
+	SECURITY INVOKER
+	PARALLEL UNSAFE
+	COST 1
+	AS 
+$function$
+declare
+	_user_id uuid;
+begin
+
+	insert into auth.users (username, password, role)
+	values (add_participant.username, add_participant.password, 'webuser')
+	returning auth.users.id into _user_id;
+	
+	insert into data.participants (user_id, properties)
+	values (_user_id, add_participant.properties);
+
+end;
+
+$function$;
+-- ddl-end --
+ALTER FUNCTION api.add_participant(text,text,jsonb) OWNER TO postgres;
+-- ddl-end --
+
 -- object: fk_sensors_credentials_credential_id | type: CONSTRAINT --
 -- ALTER TABLE data.sensors DROP CONSTRAINT IF EXISTS fk_sensors_credentials_credential_id CASCADE;
 ALTER TABLE data.sensors ADD CONSTRAINT fk_sensors_credentials_credential_id FOREIGN KEY (credential_id)
@@ -812,10 +842,10 @@ REFERENCES data.locations (id) MATCH SIMPLE
 ON DELETE NO ACTION ON UPDATE NO ACTION;
 -- ddl-end --
 
--- object: "grant_U_e37e2a1b5b" | type: PERMISSION --
+-- object: "grant_U_f6731eb835" | type: PERMISSION --
 GRANT USAGE
    ON SCHEMA data
-   TO webuser,researcher;
+   TO webuser,researcher,admin;
 
 -- ddl-end --
 
@@ -910,7 +940,7 @@ GRANT SELECT
 
 -- object: "grant_X_2e40636592" | type: PERMISSION --
 GRANT EXECUTE
-   ON FUNCTION api.change_password(text,text,text,text)
+   ON FUNCTION api.change_password(text,text,text)
    TO webuser,admin;
 
 -- ddl-end --
@@ -1056,6 +1086,14 @@ GRANT SELECT
 GRANT SELECT
    ON TABLE data.sensors
    TO integration;
+
+-- ddl-end --
+
+
+-- object: "grant_X_b534e6b3c9" | type: PERMISSION --
+GRANT EXECUTE
+   ON FUNCTION api.add_participant(text,text,jsonb)
+   TO admin;
 
 -- ddl-end --
 

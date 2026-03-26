@@ -1,9 +1,13 @@
 <script lang="ts">
-	import { pgClient } from '$lib/api';
-	import { PostgrestClient } from '@supabase/postgrest-js';
-	import { getContext, onMount } from 'svelte';
-
-	onMount(async () => {});
+	import { user } from '$lib/api';
 </script>
 
-<a href="/users">uporabniki</a>
+<div class="flex min-h-screen items-center justify-center bg-base-200">
+	{#if $user.isLoggedIn}
+		<a href="/users" class="btn btn-primary">Pregled uporabnikov</a>
+	{:else}
+		<div class="text-center">
+			<p class="mb-4">Prosimo, <a href="/auth/login" class="link link-primary">prijavite se</a>.</p>
+		</div>
+	{/if}
+</div>
