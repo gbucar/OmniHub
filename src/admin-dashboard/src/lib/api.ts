@@ -19,7 +19,7 @@ export type Ownership = {
 	start_date: string;
 	end_date: string;
 	sys_created_at?: string;
-	sensors?: Sensor[];
+	sensors?: Sensor;
 };
 
 export type Participant = {

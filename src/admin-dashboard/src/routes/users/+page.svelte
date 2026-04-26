@@ -20,21 +20,14 @@
 	import AddStudyModal from '$lib/assets/modals/AddStudyModal.svelte';
 	import AddToStudyModal from '$lib/assets/modals/AddToStudyModal.svelte';
 	import AddDeviceModal from '$lib/assets/modals/AddDeviceModal.svelte';
+	import ParticipantDetailsPanel from '$lib/assets/ParticipantDetailsPanel.svelte';
 
 	let selectedParticipant: Participant | null = $state(null);
 	let participants: Participant[] = $state([]);
 	let studies: { id: number; name: string }[] = $state([]);
 	let totalCount = $state(0);
 	let isLoading = $state(false);
-
-	// Right-side details panel state
 	let showDetailsPanel = $state(false);
-	let isEditing = $state(false);
-	let editedProperties = $state({
-		name: '',
-		age: '',
-		sex: ''
-	});
 	let participantStudies = $state<
 		{ study_id: number; membership_period: string | null; studies: { id: number; name: string } }[]
 	>([]);
@@ -67,7 +60,6 @@
 	let studyEnd = $state('');
 
 	// Device management state
-	let userOwnerships: Ownership[] = $state([]);
 	let sensors: Sensor[] = $state([]);
 	let showAddDeviceModal = $state(false);
 	let newOwnership = $state({
@@ -96,12 +88,6 @@
 		})
 	);
 
-	// Individual study editing state
-	let editingStudyId = $state<string | null>(null);
-	let studyEditValues = $state<{ [studyId: string]: { start: string; end: string } }>({});
-	let currentEditStart = $state('');
-	let currentEditEnd = $state('');
-
 	// Filter state
 	let filterSearch = $state('');
 	let filterStudy = $state('all');
@@ -115,13 +101,17 @@
 		filterSearch;
 		filterStudy;
 		currentPage = 1;
-		loadParticipants();
 	});
 
 	// Reset page when page size changes
 	$effect(() => {
 		pageSize;
 		currentPage = 1;
+	});
+
+	// Load participants when page changes
+	$effect(() => {
+		currentPage;
 		loadParticipants();
 	});
 
@@ -145,6 +135,11 @@
 
 	const onFocusSensor = (index: number) => {
 		focusedSensorIndex = index;
+	};
+
+	const openParticipant = async (participant: Participant) => {
+		selectedParticipant = participant;
+		showDetailsPanel = true;
 	};
 
 	// Load participants with current filters
@@ -186,7 +181,6 @@
 
 	onMount(async () => {
 		await loadStudies();
-		await loadParticipants();
 		await loadSensors();
 	});
 
@@ -275,121 +269,11 @@
 			selectedSensorId = '';
 			focusedSensorIndex = -1;
 
-			// Refresh the devices list
-			userOwnerships = await getUserOwnerships(selectedParticipant.user_id);
-
 			showToastMessage('Device added successfully', 'success');
 		} catch (error) {
 			console.error('Failed to add device:', error);
 			showToastMessage('Failed to add device', 'error');
 		}
-	};
-
-	const openParticipant = async (participant: Participant) => {
-		selectedParticipant = participant;
-		isEditing = false;
-		editedProperties = {
-			name: (participant.properties?.name as string) || '',
-			age: (participant.properties?.age as string) || '',
-			sex: (participant.properties?.sex as string) || ''
-		};
-
-		// Load participant's studies
-		try {
-			participantStudies = (await getParticipantStudies(participant.user_id)) as unknown as {
-				study_id: number;
-				membership_period: string | null;
-				studies: { id: number; name: string };
-			}[];
-		} catch (error) {
-			console.error('Failed to load participant studies:', error);
-			participantStudies = [];
-		}
-
-		// Load participant's devices
-		try {
-			userOwnerships = await getUserOwnerships(participant.user_id);
-		} catch (error) {
-			console.error('Failed to load user ownerships:', error);
-			userOwnerships = [];
-		}
-
-		showDetailsPanel = true;
-	};
-
-	const closeDetailsPanel = () => {
-		showDetailsPanel = false;
-		isEditing = false;
-	};
-
-	const startEditing = () => {
-		isEditing = true;
-	};
-
-	const cancelEditing = () => {
-		if (selectedParticipant) {
-			editedProperties = {
-				name: (selectedParticipant.properties?.name as string) || '',
-				age: (selectedParticipant.properties?.age as string) || '',
-				sex: (selectedParticipant.properties?.sex as string) || ''
-			};
-		}
-		isEditing = false;
-	};
-
-	const saveParticipant = async () => {
-		if (!selectedParticipant) return;
-
-		// Validation: name should contain only letters (including accented)
-		const nameRegex = /^[a-zA-ZÀ-ž\s]+$/;
-		if (editedProperties.name && !nameRegex.test(editedProperties.name.trim())) {
-			showToastMessage('Name can only contain letters', 'error');
-			return;
-		}
-
-		try {
-			await updateParticipant({
-				user_id: selectedParticipant.user_id,
-				properties: {
-					...selectedParticipant.properties,
-					name: editedProperties.name.trim() || null,
-					age: editedProperties.age ? parseInt(editedProperties.age) : null,
-					sex: editedProperties.sex || null
-				}
-			});
-
-			// Update the selected participant and participants list
-			selectedParticipant.properties = {
-				...selectedParticipant.properties,
-				name: editedProperties.name.trim() || undefined,
-				age: editedProperties.age ? parseInt(editedProperties.age) : undefined,
-				sex: editedProperties.sex || undefined
-			};
-
-			// Update the participant in the list
-			const index = participants.findIndex((p) => p.user_id === selectedParticipant!.user_id);
-			if (index !== -1) {
-				participants[index] = {
-					...participants[index],
-					properties: selectedParticipant!.properties
-				};
-			}
-
-			isEditing = false;
-			showToastMessage('Participant updated successfully', 'success');
-		} catch (error) {
-			console.error('Failed to update participant:', error);
-			showToastMessage('Failed to update participant', 'error');
-		}
-	};
-
-	const showToastMessage = (message: string, type: 'success' | 'error') => {
-		toastMessage = message;
-		toastType = type;
-		showToast = true;
-		setTimeout(() => {
-			showToast = false;
-		}, 3000);
 	};
 
 	const goToPreviousPage = async () => {
@@ -407,63 +291,56 @@
 		}
 	};
 
-	const startEditingStudy = (studyId: number, currentPeriod: string | null) => {
-		editingStudyId = studyId.toString();
-		// Initialize edit values from current data
-		if (currentPeriod) {
-			try {
-				const parsed = JSON.parse(currentPeriod);
-				if (Array.isArray(parsed) && parsed.length === 2) {
-					currentEditStart = parsed[0].split(' ')[0];
-					currentEditEnd = parsed[1].split(' ')[0];
-				}
-			} catch (e) {
-				// Try the old regex format as fallback
-				const match = currentPeriod.match(/\[([^,]+),\s*([^)]+)\)/);
-				if (match) {
-					currentEditStart = match[1].split(' ')[0];
-					currentEditEnd = match[2].split(' ')[0];
+	const handleEditParticipant = async (
+		event: CustomEvent<{ user_id: string; properties: Record<string, any> }>
+	) => {
+		try {
+			await updateParticipant(event.detail);
+
+			// Update the selected participant and participants list
+			if (selectedParticipant) {
+				selectedParticipant.properties = event.detail.properties;
+
+				const index = participants.findIndex((p) => p.user_id === event.detail.user_id);
+				if (index !== -1) {
+					participants[index].properties = event.detail.properties;
 				}
 			}
-		} else {
-			currentEditStart = '';
-			currentEditEnd = '';
+
+			showToastMessage('Participant updated successfully', 'success');
+		} catch (error) {
+			console.error('Failed to update participant:', error);
+			showToastMessage('Failed to update participant', 'error');
 		}
 	};
 
-	const cancelEditingStudy = () => {
-		editingStudyId = null;
-		currentEditStart = '';
-		currentEditEnd = '';
-		studyEditValues = {};
-	};
-
-	const saveStudyPeriod = async (studyId: number) => {
-		if (!selectedParticipant) return;
-
+	const handleEditStudyPeriod = async (
+		event: CustomEvent<{ user_id: string; study_id: number; membership_period: string | null }>
+	) => {
 		try {
-			const membershipPeriod =
-				currentEditStart && currentEditEnd
-					? `[${currentEditStart} 00:00:00, ${currentEditEnd} 23:59:59.99999999)`
-					: null;
-
-			await updateParticipantStudyPeriod(selectedParticipant.user_id, studyId, membershipPeriod);
-
-			// Refresh the studies data
-			participantStudies = (await getParticipantStudies(
-				selectedParticipant.user_id
-			)) as unknown as {
-				study_id: number;
-				membership_period: string | null;
-				studies: { id: number; name: string };
-			}[];
-
-			cancelEditingStudy();
+			await updateParticipantStudyPeriod(
+				event.detail.user_id,
+				event.detail.study_id,
+				event.detail.membership_period
+			);
 			showToastMessage('Study period updated successfully', 'success');
 		} catch (error) {
 			console.error('Failed to update study period:', error);
 			showToastMessage('Failed to update study period', 'error');
 		}
+	};
+
+	const handleToast = (event: CustomEvent<{ message: string; type: 'success' | 'error' }>) => {
+		showToastMessage(event.detail.message, event.detail.type);
+	};
+
+	const showToastMessage = (message: string, type: 'success' | 'error') => {
+		toastMessage = message;
+		toastType = type;
+		showToast = true;
+		setTimeout(() => {
+			showToast = false;
+		}, 3000);
 	};
 </script>
 
@@ -591,270 +468,38 @@
 		</div>
 	</div>
 
-	<!-- Backdrop + right-side details panel -->
-	{#if showDetailsPanel}
-		<button
-			class="fixed inset-0 z-40 cursor-default bg-black/30"
-			aria-label="Close details"
-			onclick={closeDetailsPanel}
-		></button>
-
-		<aside
-			class="fixed top-0 right-0 z-50 h-full w-[500px] overflow-y-auto bg-base-100 p-6 shadow-2xl"
-		>
-			{#if selectedParticipant}
-				<div class="max-w-full space-y-4">
-					<!-- Header with edit button -->
-					<div class="space-y-3">
-						<div class="flex items-center justify-between">
-							<h2 class="text-xl font-semibold">Participant Details</h2>
-							<button class="btn btn-circle btn-ghost btn-sm" onclick={closeDetailsPanel}>✕</button>
-						</div>
-						<div class="flex flex-wrap gap-2">
-							{#if !isEditing}
-								<button class="btn btn-sm btn-primary" onclick={startEditing}> Edit </button>
-								<button
-									class="btn btn-sm btn-secondary"
-									onclick={() => (showAddToStudyModal = true)}
-								>
-									Add to Study
-								</button>
-								<button
-									class="btn btn-sm btn-accent"
-									onclick={() => {
-										showAddDeviceModal = true;
-										sensorSearch = '';
-										showSensorDropdown = false;
-										selectedSensorId = '';
-										focusedSensorIndex = -1;
-									}}
-								>
-									Add Device
-								</button>
-							{:else}
-								<button class="btn btn-ghost btn-sm" onclick={cancelEditing}> Cancel </button>
-								<button class="btn btn-sm btn-primary" onclick={saveParticipant}> Save </button>
-							{/if}
-						</div>
-					</div>
-
-					<!-- Editable fields -->
-					<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-						<!-- Name -->
-						<div class="form-control">
-							<label class="label">
-								<span class="label-text">Name</span>
-							</label>
-							{#if isEditing}
-								<input
-									class="input-bordered input input-sm"
-									type="text"
-									placeholder="Enter name"
-									bind:value={editedProperties.name}
-								/>
-							{:else}
-								<div class="stat-value text-lg break-all">
-									{selectedParticipant.properties?.name ?? '—'}
-								</div>
-							{/if}
-						</div>
-
-						<!-- Age -->
-						<div class="form-control">
-							<label class="label">
-								<span class="label-text">Age</span>
-							</label>
-							{#if isEditing}
-								<input
-									class="input-bordered input input-sm"
-									type="number"
-									placeholder="Age"
-									min="1"
-									max="120"
-									bind:value={editedProperties.age}
-								/>
-							{:else}
-								<div class="stat-value text-lg break-all">
-									{selectedParticipant.properties?.age ?? '—'}
-								</div>
-							{/if}
-						</div>
-
-						<!-- Sex -->
-						<div class="form-control">
-							<label class="label">
-								<span class="label-text">Sex</span>
-							</label>
-							{#if isEditing}
-								<select class="select-bordered select select-sm" bind:value={editedProperties.sex}>
-									<option value="" disabled>Select sex</option>
-									<option value="male">Male</option>
-									<option value="female">Female</option>
-								</select>
-							{:else}
-								<div class="stat-value text-lg break-all">
-									{selectedParticipant.properties?.sex ?? '—'}
-								</div>
-							{/if}
-						</div>
-					</div>
-
-					<!-- Studies -->
-					<div class="form-control">
-						<div class="flex items-center justify-between">
-							<label class="label">
-								<span class="label-text">Studies</span>
-							</label>
-						</div>
-						<div class="mt-2">
-							{#if participantStudies.length === 0}
-								<span class="text-base-content/70">No studies assigned</span>
-							{:else}
-								<div class="space-y-2">
-									{#each participantStudies as participantStudy}
-										<div class="flex flex-col gap-1 rounded bg-base-200 p-2">
-											<div class="flex items-center justify-between">
-												<span class="badge badge-primary">{participantStudy.studies.name}</span>
-												{#if editingStudyId !== participantStudy.study_id.toString()}
-													<button
-														class="btn btn-ghost btn-xs"
-														onclick={() =>
-															startEditingStudy(
-																participantStudy.study_id,
-																participantStudy.membership_period
-															)}
-													>
-														Edit
-													</button>
-												{:else}
-													<div class="flex gap-1">
-														<button class="btn btn-ghost btn-xs" onclick={cancelEditingStudy}>
-															Cancel
-														</button>
-														<button
-															class="btn btn-xs btn-primary"
-															onclick={() => saveStudyPeriod(participantStudy.study_id)}
-														>
-															Save
-														</button>
-													</div>
-												{/if}
-											</div>
-											{#if editingStudyId === participantStudy.study_id.toString()}
-												<div class="mt-1 flex gap-2">
-													<input
-														class="input-bordered input input-xs flex-1"
-														type="date"
-														placeholder="Start"
-														bind:value={currentEditStart}
-													/>
-													<span class="self-center text-xs text-base-content/70">to</span>
-													<input
-														class="input-bordered input input-xs flex-1"
-														type="date"
-														placeholder="End"
-														bind:value={currentEditEnd}
-													/>
-												</div>
-											{:else if participantStudy.membership_period}
-												{@const parsedPeriod = (() => {
-													try {
-														const parsed = JSON.parse(participantStudy.membership_period);
-														if (Array.isArray(parsed) && parsed.length === 2) {
-															return {
-																start: parsed[0].split(' ')[0], // Extract date part
-																end: parsed[1].split(' ')[0] // Extract date part
-															};
-														}
-													} catch (e) {
-														// Try the old regex format as fallback
-														const match =
-															participantStudy.membership_period.match(/\[([^,]+),\s*([^)]+)\)/);
-														if (match) {
-															return {
-																start: match[1].split(' ')[0],
-																end: match[2].split(' ')[0]
-															};
-														}
-													}
-													return null;
-												})()}
-												{#if parsedPeriod}
-													<span class="text-xs text-base-content/70">
-														{parsedPeriod.start} to {parsedPeriod.end}
-													</span>
-												{:else}
-													<span class="text-xs text-base-content/70">Invalid period</span>
-												{/if}
-											{:else}
-												<span class="text-xs text-base-content/70">No period set</span>
-											{/if}
-										</div>
-									{/each}
-								</div>
-							{/if}
-						</div>
-					</div>
-
-					<!-- Devices -->
-					<div class="form-control">
-						<div class="flex items-center justify-between">
-							<label class="label">
-								<span class="label-text">Devices</span>
-							</label>
-						</div>
-						<div class="mt-2">
-							{#if userOwnerships.length === 0}
-								<span class="text-base-content/70">No devices assigned</span>
-							{:else}
-								<div class="space-y-2">
-									{#each userOwnerships as ownership}
-										<div class="flex flex-col gap-1 rounded bg-base-200 p-2">
-											<div class="flex items-center justify-between">
-												<span class="badge badge-accent"
-													>{ownership.sensors?.[0]?.name ?? 'Unknown'}</span
-												>
-											</div>
-											<div class="text-xs text-base-content/70">
-												<p>
-													<strong>Description:</strong>
-													{ownership.sensors?.[0]?.description ?? '—'}
-												</p>
-												<p>
-													<strong>Ownership Period:</strong>
-													{ownership.start_date} to {ownership.end_date}
-												</p>
-											</div>
-										</div>
-									{/each}
-								</div>
-							{/if}
-						</div>
-					</div>
-
-					<!-- Read-only fields -->
-					<div class="divider">Read-only Information</div>
-
-					<div class="card bg-base-200">
-						<div class="card-body p-4">
-							<p>
-								<span class="font-semibold">Username:</span>
-								{selectedParticipant.username ?? '—'}
-							</p>
-							<p>
-								<span class="font-semibold">Role:</span>
-								{selectedParticipant.role ?? '—'}
-							</p>
-						</div>
-					</div>
-				</div>
-			{:else}
-				<div class="alert">
-					<span>No participant selected.</span>
-				</div>
-			{/if}
-		</aside>
-	{/if}
+	<ParticipantDetailsPanel
+		show={showDetailsPanel}
+		{selectedParticipant}
+		{studies}
+		on:close={() => (showDetailsPanel = false)}
+		on:addToStudy={async () => {
+			showAddToStudyModal = true;
+			if (selectedParticipant) {
+				try {
+					participantStudies = (await getParticipantStudies(
+						selectedParticipant.user_id
+					)) as unknown as {
+						study_id: number;
+						membership_period: string | null;
+						studies: { id: number; name: string };
+					}[];
+				} catch (error) {
+					console.error('Failed to load participant studies:', error);
+				}
+			}
+		}}
+		on:addDevice={() => {
+			showAddDeviceModal = true;
+			sensorSearch = '';
+			showSensorDropdown = false;
+			selectedSensorId = '';
+			focusedSensorIndex = -1;
+		}}
+		on:editParticipant={handleEditParticipant}
+		on:editStudyPeriod={handleEditStudyPeriod}
+		on:toast={handleToast}
+	/>
 
 	<AddParticipantModal
 		show={showAddParticipantModal}
