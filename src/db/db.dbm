@@ -3,9 +3,9 @@
 CAUTION: Do not modify this file unless you know what you are doing.
  Unexpected results may occur if the code is changed deliberately.
 -->
-<dbmodel pgmodeler-ver="1.2.2" use-changelog="false" max-obj-count="38"
+<dbmodel pgmodeler-ver="1.2.2" use-changelog="false" max-obj-count="46"
 	 gen-disabled-objs-code="false" show-sys-schemas-rects="true"
-	 last-position="254,-102" last-zoom="0.6" scene-rect="-948,-170,2906.38,1519.12"
+	 last-position="0,-36" last-zoom="0.6" scene-rect="-948,-170,2914.32,1819.12"
 	 default-schema="public" default-owner="postgres"
 	 layers="Default layer"
 	 active-layers="0"
@@ -98,7 +98,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<schema name="data"/>
 	<role name="postgres"/>
 	<comment> <![CDATA[Sensors of any kind, this can be a physical sensor, a mobile phone application, a sensor connected to a mobile phone app (fitbit) ... But, it has to be identifiable]]> </comment>
-	<position x="-920" y="400"/>
+	<position x="-920" y="420"/>
 	<column name="id" not-null="true">
 		<type name="bigserial" length="0"/>
 	</column>
@@ -127,7 +127,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<schema name="data"/>
 	<role name="postgres"/>
 	<comment> <![CDATA[Something that the sensor measures (temperature, humidity, speed ...) ]]> </comment>
-	<position x="-920" y="960"/>
+	<position x="-920" y="980"/>
 	<column name="id" not-null="true">
 		<type name="bigserial" length="0"/>
 	</column>
@@ -154,7 +154,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 <table name="ownerships" layers="0" collapse-mode="2" pagination="true" attribs-page="0" ext-attribs-page="0" rls-enabled="true" max-obj-count="6" z-value="0">
 	<schema name="data"/>
 	<role name="postgres"/>
-	<position x="-180" y="400"/>
+	<position x="-180" y="420"/>
 	<column name="user_id" not-null="true">
 		<type name="uuid" length="0"/>
 	</column>
@@ -179,7 +179,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<schema name="data"/>
 	<role name="postgres"/>
 	<comment> <![CDATA[Geographic location where the observation was made]]> </comment>
-	<position x="680" y="1000"/>
+	<position x="640" y="1400"/>
 	<column name="id" not-null="true">
 		<type name="bigserial" length="0"/>
 	</column>
@@ -197,7 +197,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 <table name="participants" layers="0" collapse-mode="2" rls-enabled="true" max-obj-count="6" z-value="0">
 	<schema name="data"/>
 	<role name="postgres"/>
-	<position x="660" y="320"/>
+	<position x="680" y="340"/>
 	<column name="user_id" not-null="true">
 		<type name="uuid" length="0"/>
 	</column>
@@ -219,7 +219,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<schema name="data"/>
 	<role name="postgres"/>
 	<comment> <![CDATA[Measurement of the datastream]]> </comment>
-	<position x="-160" y="920"/>
+	<position x="-200" y="1300"/>
 	<column name="id" not-null="true">
 		<type name="bigserial" length="0"/>
 	</column>
@@ -468,14 +468,23 @@ end;
 ]]> </definition>
 </function>
 
-<view name="participants" layers="0" security-invoker="true" collapse-mode="2" max-obj-count="0" z-value="0">
-	<schema name="api"/>
+<table name="many_participants_studies" layers="0" collapse-mode="2" rls-enabled="true" max-obj-count="3" z-value="0">
+	<schema name="data"/>
 	<role name="postgres"/>
-	<position x="440" y="20"/>
-	<definition> <![CDATA[select p.*, u.username, u.role from data.participants p
-join auth.users u on u.id = p.user_id
-]]> </definition>
-</view>
+	<position x="-20" y="880"/>
+	<column name="user_id" not-null="true">
+		<type name="uuid" length="0"/>
+	</column>
+	<column name="study_id" not-null="true">
+		<type name="bigint" length="0"/>
+	</column>
+	<column name="membership_period" not-null="true">
+		<type name="tstzrange" length="0"/>
+	</column>
+	<constraint name="many_participants_studies_pk" type="pk-constr" table="data.many_participants_studies">
+		<columns names="user_id,study_id" ref-type="src-columns"/>
+	</constraint>
+</table>
 
 <view name="sensors" layers="0" security-invoker="true" collapse-mode="0" max-obj-count="0" z-value="0">
 	<schema name="api"/>
@@ -727,6 +736,87 @@ end;
 ]]> </definition>
 </function>
 
+<sequence name="studies_id_seq" cycle="false" start="1" increment="1" min-value="-9223372036854775808" max-value="9223372036854775807" cache="1">
+	<schema name="data"/>
+</sequence>
+
+<table name="studies" layers="0" collapse-mode="2" rls-enabled="true" max-obj-count="3" z-value="0">
+	<schema name="data"/>
+	<role name="postgres"/>
+	<position x="940" y="1040"/>
+	<column name="id" not-null="true" sequence="data.studies_id_seq">
+		<type name="bigint" length="0"/>
+	</column>
+	<column name="name" not-null="true">
+		<type name="text" length="0"/>
+	</column>
+	<column name="active_period" not-null="true">
+		<type name="tstzrange" length="0"/>
+	</column>
+	<constraint name="study_pk" type="pk-constr" table="data.studies">
+		<columns names="id" ref-type="src-columns"/>
+	</constraint>
+</table>
+
+<view name="list_participants" layers="0" security-invoker="true" collapse-mode="2" max-obj-count="0" z-value="0">
+	<schema name="api"/>
+	<role name="postgres"/>
+	<position x="440" y="20"/>
+	<definition> <![CDATA[SELECT p.user_id,
+    p.properties,
+    p.sys_created_at,
+    p.sys_changed_at,
+    u.username,
+    u.role,
+    s.name AS study_name,
+    s.id as study_id
+   FROM data.participants p
+     JOIN auth.users u ON u.id = p.user_id
+     JOIN data.many_participants_studies mps ON p.user_id = mps.user_id
+     JOIN data.studies s ON s.id = mps.study_id]]> </definition>
+</view>
+
+<policy name="allow_admin_all_studies" table="data.studies" command="ALL" permissive="true">	<roles names="admin"/>
+	<expression type="using-exp"> <![CDATA[true]]> </expression>
+	<expression type="check-exp"> <![CDATA[true]]> </expression>
+</policy>
+
+<policy name="allow_admin_all_many_participants_studies" table="data.many_participants_studies" command="ALL" permissive="true">	<roles names="admin"/>
+	<expression type="using-exp"> <![CDATA[true]]> </expression>
+	<expression type="check-exp"> <![CDATA[true]]> </expression>
+</policy>
+
+<view name="studies" layers="0" security-invoker="true" collapse-mode="2" max-obj-count="0" z-value="0">
+	<schema name="api"/>
+	<role name="postgres"/>
+	<position x="440" y="120"/>
+	<definition> <![CDATA[select * from data.studies]]> </definition>
+</view>
+
+<view name="participants" layers="0" security-invoker="true" collapse-mode="2" max-obj-count="0" z-value="0">
+	<schema name="api"/>
+	<role name="postgres"/>
+	<position x="540" y="120"/>
+	<definition> <![CDATA[select * from data.participants
+]]> </definition>
+</view>
+
+<view name="many_participants_studies" layers="0" security-invoker="true" collapse-mode="2" max-obj-count="0" z-value="0">
+	<schema name="api"/>
+	<role name="postgres"/>
+	<position x="660" y="120"/>
+	<definition> <![CDATA[select * from data.many_participants_studies
+]]> </definition>
+</view>
+
+<view name="ownerships" layers="0" security-invoker="true" collapse-mode="2" max-obj-count="0" z-value="0">
+	<schema name="api"/>
+	<role name="postgres"/>
+	<position x="440" y="200"/>
+	<definition> <![CDATA[select * from data.ownerships
+]]> </definition>
+</view>
+
 <constraint name="fk_sensors_credentials_credential_id" type="fk-constr" comparison-type="MATCH SIMPLE"
 	 upd-action="NO ACTION" del-action="NO ACTION" ref-table="auth.credentials" table="data.sensors">
 	<columns names="credential_id" ref-type="src-columns"/>
@@ -769,6 +859,18 @@ end;
 	<columns names="id" ref-type="dst-columns"/>
 </constraint>
 
+<constraint name="many_participnts_studies_participants_fk" type="fk-constr" comparison-type="MATCH SIMPLE"
+	 upd-action="NO ACTION" del-action="NO ACTION" ref-table="data.participants" table="data.many_participants_studies">
+	<columns names="user_id" ref-type="src-columns"/>
+	<columns names="user_id" ref-type="dst-columns"/>
+</constraint>
+
+<constraint name="many_participants_studies_studies_fk" type="fk-constr" comparison-type="MATCH SIMPLE"
+	 upd-action="NO ACTION" del-action="NO ACTION" ref-table="data.studies" table="data.many_participants_studies">
+	<columns names="study_id" ref-type="src-columns"/>
+	<columns names="id" ref-type="dst-columns"/>
+</constraint>
+
 <relationship name="rel_data_stream_sensors" type="relfk" layers="0"
 	 src-table="data.data_stream"
 	 dst-table="data.sensors" reference-fk="data_stream_sensor_fk"
@@ -807,6 +909,16 @@ end;
 	 src-table="data.sensors"
 	 dst-table="auth.credentials" reference-fk="fk_sensors_credentials_credential_id"
 	 src-required="false" dst-required="false"/>
+
+<relationship name="rel_many_participants_studies_participants" type="relfk" layers="0"
+	 src-table="data.many_participants_studies"
+	 dst-table="data.participants" reference-fk="many_participnts_studies_participants_fk"
+	 src-required="false" dst-required="true"/>
+
+<relationship name="rel_many_participants_studies_study" type="relfk" layers="0"
+	 src-table="data.many_participants_studies"
+	 dst-table="data.studies" reference-fk="many_participants_studies_studies_fk"
+	 src-required="false" dst-required="true"/>
 
 <permission>
 	<object name="data" type="schema"/>
@@ -864,7 +976,7 @@ end;
 	<privileges select="true"/>
 </permission>
 <permission>
-	<object name="api.participants" type="view"/>
+	<object name="api.list_participants" type="view"/>
 	<roles names="admin"/>
 	<privileges select="true"/>
 </permission>
@@ -967,5 +1079,40 @@ end;
 	<object name="api.add_participant(text,text,jsonb)" type="function"/>
 	<roles names="admin"/>
 	<privileges execute="true"/>
+</permission>
+<permission>
+	<object name="data.many_participants_studies" type="table"/>
+	<roles names="admin"/>
+	<privileges select="true" insert="true" update="true"/>
+</permission>
+<permission>
+	<object name="data.studies" type="table"/>
+	<roles names="admin"/>
+	<privileges select="true" insert="true" update="true"/>
+</permission>
+<permission>
+	<object name="api.studies" type="view"/>
+	<roles names="admin"/>
+	<privileges select="true" delete="true" insert="true" update="true"/>
+</permission>
+<permission>
+	<object name="data.studies_id_seq" type="sequence"/>
+	<roles names="admin"/>
+	<privileges select="true" usage="true"/>
+</permission>
+<permission>
+	<object name="api.participants" type="view"/>
+	<roles names="admin"/>
+	<privileges select="true" insert="true" update="true"/>
+</permission>
+<permission>
+	<object name="api.many_participants_studies" type="view"/>
+	<roles names="admin"/>
+	<privileges select="true" insert="true" update="true"/>
+</permission>
+<permission>
+	<object name="api.ownerships" type="view"/>
+	<roles names="admin"/>
+	<privileges select="true" insert="true" update="true"/>
 </permission>
 </dbmodel>

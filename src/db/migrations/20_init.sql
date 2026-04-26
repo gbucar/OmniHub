@@ -414,15 +414,18 @@ $function$;
 ALTER FUNCTION auth.get_user_by_id(text,text) OWNER TO postgres;
 -- ddl-end --
 
--- object: api.participants | type: VIEW --
--- DROP VIEW IF EXISTS api.participants CASCADE;
-CREATE OR REPLACE VIEW api.participants
-WITH (security_invoker=true)
-AS 
-select p.*, u.username, u.role from data.participants p
-join auth.users u on u.id = p.user_id;
+-- object: data.many_participants_studies | type: TABLE --
+-- DROP TABLE IF EXISTS data.many_participants_studies CASCADE;
+CREATE TABLE data.many_participants_studies (
+	user_id uuid NOT NULL,
+	study_id bigint NOT NULL,
+	membership_period tstzrange NOT NULL,
+	CONSTRAINT many_participants_studies_pk PRIMARY KEY (user_id,study_id)
+);
 -- ddl-end --
-ALTER VIEW api.participants OWNER TO postgres;
+ALTER TABLE data.many_participants_studies OWNER TO postgres;
+-- ddl-end --
+ALTER TABLE data.many_participants_studies ENABLE ROW LEVEL SECURITY;
 -- ddl-end --
 
 -- object: api.sensors | type: VIEW --
@@ -793,6 +796,114 @@ $function$;
 ALTER FUNCTION api.add_participant(text,text,jsonb) OWNER TO postgres;
 -- ddl-end --
 
+-- object: data.studies_id_seq | type: SEQUENCE --
+-- DROP SEQUENCE IF EXISTS data.studies_id_seq CASCADE;
+CREATE SEQUENCE data.studies_id_seq
+	INCREMENT BY 1
+	MINVALUE -9223372036854775808
+	MAXVALUE 9223372036854775807
+	START WITH 1
+	CACHE 1
+	NO CYCLE
+	OWNED BY NONE;
+
+-- ddl-end --
+
+-- object: data.studies | type: TABLE --
+-- DROP TABLE IF EXISTS data.studies CASCADE;
+CREATE TABLE data.studies (
+	id bigint NOT NULL DEFAULT nextval('data.studies_id_seq'::regclass),
+	name text NOT NULL,
+	active_period tstzrange NOT NULL,
+	CONSTRAINT study_pk PRIMARY KEY (id)
+);
+-- ddl-end --
+ALTER TABLE data.studies OWNER TO postgres;
+-- ddl-end --
+ALTER TABLE data.studies ENABLE ROW LEVEL SECURITY;
+-- ddl-end --
+
+-- object: api.list_participants | type: VIEW --
+-- DROP VIEW IF EXISTS api.list_participants CASCADE;
+CREATE OR REPLACE VIEW api.list_participants
+WITH (security_invoker=true)
+AS 
+SELECT p.user_id,
+    p.properties,
+    p.sys_created_at,
+    p.sys_changed_at,
+    u.username,
+    u.role,
+    s.name AS study_name,
+    s.id as study_id
+   FROM data.participants p
+     JOIN auth.users u ON u.id = p.user_id
+     JOIN data.many_participants_studies mps ON p.user_id = mps.user_id
+     JOIN data.studies s ON s.id = mps.study_id;
+-- ddl-end --
+ALTER VIEW api.list_participants OWNER TO postgres;
+-- ddl-end --
+
+-- object: allow_admin_all_studies | type: POLICY --
+-- DROP POLICY IF EXISTS allow_admin_all_studies ON data.studies CASCADE;
+CREATE POLICY allow_admin_all_studies ON data.studies
+	AS PERMISSIVE
+	FOR ALL
+	TO admin
+	USING (true)
+	WITH CHECK (true);
+-- ddl-end --
+
+-- object: allow_admin_all_many_participants_studies | type: POLICY --
+-- DROP POLICY IF EXISTS allow_admin_all_many_participants_studies ON data.many_participants_studies CASCADE;
+CREATE POLICY allow_admin_all_many_participants_studies ON data.many_participants_studies
+	AS PERMISSIVE
+	FOR ALL
+	TO admin
+	USING (true)
+	WITH CHECK (true);
+-- ddl-end --
+
+-- object: api.studies | type: VIEW --
+-- DROP VIEW IF EXISTS api.studies CASCADE;
+CREATE OR REPLACE VIEW api.studies
+WITH (security_invoker=true)
+AS 
+select * from data.studies;
+-- ddl-end --
+ALTER VIEW api.studies OWNER TO postgres;
+-- ddl-end --
+
+-- object: api.participants | type: VIEW --
+-- DROP VIEW IF EXISTS api.participants CASCADE;
+CREATE OR REPLACE VIEW api.participants
+WITH (security_invoker=true)
+AS 
+select * from data.participants;
+-- ddl-end --
+ALTER VIEW api.participants OWNER TO postgres;
+-- ddl-end --
+
+-- object: api.many_participants_studies | type: VIEW --
+-- DROP VIEW IF EXISTS api.many_participants_studies CASCADE;
+CREATE OR REPLACE VIEW api.many_participants_studies
+WITH (security_invoker=true)
+AS 
+select * from data.many_participants_studies;
+-- ddl-end --
+ALTER VIEW api.many_participants_studies OWNER TO postgres;
+-- ddl-end --
+
+-- object: api.ownerships | type: VIEW --
+-- DROP VIEW IF EXISTS api.ownerships CASCADE;
+CREATE OR REPLACE VIEW api.ownerships
+WITH (security_invoker=true)
+AS 
+select * from data.ownerships;
+-- ddl-end --
+ALTER VIEW api.ownerships OWNER TO postgres;
+-- ddl-end --
+
 -- object: fk_sensors_credentials_credential_id | type: CONSTRAINT --
 -- ALTER TABLE data.sensors DROP CONSTRAINT IF EXISTS fk_sensors_credentials_credential_id CASCADE;
 ALTER TABLE data.sensors ADD CONSTRAINT fk_sensors_credentials_credential_id FOREIGN KEY (credential_id)
@@ -839,6 +950,20 @@ ON DELETE NO ACTION ON UPDATE NO ACTION;
 -- ALTER TABLE data.observations DROP CONSTRAINT IF EXISTS observation_location_fk CASCADE;
 ALTER TABLE data.observations ADD CONSTRAINT observation_location_fk FOREIGN KEY (location_id)
 REFERENCES data.locations (id) MATCH SIMPLE
+ON DELETE NO ACTION ON UPDATE NO ACTION;
+-- ddl-end --
+
+-- object: many_participnts_studies_participants_fk | type: CONSTRAINT --
+-- ALTER TABLE data.many_participants_studies DROP CONSTRAINT IF EXISTS many_participnts_studies_participants_fk CASCADE;
+ALTER TABLE data.many_participants_studies ADD CONSTRAINT many_participnts_studies_participants_fk FOREIGN KEY (user_id)
+REFERENCES data.participants (user_id) MATCH SIMPLE
+ON DELETE NO ACTION ON UPDATE NO ACTION;
+-- ddl-end --
+
+-- object: many_participants_studies_studies_fk | type: CONSTRAINT --
+-- ALTER TABLE data.many_participants_studies DROP CONSTRAINT IF EXISTS many_participants_studies_studies_fk CASCADE;
+ALTER TABLE data.many_participants_studies ADD CONSTRAINT many_participants_studies_studies_fk FOREIGN KEY (study_id)
+REFERENCES data.studies (id) MATCH SIMPLE
 ON DELETE NO ACTION ON UPDATE NO ACTION;
 -- ddl-end --
 
@@ -932,13 +1057,13 @@ GRANT SELECT
 
 -- object: grant_r_9a5345b4e0 | type: PERMISSION --
 GRANT SELECT
-   ON TABLE api.participants
+   ON TABLE api.list_participants
    TO admin;
 
 -- ddl-end --
 
 
--- object: "grant_X_2e40636592" | type: PERMISSION --
+-- object: "grant_X_5fa93200eb" | type: PERMISSION --
 GRANT EXECUTE
    ON FUNCTION api.change_password(text,text,text)
    TO webuser,admin;
@@ -1093,6 +1218,62 @@ GRANT SELECT
 -- object: "grant_X_b534e6b3c9" | type: PERMISSION --
 GRANT EXECUTE
    ON FUNCTION api.add_participant(text,text,jsonb)
+   TO admin;
+
+-- ddl-end --
+
+
+-- object: grant_raw_f3fae798e0 | type: PERMISSION --
+GRANT SELECT,INSERT,UPDATE
+   ON TABLE data.many_participants_studies
+   TO admin;
+
+-- ddl-end --
+
+
+-- object: grant_raw_6e613e74b7 | type: PERMISSION --
+GRANT SELECT,INSERT,UPDATE
+   ON TABLE data.studies
+   TO admin;
+
+-- ddl-end --
+
+
+-- object: grant_rawd_03588a704e | type: PERMISSION --
+GRANT SELECT,INSERT,UPDATE,DELETE
+   ON TABLE api.studies
+   TO admin;
+
+-- ddl-end --
+
+
+-- object: "grant_rU_c3838f7b39" | type: PERMISSION --
+GRANT SELECT,USAGE
+   ON SEQUENCE data.studies_id_seq
+   TO admin;
+
+-- ddl-end --
+
+
+-- object: grant_raw_9a5345b4e0 | type: PERMISSION --
+GRANT SELECT,INSERT,UPDATE
+   ON TABLE api.participants
+   TO admin;
+
+-- ddl-end --
+
+
+-- object: grant_raw_d67fe7aced | type: PERMISSION --
+GRANT SELECT,INSERT,UPDATE
+   ON TABLE api.many_participants_studies
+   TO admin;
+
+-- ddl-end --
+
+
+-- object: grant_raw_60c50142b6 | type: PERMISSION --
+GRANT SELECT,INSERT,UPDATE
+   ON TABLE api.ownerships
    TO admin;
 
 -- ddl-end --

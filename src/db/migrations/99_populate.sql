@@ -82,27 +82,28 @@ VALUES
     ('testsecrettestsecrettestsecrettestsecret', 'POSTGREST_JWT_SECRET'),
     ('3600', 'POSTGREST_JWT_DURATION_SECONDS');
 
--- 8. VSTAVLJANJE ŠTUDIJ (Studies)
-INSERT INTO data.studies (name, "active-period")
+INSERT INTO data.studies (name, active_period)
 VALUES 
     ('Študija kakovosti zraka Ljubljana', tstzrange('2024-01-01 00:00:00+00', '2025-12-31 23:59:59+00', '[]')),
     ('Pilotno spremljanje okolja', tstzrange('2024-06-01 00:00:00+00', '2024-12-31 23:59:59+00', '[]'));
 
 -- 9. DODELITEV UDELEŽENCEV ŠTUDIJAM (Assign participants to studies)
 -- Prvih 3 udeležencev dodelimo prvi študiji
-INSERT INTO data.many_participants_studies (participant_id, study_id)
+INSERT INTO data.many_participants_studies (user_id, study_id, membership_period)
 SELECT 
     p.user_id,
-    (SELECT id FROM data.studies WHERE name = 'Študija kakovosti zraka Ljubljana')
+    (SELECT id FROM data.studies WHERE name = 'Študija kakovosti zraka Ljubljana'),
+    (SELECT active_period FROM data.studies WHERE name = 'Študija kakovosti zraka Ljubljana')
 FROM data.participants p
 JOIN auth.users u ON p.user_id = u.id
 WHERE u.username IN ('janez_novak', 'marija_reka', 'luka_gora');
 
 -- Zadnja 2 udeleženca dodelimo drugi študiji
-INSERT INTO data.many_participants_studies (participant_id, study_id)
+INSERT INTO data.many_participants_studies (user_id, study_id, membership_period)
 SELECT 
     p.user_id,
-    (SELECT id FROM data.studies WHERE name = 'Pilotno spremljanje okolja')
+    (SELECT id FROM data.studies WHERE name = 'Pilotno spremljanje okolja'),
+    (SELECT active_period FROM data.studies WHERE name = 'Pilotno spremljanje okolja')
 FROM data.participants p
 JOIN auth.users u ON p.user_id = u.id
 WHERE u.username IN ('ana_sonce', 'tine_hrib');

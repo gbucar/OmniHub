@@ -23,7 +23,7 @@
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
 
 <div class="flex h-screen w-screen flex-col">
-	<div class="bg-base-50 navbar border-b border-b-base-300">
+	<div class="bg-base-50 navbar flex-none border-b border-b-base-300">
 		<div class="flex flex-1 flex-row items-center">
 			<a href="/" class="btn text-xl btn-ghost">OmniHub</a>
 			<div class="breadcrumbs text-sm">
@@ -31,10 +31,20 @@
 					<li>
 						<a href="/" class="text-gray-600">Home</a>
 					</li>
-					{#each page.url.pathname.split('/') as segment}
+					{#each page.url.pathname.split('/') as segment, i}
 						{#if segment}
 							<li>
-								<a href={page.url.pathname.replace(segment, '')} class="text-gray-600">{segment}</a>
+								{#if i === page.url.pathname.split('/').length - 1}
+									<span class="font-bold">{segment}</span>
+								{:else}
+									<a
+										href={page.url.pathname
+											.split('/')
+											.slice(0, i + 1)
+											.join('/')}
+										class="text-gray-600">{segment}</a
+									>
+								{/if}
 							</li>
 						{/if}
 					{/each}
@@ -72,7 +82,7 @@
 		</div>
 	</div>
 
-	<div class="flex-1">
+	<div class="min-h-0 w-full flex-1">
 		{@render children()}
 	</div>
 </div>

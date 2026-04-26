@@ -5,18 +5,35 @@
 	let password = $state('');
 	let username = $state('');
 
-	const handleSubmit = (event: SubmitEvent & { currentTarget: EventTarget & HTMLFormElement }) => {
+	let toastMessage = $state('');
+	let toastType = $state<'success' | 'error'>('success');
+	let showToast = $state(false);
+
+	const handleSubmit = async (
+		event: SubmitEvent & { currentTarget: EventTarget & HTMLFormElement }
+	) => {
 		event.preventDefault();
-		login(username, password).then((user) => {
+		try {
+			const user = await login(username, password);
 			username = '';
 			password = '';
-			if (user === null) return alert();
 			goto('/');
-		});
+		} catch (error) {
+			showToastMessage('Invalid username or password', 'error');
+		}
+	};
+
+	const showToastMessage = (message: string, type: 'success' | 'error') => {
+		toastMessage = message;
+		toastType = type;
+		showToast = true;
+		setTimeout(() => {
+			showToast = false;
+		}, 3000);
 	};
 </script>
 
-<div class="flex min-h-screen items-center justify-center bg-base-200">
+<div class="flex h-full items-center justify-center bg-base-200">
 	<form
 		onsubmit={handleSubmit}
 		method="POST"
@@ -53,3 +70,11 @@
 		<button class="btn w-full btn-primary">Login</button>
 	</form>
 </div>
+
+{#if showToast}
+	<div class="toast toast-start toast-bottom">
+		<div class="alert {toastType === 'success' ? 'alert-success' : 'alert-error'}">
+			<span>{toastMessage}</span>
+		</div>
+	</div>
+{/if}
