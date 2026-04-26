@@ -3,16 +3,31 @@ import { PostgrestClient } from '@supabase/postgrest-js';
 import { PUBLIC_POSTGREST_URL } from '$env/static/public';
 import { browser } from '$app/environment';
 
+export type Sensor = {
+	id: number;
+	name: string;
+	description?: string;
+	properties?: Record<string, unknown>;
+	credential_id?: number;
+	sys_created_at?: string;
+	last_activity?: string;
+};
+
+export type Ownership = {
+	user_id: string;
+	sensor_id: number;
+	start_date: string;
+	end_date: string;
+	sys_created_at?: string;
+	sensor?: Sensor[];
+};
+
 export type Participant = {
 	user_id: string;
-	username?: string;
-	role?: string;
-	properties?: Record<string, unknown>;
-	study_name?: string;
-	study_id?: number;
-	number_of_sensors?: number;
-	sys_created_at?: string;
-	sys_changed_at?: string;
+	username: string | null;
+	role: string | null;
+	properties: Record<string, unknown> | null;
+	study_name: string | null;
 };
 
 export class User {
@@ -174,6 +189,49 @@ export const updateParticipantStudyPeriod = async (
 		.update({ membership_period: membershipPeriod })
 		.eq('user_id', userId)
 		.eq('study_id', studyId);
+	if (data?.error) {
+		throw new Error(data.error.message);
+	}
+	return data?.data ?? null;
+};
+
+export const getSensors = async () => {
+	let data = await pgClient?.from('sensors').select('*');
+	return data?.data ?? [];
+};
+
+export const getUserOwnerships = async (userId: string): Promise<Ownership[]> => {
+	let data = await pgClient
+		?.from('ownerships')
+		.select(
+			`
+			user_id,
+			sensor_id,
+			start_date,
+			end_date,
+			sys_created_at,
+			sensor (
+				id,
+				name,
+				description,
+				properties,
+				credential_id,
+				sys_created_at,
+				last_activity
+			)
+		`
+		)
+		.eq('user_id', userId);
+	return data?.data ?? [];
+};
+
+export const addOwnership = async (ownership: {
+	user_id: string;
+	sensor_id: number;
+	start_date: string;
+	end_date: string;
+}) => {
+	let data = await pgClient?.from('ownerships').insert(ownership);
 	if (data?.error) {
 		throw new Error(data.error.message);
 	}

@@ -8,7 +8,12 @@
 		updateParticipant,
 		addParticipantToStudy,
 		updateParticipantStudyPeriod,
-		type Participant
+		getSensors,
+		getUserOwnerships,
+		addOwnership,
+		type Participant,
+		type Sensor,
+		type Ownership
 	} from '$lib/api';
 	import { onMount } from 'svelte';
 
@@ -40,7 +45,7 @@
 	let newUser = $state({
 		username: '',
 		password: '',
-		properties: { name: '' }
+		properties: { name: '', age: '', sex: '' }
 	});
 
 	// Add study state
@@ -56,6 +61,36 @@
 	let studyToAdd = $state('');
 	let studyStart = $state('');
 	let studyEnd = $state('');
+
+	// Device management state
+	let userOwnerships: Ownership[] = $state([]);
+	let sensors: Sensor[] = $state([]);
+	let showAddDeviceModal = $state(false);
+	let newOwnership = $state({
+		sensor_id: '',
+		start_date: '',
+		end_date: ''
+	});
+
+	// Sensor search state
+	let sensorSearch = $state('');
+	let showSensorDropdown = $state(false);
+	let selectedSensorId = $state('');
+	let focusedSensorIndex = $state(-1);
+
+	// Filtered sensors for search
+	let filteredSensors = $derived(
+		sensors.filter((sensor) => {
+			const searchLower = sensorSearch.toLowerCase();
+			const nameMatch = sensor.name.toLowerCase().includes(searchLower);
+			const propertyMatch =
+				sensor.properties &&
+				Object.values(sensor.properties).some((value) =>
+					String(value).toLowerCase().includes(searchLower)
+				);
+			return nameMatch || propertyMatch;
+		})
+	);
 
 	// Individual study editing state
 	let editingStudyId = $state<string | null>(null);
@@ -86,6 +121,15 @@
 		loadParticipants();
 	});
 
+	// Sensor selection function
+	const selectSensor = (sensor: Sensor) => {
+		newOwnership.sensor_id = sensor.id.toString();
+		sensorSearch = sensor.name;
+		showSensorDropdown = false;
+		focusedSensorIndex = -1;
+		selectedSensorId = sensor.id.toString();
+	};
+
 	// Load participants with current filters
 	const loadParticipants = async () => {
 		isLoading = true;
@@ -114,15 +158,34 @@
 		}
 	};
 
+	// Load sensors
+	const loadSensors = async () => {
+		try {
+			sensors = await getSensors();
+		} catch (error) {
+			console.error('Failed to load sensors:', error);
+		}
+	};
+
 	onMount(async () => {
 		await loadStudies();
 		await loadParticipants();
+		await loadSensors();
 	});
 
 	const handleAddUser = async () => {
-		await addParticipant(newUser);
+		let processedProperties: Record<string, any> = { ...newUser.properties };
+		if (newUser.properties.age) {
+			processedProperties.age = parseInt(newUser.properties.age);
+		}
+
+		await addParticipant({
+			username: newUser.username,
+			password: newUser.password,
+			properties: processedProperties
+		});
 		showAddParticipantModal = false;
-		newUser = { username: '', password: '', properties: { name: '' } };
+		newUser = { username: '', password: '', properties: { name: '', age: '', sex: '' } };
 		await loadParticipants(); // Refresh the list
 	};
 
@@ -173,6 +236,42 @@
 		}
 	};
 
+	const handleAddDevice = async () => {
+		if (
+			!selectedParticipant ||
+			!newOwnership.sensor_id ||
+			!newOwnership.start_date ||
+			!newOwnership.end_date
+		) {
+			showToastMessage('Please fill in all required fields', 'error');
+			return;
+		}
+
+		try {
+			await addOwnership({
+				user_id: selectedParticipant.user_id,
+				sensor_id: parseInt(newOwnership.sensor_id),
+				start_date: newOwnership.start_date,
+				end_date: newOwnership.end_date
+			});
+
+			showAddDeviceModal = false;
+			newOwnership = { sensor_id: '', start_date: '', end_date: '' };
+			sensorSearch = '';
+			showSensorDropdown = false;
+			selectedSensorId = '';
+			focusedSensorIndex = -1;
+
+			// Refresh the devices list
+			userOwnerships = await getUserOwnerships(selectedParticipant.user_id);
+
+			showToastMessage('Device added successfully', 'success');
+		} catch (error) {
+			console.error('Failed to add device:', error);
+			showToastMessage('Failed to add device', 'error');
+		}
+	};
+
 	const openParticipant = async (participant: Participant) => {
 		selectedParticipant = participant;
 		isEditing = false;
@@ -192,6 +291,14 @@
 		} catch (error) {
 			console.error('Failed to load participant studies:', error);
 			participantStudies = [];
+		}
+
+		// Load participant's devices
+		try {
+			userOwnerships = await getUserOwnerships(participant.user_id);
+		} catch (error) {
+			console.error('Failed to load user ownerships:', error);
+			userOwnerships = [];
 		}
 
 		showDetailsPanel = true;
@@ -378,7 +485,10 @@
 					</label>
 				</div>
 
-				<div class="flex justify-end">
+				<div class="flex justify-end gap-2">
+					<button class="btn btn-primary" onclick={() => (showAddParticipantModal = true)}>
+						Add New Participant
+					</button>
 					<button class="btn btn-secondary" onclick={() => (showAddStudyModal = true)}>
 						Add New Study
 					</button>
@@ -477,14 +587,17 @@
 		></button>
 
 		<aside
-			class="fixed top-0 right-0 z-50 h-full w-full max-w-md overflow-y-auto bg-base-100 p-6 shadow-2xl"
+			class="fixed top-0 right-0 z-50 h-full w-[500px] overflow-y-auto bg-base-100 p-6 shadow-2xl"
 		>
 			{#if selectedParticipant}
-				<div class="space-y-4">
+				<div class="max-w-full space-y-4">
 					<!-- Header with edit button -->
-					<div class="flex items-center justify-between">
-						<h2 class="text-xl font-semibold">Participant Details</h2>
-						<div class="flex gap-2">
+					<div class="space-y-3">
+						<div class="flex items-center justify-between">
+							<h2 class="text-xl font-semibold">Participant Details</h2>
+							<button class="btn btn-circle btn-ghost btn-sm" onclick={closeDetailsPanel}>✕</button>
+						</div>
+						<div class="flex flex-wrap gap-2">
 							{#if !isEditing}
 								<button class="btn btn-sm btn-primary" onclick={startEditing}> Edit </button>
 								<button
@@ -493,11 +606,22 @@
 								>
 									Add to Study
 								</button>
+								<button
+									class="btn btn-sm btn-accent"
+									onclick={() => {
+										showAddDeviceModal = true;
+										sensorSearch = '';
+										showSensorDropdown = false;
+										selectedSensorId = '';
+										focusedSensorIndex = -1;
+									}}
+								>
+									Add Device
+								</button>
 							{:else}
 								<button class="btn btn-ghost btn-sm" onclick={cancelEditing}> Cancel </button>
 								<button class="btn btn-sm btn-primary" onclick={saveParticipant}> Save </button>
 							{/if}
-							<button class="btn btn-circle btn-ghost btn-sm" onclick={closeDetailsPanel}>✕</button>
 						</div>
 					</div>
 
@@ -659,6 +783,42 @@
 						</div>
 					</div>
 
+					<!-- Devices -->
+					<div class="form-control">
+						<div class="flex items-center justify-between">
+							<label class="label">
+								<span class="label-text">Devices</span>
+							</label>
+						</div>
+						<div class="mt-2">
+							{#if userOwnerships.length === 0}
+								<span class="text-base-content/70">No devices assigned</span>
+							{:else}
+								<div class="space-y-2">
+									{#each userOwnerships as ownership}
+										<div class="flex flex-col gap-1 rounded bg-base-200 p-2">
+											<div class="flex items-center justify-between">
+												<span class="badge badge-accent"
+													>{ownership.sensor?.[0]?.name ?? 'Unknown'}</span
+												>
+											</div>
+											<div class="text-xs text-base-content/70">
+												<p>
+													<strong>Description:</strong>
+													{ownership.sensor?.[0]?.description ?? '—'}
+												</p>
+												<p>
+													<strong>Ownership Period:</strong>
+													{ownership.start_date} to {ownership.end_date}
+												</p>
+											</div>
+										</div>
+									{/each}
+								</div>
+							{/if}
+						</div>
+					</div>
+
 					<!-- Read-only fields -->
 					<div class="divider">Read-only Information</div>
 
@@ -683,30 +843,89 @@
 		</aside>
 	{/if}
 
-	<!-- Optional add participant modal -->
 	{#if showAddParticipantModal}
 		<div class="modal-open modal">
-			<div class="modal-box">
-				<h3 class="text-lg font-bold">Add Participant</h3>
-				<div class="mt-4 space-y-3">
-					<label class="form-control">
-						<div class="label"><span class="label-text">Username</span></div>
-						<input class="input-bordered input" bind:value={newUser.username} />
-					</label>
-
-					<label class="form-control">
-						<div class="label"><span class="label-text">Password</span></div>
-						<input class="input-bordered input" type="password" bind:value={newUser.password} />
-					</label>
-
-					<label class="form-control">
-						<div class="label"><span class="label-text">Name</span></div>
-						<input class="input-bordered input" bind:value={newUser.properties.name} />
-					</label>
+			<div class="modal-box max-w-md bg-base-100">
+				<div class="mb-6 flex items-center justify-between">
+					<h3 class="text-lg font-semibold text-base-content">Add New Participant</h3>
+					<button
+						class="btn btn-circle btn-ghost btn-sm"
+						onclick={() => (showAddParticipantModal = false)}>✕</button
+					>
 				</div>
+
+				<div class="space-y-4">
+					<!-- Username and Password row -->
+					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+						<div class="form-control">
+							<label class="label">
+								<span class="label-text">Username</span>
+							</label>
+							<input
+								class="input-bordered input input-sm"
+								placeholder="Enter username"
+								bind:value={newUser.username}
+							/>
+						</div>
+
+						<div class="form-control">
+							<label class="label">
+								<span class="label-text">Password</span>
+							</label>
+							<input
+								type="password"
+								class="input-bordered input input-sm"
+								placeholder="Enter password"
+								bind:value={newUser.password}
+							/>
+						</div>
+					</div>
+
+					<!-- Name, Age, Sex row -->
+					<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+						<div class="form-control">
+							<label class="label">
+								<span class="label-text">Name</span>
+							</label>
+							<input
+								class="input-bordered input input-sm"
+								placeholder="Enter name"
+								bind:value={newUser.properties.name}
+							/>
+						</div>
+
+						<div class="form-control">
+							<label class="label">
+								<span class="label-text">Age</span>
+							</label>
+							<input
+								type="number"
+								class="input-bordered input input-sm"
+								placeholder="Age"
+								min="1"
+								max="120"
+								bind:value={newUser.properties.age}
+							/>
+						</div>
+
+						<div class="form-control">
+							<label class="label">
+								<span class="label-text">Sex</span>
+							</label>
+							<select class="select-bordered select select-sm" bind:value={newUser.properties.sex}>
+								<option value="" disabled>Select sex</option>
+								<option value="male">Male</option>
+								<option value="female">Female</option>
+							</select>
+						</div>
+					</div>
+				</div>
+
 				<div class="modal-action">
-					<button class="btn" onclick={() => (showAddParticipantModal = false)}>Cancel</button>
-					<button class="btn btn-primary" onclick={handleAddUser}>Save</button>
+					<button class="btn btn-ghost" onclick={() => (showAddParticipantModal = false)}
+						>Cancel</button
+					>
+					<button class="btn btn-primary" onclick={handleAddUser}>Create Participant</button>
 				</div>
 			</div>
 		</div>
@@ -715,32 +934,49 @@
 	<!-- Add to study modal -->
 	{#if showAddToStudyModal}
 		<div class="modal-open modal">
-			<div class="modal-box">
-				<h3 class="text-lg font-bold">Add Participant to Study</h3>
-				<div class="mt-4 space-y-3">
-					<label class="form-control">
-						<div class="label"><span class="label-text">Select Study</span></div>
-						<select class="select-bordered select" bind:value={studyToAdd}>
-							<option value="">Select a study</option>
-							{#each studies as study}
+			<div class="modal-box max-w-md bg-base-100">
+				<div class="mb-6 flex items-center justify-between">
+					<h3 class="text-lg font-semibold text-base-content">Add Participant to Study</h3>
+					<button
+						class="btn btn-circle btn-ghost btn-sm"
+						onclick={() => (showAddToStudyModal = false)}>✕</button
+					>
+				</div>
+
+				<div class="space-y-4">
+					<div class="form-control">
+						<label class="label">
+							<span class="label-text">Select Study</span>
+						</label>
+						<select class="select-bordered select select-sm" bind:value={studyToAdd}>
+							<option value="" disabled>Select a study</option>
+							{#each studies.filter((study) => !participantStudies.some((ps) => ps.study_id === study.id)) as study}
 								<option value={study.id.toString()}>{study.name}</option>
 							{/each}
 						</select>
-					</label>
+					</div>
 
-					<label class="form-control">
-						<div class="label"><span class="label-text">Membership Start Date</span></div>
-						<input class="input-bordered input" type="date" bind:value={studyStart} />
-					</label>
+					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+						<div class="form-control">
+							<label class="label">
+								<span class="label-text">Membership Start Date</span>
+							</label>
+							<input class="input-bordered input input-sm" type="date" bind:value={studyStart} />
+						</div>
 
-					<label class="form-control">
-						<div class="label"><span class="label-text">Membership End Date</span></div>
-						<input class="input-bordered input" type="date" bind:value={studyEnd} />
-					</label>
+						<div class="form-control">
+							<label class="label">
+								<span class="label-text">Membership End Date</span>
+							</label>
+							<input class="input-bordered input input-sm" type="date" bind:value={studyEnd} />
+						</div>
+					</div>
 				</div>
+
 				<div class="modal-action">
-					<button class="btn" onclick={() => (showAddToStudyModal = false)}>Cancel</button>
-					<button class="btn btn-primary" onclick={handleAddToStudy}>Add</button>
+					<button class="btn btn-ghost" onclick={() => (showAddToStudyModal = false)}>Cancel</button
+					>
+					<button class="btn btn-primary" onclick={handleAddToStudy}>Add to Study</button>
 				</div>
 			</div>
 		</div>
@@ -749,35 +985,183 @@
 	<!-- Add study modal -->
 	{#if showAddStudyModal}
 		<div class="modal-open modal">
-			<div class="modal-box">
-				<h3 class="text-lg font-bold">Add New Study</h3>
-				<div class="mt-4 space-y-3">
-					<label class="form-control">
-						<div class="label"><span class="label-text">Study Name</span></div>
-						<input
-							class="input-bordered input"
-							bind:value={newStudy.name}
-							placeholder="Enter study name"
-						/>
-					</label>
-
-					<label class="form-control">
-						<div class="label"><span class="label-text">Active Period Start Date</span></div>
-						<input
-							class="input-bordered input"
-							type="date"
-							bind:value={newStudy.activePeriodStart}
-						/>
-					</label>
-
-					<label class="form-control">
-						<div class="label"><span class="label-text">Active Period End Date</span></div>
-						<input class="input-bordered input" type="date" bind:value={newStudy.activePeriodEnd} />
-					</label>
+			<div class="modal-box max-w-md bg-base-100">
+				<div class="mb-6 flex items-center justify-between">
+					<h3 class="text-lg font-semibold text-base-content">Add New Study</h3>
+					<button
+						class="btn btn-circle btn-ghost btn-sm"
+						onclick={() => (showAddStudyModal = false)}>✕</button
+					>
 				</div>
+
+				<div class="space-y-4">
+					<div class="form-control">
+						<label class="label">
+							<span class="label-text">Study Name</span>
+						</label>
+						<input
+							class="input-bordered input input-sm"
+							placeholder="Enter study name"
+							bind:value={newStudy.name}
+						/>
+					</div>
+
+					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+						<div class="form-control">
+							<label class="label">
+								<span class="label-text">Active Period Start Date</span>
+							</label>
+							<input
+								class="input-bordered input input-sm"
+								type="date"
+								bind:value={newStudy.activePeriodStart}
+							/>
+						</div>
+
+						<div class="form-control">
+							<label class="label">
+								<span class="label-text">Active Period End Date</span>
+							</label>
+							<input
+								class="input-bordered input input-sm"
+								type="date"
+								bind:value={newStudy.activePeriodEnd}
+							/>
+						</div>
+					</div>
+				</div>
+
 				<div class="modal-action">
-					<button class="btn" onclick={() => (showAddStudyModal = false)}>Cancel</button>
+					<button class="btn btn-ghost" onclick={() => (showAddStudyModal = false)}>Cancel</button>
 					<button class="btn btn-primary" onclick={handleAddStudy}>Add Study</button>
+				</div>
+			</div>
+		</div>
+	{/if}
+
+	<!-- Add device modal -->
+	{#if showAddDeviceModal}
+		<div class="modal-open modal">
+			<div class="modal-box max-w-md bg-base-100">
+				<div class="mb-6 flex items-center justify-between">
+					<h3 class="text-lg font-semibold text-base-content">Add Device to Participant</h3>
+					<button
+						class="btn btn-circle btn-ghost btn-sm"
+						onclick={() => (showAddDeviceModal = false)}>✕</button
+					>
+				</div>
+
+				<div class="space-y-4">
+					<div class="form-control">
+						<label class="label">
+							<span class="label-text">Select Sensor</span>
+						</label>
+						<div class="relative max-w-full">
+							<input
+								class="input-bordered input input-sm w-full"
+								type="text"
+								placeholder="Search sensors..."
+								bind:value={sensorSearch}
+								onfocus={() => {
+									showSensorDropdown = true;
+									focusedSensorIndex = -1;
+								}}
+								oninput={() => {
+									showSensorDropdown = true;
+									focusedSensorIndex = -1;
+								}}
+								onblur={() => {
+									// Delay closing to allow option selection
+									setTimeout(() => {
+										showSensorDropdown = false;
+										focusedSensorIndex = -1;
+									}, 150);
+								}}
+								onkeydown={(e) => {
+									if (!showSensorDropdown || filteredSensors.length === 0) return;
+
+									switch (e.key) {
+										case 'ArrowDown':
+											e.preventDefault();
+											focusedSensorIndex = Math.min(
+												focusedSensorIndex + 1,
+												filteredSensors.length - 1
+											);
+											break;
+										case 'ArrowUp':
+											e.preventDefault();
+											focusedSensorIndex = Math.max(focusedSensorIndex - 1, -1);
+											break;
+										case 'Enter':
+											e.preventDefault();
+											if (focusedSensorIndex >= 0 && focusedSensorIndex < filteredSensors.length) {
+												selectSensor(filteredSensors[focusedSensorIndex]);
+											}
+											break;
+										case 'Escape':
+											e.preventDefault();
+											showSensorDropdown = false;
+											focusedSensorIndex = -1;
+											break;
+									}
+								}}
+								required
+							/>
+							{#if showSensorDropdown && filteredSensors.length > 0}
+								<ul
+									class="absolute right-0 left-0 z-10 mt-1 max-h-48 overflow-y-auto rounded-box border border-base-300 bg-base-100 shadow-lg"
+									onmousedown={(e) => e.preventDefault()}
+								>
+									{#each filteredSensors as sensor, index}
+										<li
+											class="cursor-pointer p-3 hover:bg-base-200 {focusedSensorIndex === index
+												? 'bg-base-200'
+												: ''}"
+											onclick={() => selectSensor(sensor)}
+											onmouseenter={() => (focusedSensorIndex = index)}
+											onmouseleave={() => (focusedSensorIndex = -1)}
+										>
+											<div class="font-medium">{sensor.name}</div>
+											{#if sensor.description}
+												<div class="text-sm text-base-content/70">{sensor.description}</div>
+											{/if}
+										</li>
+									{/each}
+								</ul>
+							{/if}
+						</div>
+					</div>
+
+					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+						<div class="form-control">
+							<label class="label">
+								<span class="label-text">Ownership Start Date</span>
+							</label>
+							<input
+								class="input-bordered input input-sm"
+								type="date"
+								bind:value={newOwnership.start_date}
+								required
+							/>
+						</div>
+
+						<div class="form-control">
+							<label class="label">
+								<span class="label-text">Ownership End Date</span>
+							</label>
+							<input
+								class="input-bordered input input-sm"
+								type="date"
+								bind:value={newOwnership.end_date}
+								required
+							/>
+						</div>
+					</div>
+				</div>
+
+				<div class="modal-action">
+					<button class="btn btn-ghost" onclick={() => (showAddDeviceModal = false)}>Cancel</button>
+					<button class="btn btn-primary" onclick={handleAddDevice}>Add Device</button>
 				</div>
 			</div>
 		</div>
