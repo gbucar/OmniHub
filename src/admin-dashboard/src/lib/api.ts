@@ -19,7 +19,7 @@ export type Ownership = {
 	start_date: string;
 	end_date: string;
 	sys_created_at?: string;
-	sensor?: Sensor[];
+	sensors?: Sensor[];
 };
 
 export type Participant = {
@@ -210,7 +210,7 @@ export const getUserOwnerships = async (userId: string): Promise<Ownership[]> =>
 			start_date,
 			end_date,
 			sys_created_at,
-			sensor (
+			sensors (
 				id,
 				name,
 				description,
