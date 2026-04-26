@@ -626,7 +626,7 @@
 					</div>
 
 					<!-- Editable fields -->
-					<div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+					<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
 						<!-- Name -->
 						<div class="form-control">
 							<label class="label">
@@ -634,7 +634,7 @@
 							</label>
 							{#if isEditing}
 								<input
-									class="input-bordered input"
+									class="input-bordered input input-sm"
 									type="text"
 									placeholder="Enter name"
 									bind:value={editedProperties.name}
@@ -653,9 +653,9 @@
 							</label>
 							{#if isEditing}
 								<input
-									class="input-bordered input"
+									class="input-bordered input input-sm"
 									type="number"
-									placeholder="Enter age"
+									placeholder="Age"
 									min="1"
 									max="120"
 									bind:value={editedProperties.age}
@@ -673,8 +673,8 @@
 								<span class="label-text">Sex</span>
 							</label>
 							{#if isEditing}
-								<select class="select-bordered select" bind:value={editedProperties.sex}>
-									<option value="">Select sex</option>
+								<select class="select-bordered select select-sm" bind:value={editedProperties.sex}>
+									<option value="" disabled>Select sex</option>
 									<option value="male">Male</option>
 									<option value="female">Female</option>
 								</select>
