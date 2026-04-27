@@ -253,12 +253,14 @@
 								{#each userOwnerships as ownership}
 									<div class="flex flex-col gap-1 rounded bg-base-200 p-2">
 										<div class="flex items-center justify-between">
-											<span class="badge badge-accent">{ownership.sensors?.name ?? 'Unknown'}</span>
+											<span class="badge badge-accent"
+												>{ownership.list_sensors?.name ?? 'Unknown'}</span
+											>
 										</div>
 										<div class="text-xs text-base-content/70">
 											<p>
 												<strong>Description:</strong>
-												{ownership.sensors?.description ?? '—'}
+												{ownership.list_sensors?.description ?? '—'}
 											</p>
 											<p>
 												<strong>Ownership Period:</strong>

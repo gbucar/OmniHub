@@ -1,0 +1,47 @@
+-- 1. Create the shared credentials first
+INSERT INTO auth.credentials (description, properties) 
+VALUES ('API_KEY', '{"api_key": ""}') 
+RETURNING id;
+
+-- 2. Insert the Atmotube sensors
+INSERT INTO data.sensors (name, sensor_type, description, properties, credential_id) VALUES
+('Atmotube 3', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "e6:3c:bb:62:1a:ab", "internal_id": 3}', 1),
+('Atmotube 4', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "fc:99:19:9a:8b:2f", "internal_id": 4}', 1),
+('Atmotube 1', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "df:ad:1c:76:93:81", "internal_id": 1}', 1),
+('Atmotube 5', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "ec:85:bd:ea:ab:bf", "internal_id": 5}', 1),
+('Atmotube 6', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "ed:5f:f5:33:19:c3", "internal_id": 6}', 1),
+('Atmotube 8', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "e1:29:dd:7b:4d:c3", "internal_id": 8}', 1),
+('Atmotube 10', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "f6:4f:0c:c6:4b:7b", "internal_id": 10}', 1),
+('Atmotube 2', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "e0:06:6c:05:50:4e", "internal_id": 2}', 1),
+('Atmotube 7', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "c8:4b:08:35:34:81", "internal_id": 7}', 1),
+('Atmotube 9', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "ed:a1:88:a5:8f:10", "internal_id": 9}', 1),
+('Atmotube 11', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "db:99:85:8a:ed:8e", "internal_id": 11}', 1),
+('Atmotube 12', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "fd:33:c6:b6:b8:ac", "internal_id": 12}', 1),
+('Atmotube 13', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "f6:14:4b:8a:6e:9b", "internal_id": 13}', 1),
+('Atmotube 14', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "ca:8b:3d:09:63:a6", "internal_id": 14}', 1),
+('Atmotube 15', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "f6:32:e0:c9:de:a0", "internal_id": 15}', 1),
+('Atmotube 16', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "c2:ee:f9:6a:1c:f2", "internal_id": 16}', 1),
+('Atmotube 17', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "fa:b2:07:a7:38:ef", "internal_id": 17}', 1),
+('Atmotube 18', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "ce:7a:f4:5d:ab:da", "internal_id": 18}', 1),
+('Atmotube 19', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "ce:79:db:53:3b:4f", "internal_id": 19}', 1),
+('Atmotube 20', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "ca:7c:6e:bd:75:68", "internal_id": 20}', 1),
+('Atmotube 21', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "fd:ee:db:3f:8d:1e", "internal_id": 21}', 1),
+('Atmotube 22', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "ef:3f:94:33:a2:78", "internal_id": 22}', 1),
+('Atmotube 23', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "ff:a8:a6:9a:73:09", "internal_id": 23}', 1),
+('Atmotube 24', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "dd:1f:85:82:42:40", "internal_id": 24}', 1),
+('Atmotube 25', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "cf:21:e3:d6:76:4c", "internal_id": 25}', 1),
+('Atmotube 26', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "df:9d:38:5d:f5:c1", "internal_id": 26}', 1),
+('Atmotube 27', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "e6:fb:0c:ea:08:d8", "internal_id": 27}', 1),
+('Atmotube 28', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "fb:4d:10:0d:c4:34", "internal_id": 28}', 1),
+('Atmotube 29', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "d9:0e:4a:09:9e:d6", "internal_id": 29}', 1),
+('Atmotube 30', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "cd:d2:72:49:8d:c9", "internal_id": 30}', 1),
+('Atmotube 31', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "d9:c0:d8:20:f9:dc", "internal_id": 31}', 1),
+('Atmotube 32', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "ed:ad:56:7a:5d:cf", "internal_id": 32}', 1),
+('Atmotube 33', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "f8:fa:3a:4e:b1:b1", "internal_id": 33}', 1),
+('Atmotube 34', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "ce:b4:bd:f7:5e:61", "internal_id": 34}', 1),
+('Atmotube 35', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "e4:52:81:f1:af:c4", "internal_id": 35}', 1),
+('Atmotube 36', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "c8:85:5c:ba:d2:f1", "internal_id": 36}', 1),
+('Atmotube 37', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "da:ae:a4:9a:d7:9a", "internal_id": 37}', 1),
+('Atmotube 38', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "d1:49:11:25:4a:d5", "internal_id": 38}', 1),
+('Atmotube 39', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "f1:f9:c0:d7:f4:7b", "internal_id": 39}', 1),
+('Atmotube 40', 'ATMOTUBE_PRO', NULL, '{"atmotube_id": "f1:81:b6:46:a2:bc", "internal_id": 40}', 1);

@@ -5,7 +5,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 -->
 <dbmodel pgmodeler-ver="1.2.2" use-changelog="false" max-obj-count="46"
 	 gen-disabled-objs-code="false" show-sys-schemas-rects="true"
-	 last-position="0,-36" last-zoom="0.6" scene-rect="-948,-170,2914.32,1819.12"
+	 last-position="-139,0" last-zoom="0.7" scene-rect="-948,-170,2914.32,1819.12"
 	 default-schema="public" default-owner="postgres"
 	 layers="Default layer"
 	 active-layers="0"
@@ -70,7 +70,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 <table name="users" layers="0" collapse-mode="2" pagination="true" attribs-page="0" ext-attribs-page="0" rls-enabled="true" max-obj-count="6" z-value="0">
 	<schema name="auth"/>
 	<role name="postgres"/>
-	<position x="-400" y="-120"/>
+	<position x="-420" y="-120"/>
 	<column name="id" not-null="true" default-value="uuidv7()">
 		<type name="uuid" length="0"/>
 	</column>
@@ -94,13 +94,16 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	</constraint>
 </table>
 
-<table name="sensors" layers="0" collapse-mode="2" rls-enabled="true" max-obj-count="7" z-value="0">
+<table name="sensors" layers="0" collapse-mode="2" rls-enabled="true" max-obj-count="8" z-value="0">
 	<schema name="data"/>
 	<role name="postgres"/>
 	<comment> <![CDATA[Sensors of any kind, this can be a physical sensor, a mobile phone application, a sensor connected to a mobile phone app (fitbit) ... But, it has to be identifiable]]> </comment>
 	<position x="-920" y="420"/>
 	<column name="id" not-null="true">
 		<type name="bigserial" length="0"/>
+	</column>
+	<column name="sensor_type" not-null="true">
+		<type name="text" length="0"/>
 	</column>
 	<column name="name">
 		<type name="text" length="0"/>
@@ -486,13 +489,13 @@ end;
 	</constraint>
 </table>
 
-<view name="sensors" layers="0" security-invoker="true" collapse-mode="0" max-obj-count="0" z-value="0">
+<view name="list_sensors" layers="0" security-invoker="true" collapse-mode="0" max-obj-count="0" z-value="0">
 	<schema name="api"/>
 	<role name="postgres"/>
 	<position x="580" y="20"/>
 	<definition> <![CDATA[select s.*, max(upper(phenomenon_time)) as last_activity from data.sensors s
-join data.data_stream ds on s.id = ds.sensor_id
-join data.observations ob on ob.data_stream_id = ds.id
+left join data.data_stream ds on s.id = ds.sensor_id
+left join data.observations ob on ob.data_stream_id = ds.id
 group by s.id]]> </definition>
 </view>
 
@@ -817,6 +820,14 @@ end;
 ]]> </definition>
 </view>
 
+<view name="sensors" layers="0" security-invoker="true" collapse-mode="2" max-obj-count="0" z-value="0">
+	<schema name="api"/>
+	<role name="postgres"/>
+	<position x="600" y="180"/>
+	<definition> <![CDATA[select * from data.sensors
+]]> </definition>
+</view>
+
 <constraint name="fk_sensors_credentials_credential_id" type="fk-constr" comparison-type="MATCH SIMPLE"
 	 upd-action="NO ACTION" del-action="NO ACTION" ref-table="auth.credentials" table="data.sensors">
 	<columns names="credential_id" ref-type="src-columns"/>
@@ -971,7 +982,7 @@ end;
 	<privileges select="true"/>
 </permission>
 <permission>
-	<object name="api.sensors" type="view"/>
+	<object name="api.list_sensors" type="view"/>
 	<roles names="webuser,admin"/>
 	<privileges select="true"/>
 </permission>

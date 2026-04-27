@@ -118,6 +118,7 @@ ALTER TABLE auth.users ENABLE ROW LEVEL SECURITY;
 -- DROP TABLE IF EXISTS data.sensors CASCADE;
 CREATE TABLE data.sensors (
 	id bigserial NOT NULL,
+	sensor_type text NOT NULL,
 	name text,
 	description text,
 	properties jsonb,
@@ -428,17 +429,17 @@ ALTER TABLE data.many_participants_studies OWNER TO postgres;
 ALTER TABLE data.many_participants_studies ENABLE ROW LEVEL SECURITY;
 -- ddl-end --
 
--- object: api.sensors | type: VIEW --
--- DROP VIEW IF EXISTS api.sensors CASCADE;
-CREATE OR REPLACE VIEW api.sensors
+-- object: api.list_sensors | type: VIEW --
+-- DROP VIEW IF EXISTS api.list_sensors CASCADE;
+CREATE OR REPLACE VIEW api.list_sensors
 WITH (security_invoker=true)
 AS 
 select s.*, max(upper(phenomenon_time)) as last_activity from data.sensors s
-join data.data_stream ds on s.id = ds.sensor_id
-join data.observations ob on ob.data_stream_id = ds.id
+left join data.data_stream ds on s.id = ds.sensor_id
+left join data.observations ob on ob.data_stream_id = ds.id
 group by s.id;
 -- ddl-end --
-ALTER VIEW api.sensors OWNER TO postgres;
+ALTER VIEW api.list_sensors OWNER TO postgres;
 -- ddl-end --
 
 -- object: allow_webuser_select_own_participant_data | type: POLICY --
@@ -904,6 +905,16 @@ select * from data.ownerships;
 ALTER VIEW api.ownerships OWNER TO postgres;
 -- ddl-end --
 
+-- object: api.sensors | type: VIEW --
+-- DROP VIEW IF EXISTS api.sensors CASCADE;
+CREATE OR REPLACE VIEW api.sensors
+WITH (security_invoker=true)
+AS 
+select * from data.sensors;
+-- ddl-end --
+ALTER VIEW api.sensors OWNER TO postgres;
+-- ddl-end --
+
 -- object: fk_sensors_credentials_credential_id | type: CONSTRAINT --
 -- ALTER TABLE data.sensors DROP CONSTRAINT IF EXISTS fk_sensors_credentials_credential_id CASCADE;
 ALTER TABLE data.sensors ADD CONSTRAINT fk_sensors_credentials_credential_id FOREIGN KEY (credential_id)
@@ -1049,7 +1060,7 @@ GRANT SELECT
 
 -- object: grant_r_565cc0b08e | type: PERMISSION --
 GRANT SELECT
-   ON TABLE api.sensors
+   ON TABLE api.list_sensors
    TO webuser,admin;
 
 -- ddl-end --

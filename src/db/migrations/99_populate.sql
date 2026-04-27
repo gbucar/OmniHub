@@ -21,39 +21,25 @@ FROM auth.users
 WHERE role = 'webuser'
 ON CONFLICT (user_id) DO NOTHING;
 
--- 2. VSTAVLJANJE 2 SENZORJEV (Atmotube)
-INSERT INTO data.sensors (name, description, properties)
-VALUES 
-    ('Atmotube Pro 1', 'Prenosna naprava za kakovost zraka', '{"model": "Pro", "version": "2.0"}'::jsonb),
-    ('Atmotube Pro 2', 'Prenosna naprava za kakovost zraka', '{"model": "Pro", "version": "2.1"}'::jsonb);
+
 
 -- 3. VSTAVLJANJE LASTNIŠTVA (Ownerships)
--- Vsakemu od 5 uporabnikov dodelimo eno napravo (prvim trem prvo, ostalima dvema drugo)
+-- Vsakemu od 5 uporabnikov dodelimo eno napravo (vsak svojo)
 INSERT INTO data.ownerships (user_id, sensor_id, start_date, end_date)
 SELECT 
     p.user_id, 
-    CASE 
-        WHEN u.username IN ('janez_novak', 'marija_reka', 'luka_gora') THEN (SELECT id FROM data.sensors WHERE name = 'Atmotube Pro 1')
-        ELSE (SELECT id FROM data.sensors WHERE name = 'Atmotube Pro 2')
-    END as sensor_id,
+CASE u.username
+    WHEN 'janez_novak' THEN (SELECT id FROM data.sensors WHERE id = 1)
+    WHEN 'marija_reka' THEN (SELECT id FROM data.sensors WHERE id = 2)
+    WHEN 'luka_gora' THEN (SELECT id FROM data.sensors WHERE id = 3)
+    WHEN 'ana_sonce' THEN (SELECT id FROM data.sensors WHERE id = 4)
+    WHEN 'tine_hrib' THEN (SELECT id FROM data.sensors WHERE id = 5)
+END as sensor_id,
     NOW() - INTERVAL '30 days',
     NOW() + INTERVAL '1 year'
 FROM data.participants p
 JOIN auth.users u ON p.user_id = u.id
 WHERE u.role = 'webuser';
-
--- 4. VSTAVLJANJE DATASTREAM-ov (Pravilna uporaba unnest v JOIN-u)
-INSERT INTO data.data_stream (sensor_id, name, description, unit_of_measurement)
-SELECT 
-    s.id, 
-    t.st_name,
-    'Meritve okolja iz Atmotube',
-    CASE 
-        WHEN t.st_name = 'temperature' THEN '{"unit": "Celsius", "symbol": "°C"}'::jsonb
-        ELSE '{"unit": "Micrograms per Cubic Meter", "symbol": "µg/m³"}'::jsonb
-    END
-FROM data.sensors s
-CROSS JOIN (SELECT unnest(ARRAY['temperature', 'pm25']) AS st_name) t;
 
 -- 5. VSTAVLJANJE LOKACIJ
 INSERT INTO data.locations (geog, properties)

@@ -19,7 +19,7 @@ export type Ownership = {
 	start_date: string;
 	end_date: string;
 	sys_created_at?: string;
-	sensors?: Sensor;
+	list_sensors?: Sensor;
 };
 
 export type Participant = {
@@ -196,7 +196,7 @@ export const updateParticipantStudyPeriod = async (
 };
 
 export const getSensors = async () => {
-	let data = await pgClient?.from('sensors').select('*');
+	let data = await pgClient?.from('list_sensors').select('*');
 	return data?.data ?? [];
 };
 
@@ -210,7 +210,7 @@ export const getUserOwnerships = async (userId: string): Promise<Ownership[]> =>
 			start_date,
 			end_date,
 			sys_created_at,
-			sensors (
+			list_sensors (
 				id,
 				name,
 				description,
@@ -222,7 +222,7 @@ export const getUserOwnerships = async (userId: string): Promise<Ownership[]> =>
 		`
 		)
 		.eq('user_id', userId);
-	return data?.data ?? [];
+	return (data?.data as unknown as Ownership[]) ?? [];
 };
 
 export const addOwnership = async (ownership: {
