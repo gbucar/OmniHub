@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 var client = &http.Client{
@@ -23,11 +24,20 @@ var client = &http.Client{
 	},
 }
 
-func main() {
+func LogDB(name string, message string, queries *db.Queries, ctx context.Context) {
 
-	connectionString := os.Getenv("PIPELINE_CONNECTION_STRING")
-	ctx := context.Background()
+	queries.ExecutionLog(ctx, db.ExecutionLogParams{
+		Name: name,
+		Datetime: pgtype.Timestamptz{
+			Time:  time.Now(),
+			Valid: true,
+		},
+		Value: fmt.Appendf(nil, `{"message": "%s"}`, message),
+	})
 
+}
+
+func execute(connectionString string, ctx context.Context) {
 	conn, err := pgx.Connect(ctx, connectionString)
 
 	if err != nil {
@@ -38,9 +48,12 @@ func main() {
 
 	queries := db.New(conn)
 
+	LogDB("EXECUTION_STARTED", "Execution started", queries, ctx)
+
 	atmotubes, err := queries.ListAtmotubes(ctx)
 
 	if err != nil {
+		LogDB("DB_ERROR", fmt.Sprintf("Couldn't load atmotubes: %v", err), queries, ctx)
 		panic(err)
 	}
 
@@ -55,15 +68,33 @@ func main() {
 		extracted, err := atmotube.Extract(ctx, client, atmotubeDevice.AtmotubeID, atmotubeDevice.ApiKey, startTime, endTime)
 
 		if err != nil {
+			LogDB("ERROR", fmt.Sprintf("Couldn't extract atmotubes: %v", err), queries, ctx)
 			log.Fatalf("extracting error: %v", err)
 		}
 
 		err = atmotube.Load(atmotubeDevice, extracted, ctx, queries, conn)
 
 		if err != nil {
+			LogDB("ERROR", fmt.Sprintf("Couldn't load atmotubes: %v", err), queries, ctx)
 			log.Fatalf("loading error: %v", err)
 		}
 
+	}
+
+	LogDB("EXECUTION_ENDED", "", queries, ctx)
+
+}
+
+func main() {
+
+	connectionString := os.Getenv("PIPELINE_CONNECTION_STRING")
+	ctx := context.Background()
+
+	time.Sleep(10 * time.Minute)
+
+	for true {
+		execute(connectionString, ctx)
+		time.Sleep(time.Hour * 1)
 	}
 
 }

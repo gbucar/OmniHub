@@ -38,3 +38,12 @@ services:
       - "8080:8080"
     environment:
       - SWAGGER_JSON_URL=${POSTGREST_URL}
+  
+  pipelines:
+      build: ./src/pipelines
+      image: pipelines
+      restart: unless-stopped
+      depends_on:
+        - db
+      environment:
+        PIPELINE_CONNECTION_STRING=${PIPELINE_CONNECTION_STRING}
