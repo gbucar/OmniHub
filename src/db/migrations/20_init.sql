@@ -207,16 +207,17 @@ ALTER TABLE data.participants ENABLE ROW LEVEL SECURITY;
 CREATE TABLE data.observations (
 	id bigserial NOT NULL,
 	data_stream_id bigint NOT NULL,
-	phenomenon_time tstzrange,
+	phenomenon_time tstzrange NOT NULL,
 	result numeric NOT NULL,
 	properties jsonb,
 	location_id bigint,
-	CONSTRAINT observation_pk PRIMARY KEY (id)
+	CONSTRAINT observation_pk PRIMARY KEY (id),
+	CONSTRAINT observations_phenomenon_time_datastream_id_unique UNIQUE (data_stream_id,phenomenon_time)
 );
 -- ddl-end --
 COMMENT ON TABLE data.observations IS E'Measurement of the datastream';
 -- ddl-end --
-COMMENT ON COLUMN data.observations.phenomenon_time IS E'The actual time or period when the measurement occurred in the real world (e.g., when the user''s heart actually beat)';
+COMMENT ON COLUMN data.observations.phenomenon_time IS E'The time period when the measurement occurred in the real world.';
 -- ddl-end --
 COMMENT ON COLUMN data.observations.result IS E'The measured value';
 -- ddl-end --

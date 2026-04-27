@@ -5,7 +5,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 -->
 <dbmodel pgmodeler-ver="1.2.2" use-changelog="false" max-obj-count="46"
 	 gen-disabled-objs-code="false" show-sys-schemas-rects="true"
-	 last-position="-139,0" last-zoom="0.7" scene-rect="-948,-170,2914.32,1819.12"
+	 last-position="-655,0" last-zoom="0.7" scene-rect="-948,-170,2914.32,1841.72"
 	 default-schema="public" default-owner="postgres"
 	 layers="Default layer"
 	 active-layers="0"
@@ -229,9 +229,9 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<column name="data_stream_id" not-null="true">
 		<type name="bigint" length="0"/>
 	</column>
-	<column name="phenomenon_time">
+	<column name="phenomenon_time" not-null="true">
 		<type name="tstzrange" length="0"/>
-		<comment> <![CDATA[The actual time or period when the measurement occurred in the real world (e.g., when the user's heart actually beat)]]> </comment>
+		<comment> <![CDATA[The time period when the measurement occurred in the real world.]]> </comment>
 	</column>
 	<column name="result" not-null="true">
 		<type name="numeric" length="0"/>
@@ -245,6 +245,9 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	</column>
 	<constraint name="observation_pk" type="pk-constr" table="data.observations">
 		<columns names="id" ref-type="src-columns"/>
+	</constraint>
+	<constraint name="observations_phenomenon_time_datastream_id_unique" type="uq-constr" table="data.observations">
+		<columns names="data_stream_id,phenomenon_time" ref-type="src-columns"/>
 	</constraint>
 </table>
 
@@ -823,7 +826,7 @@ end;
 <view name="sensors" layers="0" security-invoker="true" collapse-mode="2" max-obj-count="0" z-value="0">
 	<schema name="api"/>
 	<role name="postgres"/>
-	<position x="600" y="180"/>
+	<position x="600" y="200"/>
 	<definition> <![CDATA[select * from data.sensors
 ]]> </definition>
 </view>
