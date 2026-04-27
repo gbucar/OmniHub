@@ -41,26 +41,6 @@ FROM data.participants p
 JOIN auth.users u ON p.user_id = u.id
 WHERE u.role = 'webuser';
 
--- 5. VSTAVLJANJE LOKACIJ
-INSERT INTO data.locations (geog, properties)
-VALUES 
-    (ST_GeogFromText('SRID=4326;POINT(14.5058 46.0569)'), '{"city": "Ljubljana", "station": "Center"}'::jsonb),
-    (ST_GeogFromText('SRID=4326;POINT(15.6459 46.5547)'), '{"city": "Maribor", "station": "Tezno"}'::jsonb);
-
--- 6. VSTAVLJANJE OPAZOVANJ (Observations)
--- Za vsak datastream vstavimo 2 meritvi
-INSERT INTO data.observations (data_stream_id, phenomenon_time, result, location_id)
-SELECT 
-    ds.id,
-    tstzrange(NOW() - (v.minut || ' minutes')::interval, NOW() - (v.minut || ' minutes')::interval, '[]'),
-    CASE 
-        WHEN ds.name = 'temperature' THEN (20 + (random() * 5))
-        ELSE (5 + (random() * 15))
-    END,
-    (SELECT id FROM data.locations ORDER BY random() LIMIT 1) -- Naključna lokacija
-FROM data.data_stream ds
-CROSS JOIN (SELECT unnest(ARRAY[5, 10]) AS minut) v;
-
 -- 7. NASTAVITVE POSTGREST
 INSERT INTO config.app_settings
 (setting_value, setting_name)

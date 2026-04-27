@@ -106,3 +106,7 @@ SELECT
 FROM data.participants p
 JOIN auth.users u ON p.user_id = u.id
 WHERE u.username IN ('ana_sonce', 'tine_hrib');
+
+
+
+

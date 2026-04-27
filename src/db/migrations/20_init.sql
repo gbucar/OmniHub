@@ -34,9 +34,10 @@ CREATE ROLE admin WITH
 	ROLE postgrest;
 -- ddl-end --
 
--- object: integration | type: ROLE --
--- DROP ROLE IF EXISTS integration;
-CREATE ROLE integration WITH 
+-- object: pipeline | type: ROLE --
+-- DROP ROLE IF EXISTS pipeline;
+CREATE ROLE pipeline WITH 
+	LOGIN
 	ROLE postgrest;
 -- ddl-end --
 
@@ -88,13 +89,20 @@ CREATE SCHEMA config;
 ALTER SCHEMA config OWNER TO postgres;
 -- ddl-end --
 
-SET search_path TO pg_catalog,public,auth,api,data,log,config;
+-- object: postgis | type: SCHEMA --
+-- DROP SCHEMA IF EXISTS postgis CASCADE;
+CREATE SCHEMA postgis;
+-- ddl-end --
+ALTER SCHEMA postgis OWNER TO postgres;
+-- ddl-end --
+
+SET search_path TO pg_catalog,public,auth,api,data,log,config,postgis;
 -- ddl-end --
 
 -- object: postgis | type: EXTENSION --
 -- DROP EXTENSION IF EXISTS postgis CASCADE;
 CREATE EXTENSION postgis
-WITH SCHEMA public;
+WITH SCHEMA postgis;
 -- ddl-end --
 
 -- object: auth.users | type: TABLE --
@@ -136,23 +144,17 @@ ALTER TABLE data.sensors OWNER TO postgres;
 ALTER TABLE data.sensors ENABLE ROW LEVEL SECURITY;
 -- ddl-end --
 
--- object: data.data_stream | type: TABLE --
--- DROP TABLE IF EXISTS data.data_stream CASCADE;
-CREATE TABLE data.data_stream (
-	id bigserial NOT NULL,
-	sensor_id bigint,
-	name text,
-	description text,
-	unit_of_measurement jsonb,
-	properties jsonb,
-	CONSTRAINT data_stream_pk PRIMARY KEY (id)
-);
--- ddl-end --
-COMMENT ON TABLE data.data_stream IS E'Something that the sensor measures (temperature, humidity, speed ...)';
--- ddl-end --
-ALTER TABLE data.data_stream OWNER TO postgres;
--- ddl-end --
-ALTER TABLE data.data_stream ENABLE ROW LEVEL SECURITY;
+-- object: data.data_streams_id_seq | type: SEQUENCE --
+-- DROP SEQUENCE IF EXISTS data.data_streams_id_seq CASCADE;
+CREATE SEQUENCE data.data_streams_id_seq
+	INCREMENT BY 1
+	MINVALUE -9223372036854775808
+	MAXVALUE 9223372036854775807
+	START WITH 1
+	CACHE 1
+	NO CYCLE
+	OWNED BY NONE;
+
 -- ddl-end --
 
 -- object: data.ownerships | type: TABLE --
@@ -171,20 +173,17 @@ ALTER TABLE data.ownerships OWNER TO postgres;
 ALTER TABLE data.ownerships ENABLE ROW LEVEL SECURITY;
 -- ddl-end --
 
--- object: data.locations | type: TABLE --
--- DROP TABLE IF EXISTS data.locations CASCADE;
-CREATE TABLE data.locations (
-	id bigserial NOT NULL,
-	geog geography,
-	properties jsonb,
-	CONSTRAINT features_of_interest_pk PRIMARY KEY (id)
-);
--- ddl-end --
-COMMENT ON TABLE data.locations IS E'Geographic location where the observation was made';
--- ddl-end --
-ALTER TABLE data.locations OWNER TO postgres;
--- ddl-end --
-ALTER TABLE data.locations ENABLE ROW LEVEL SECURITY;
+-- object: data.locations_id_seq | type: SEQUENCE --
+-- DROP SEQUENCE IF EXISTS data.locations_id_seq CASCADE;
+CREATE SEQUENCE data.locations_id_seq
+	INCREMENT BY 1
+	MINVALUE -9223372036854775808
+	MAXVALUE 9223372036854775807
+	START WITH 1
+	CACHE 1
+	NO CYCLE
+	OWNED BY NONE;
+
 -- ddl-end --
 
 -- object: data.participants | type: TABLE --
@@ -202,28 +201,17 @@ ALTER TABLE data.participants OWNER TO postgres;
 ALTER TABLE data.participants ENABLE ROW LEVEL SECURITY;
 -- ddl-end --
 
--- object: data.observations | type: TABLE --
--- DROP TABLE IF EXISTS data.observations CASCADE;
-CREATE TABLE data.observations (
-	id bigserial NOT NULL,
-	data_stream_id bigint NOT NULL,
-	phenomenon_time tstzrange NOT NULL,
-	result numeric NOT NULL,
-	properties jsonb,
-	location_id bigint,
-	CONSTRAINT observation_pk PRIMARY KEY (id),
-	CONSTRAINT observations_phenomenon_time_datastream_id_unique UNIQUE (data_stream_id,phenomenon_time)
-);
--- ddl-end --
-COMMENT ON TABLE data.observations IS E'Measurement of the datastream';
--- ddl-end --
-COMMENT ON COLUMN data.observations.phenomenon_time IS E'The time period when the measurement occurred in the real world.';
--- ddl-end --
-COMMENT ON COLUMN data.observations.result IS E'The measured value';
--- ddl-end --
-ALTER TABLE data.observations OWNER TO postgres;
--- ddl-end --
-ALTER TABLE data.observations ENABLE ROW LEVEL SECURITY;
+-- object: data.observations_id_seq | type: SEQUENCE --
+-- DROP SEQUENCE IF EXISTS data.observations_id_seq CASCADE;
+CREATE SEQUENCE data.observations_id_seq
+	INCREMENT BY 1
+	MINVALUE -9223372036854775808
+	MAXVALUE 9223372036854775807
+	START WITH 1
+	CACHE 1
+	NO CYCLE
+	OWNED BY NONE;
+
 -- ddl-end --
 
 -- object: allow_admin_select_user_data | type: POLICY --
@@ -305,57 +293,24 @@ $function$;
 ALTER FUNCTION auth.get_user_by_username(text,text) OWNER TO postgres;
 -- ddl-end --
 
--- object: api.login | type: FUNCTION --
--- DROP FUNCTION IF EXISTS api.login(text,text) CASCADE;
-CREATE OR REPLACE FUNCTION api.login (IN username text, IN password text)
-	RETURNS json
-	LANGUAGE plpgsql
-	VOLATILE 
-	CALLED ON NULL INPUT
-	SECURITY DEFINER
-	PARALLEL UNSAFE
-	COST 1
-	AS 
-$function$
-declare
-_role name;
-_id uuid;
-_jwt_secret text;
-_jwt_duration_seconds bigint;
-_token text;
-begin
-SELECT role, id INTO _role, _id 
-  FROM auth.get_user_by_username(login.username, login.password);
-
-  if _role is null then
-    insert into log.login_attempts (username, success, properties) 
-      values (login.username, false, '{}');
-    perform set_config('response.status', '401', true);
-    return  json_build_object('error', 'invalid username or password') ;
-  end if;
-
-  select setting_value into _jwt_secret
-  from config.app_settings s where s.setting_name = 'POSTGREST_JWT_SECRET';
-
-  select setting_value::bigint into _jwt_duration_seconds
-  from config.app_settings s where s.setting_name = 'POSTGREST_JWT_DURATION_SECONDS';
-
-  select sign(
-      row_to_json(r), _jwt_secret
-    ) as token
-    from (
-      select _role as role, _id as id,
-         extract(epoch from now())::bigint + _jwt_duration_seconds as exp
-    ) r
-    into _token;
-
-  insert into log.login_attempts (username, success, properties) values (login.username, true, '{}');
-
-  return json_build_object('token', _token);
-end;
-$function$;
+-- object: data.data_streams | type: TABLE --
+-- DROP TABLE IF EXISTS data.data_streams CASCADE;
+CREATE TABLE data.data_streams (
+	id bigint NOT NULL DEFAULT nextval('data.data_streams_id_seq'::regclass),
+	sensor_id bigint,
+	name text,
+	description text,
+	unit_of_measurement text,
+	properties jsonb,
+	CONSTRAINT data_stream_pk PRIMARY KEY (id),
+	CONSTRAINT data_streams_sensor_id_name_unique UNIQUE (sensor_id,name)
+);
 -- ddl-end --
-ALTER FUNCTION api.login(text,text) OWNER TO postgres;
+COMMENT ON TABLE data.data_streams IS E'Something that the sensor measures (temperature, humidity, speed ...)';
+-- ddl-end --
+ALTER TABLE data.data_streams OWNER TO postgres;
+-- ddl-end --
+ALTER TABLE data.data_streams ENABLE ROW LEVEL SECURITY;
 -- ddl-end --
 
 -- object: api.change_password | type: FUNCTION --
@@ -430,17 +385,28 @@ ALTER TABLE data.many_participants_studies OWNER TO postgres;
 ALTER TABLE data.many_participants_studies ENABLE ROW LEVEL SECURITY;
 -- ddl-end --
 
--- object: api.list_sensors | type: VIEW --
--- DROP VIEW IF EXISTS api.list_sensors CASCADE;
-CREATE OR REPLACE VIEW api.list_sensors
-WITH (security_invoker=true)
-AS 
-select s.*, max(upper(phenomenon_time)) as last_activity from data.sensors s
-left join data.data_stream ds on s.id = ds.sensor_id
-left join data.observations ob on ob.data_stream_id = ds.id
-group by s.id;
+-- object: data.observations | type: TABLE --
+-- DROP TABLE IF EXISTS data.observations CASCADE;
+CREATE TABLE data.observations (
+	id bigint NOT NULL DEFAULT nextval('data.observations_id_seq'::regclass),
+	data_stream_id bigint NOT NULL,
+	phenomenon_time tstzrange NOT NULL,
+	result float8 NOT NULL,
+	properties jsonb,
+	location_id bigint,
+	CONSTRAINT observation_pk PRIMARY KEY (id),
+	CONSTRAINT observations_phenomenon_time_datastream_id_unique UNIQUE (data_stream_id,phenomenon_time)
+);
 -- ddl-end --
-ALTER VIEW api.list_sensors OWNER TO postgres;
+COMMENT ON TABLE data.observations IS E'Measurement of the datastream';
+-- ddl-end --
+COMMENT ON COLUMN data.observations.phenomenon_time IS E'The time period when the measurement occurred in the real world.';
+-- ddl-end --
+COMMENT ON COLUMN data.observations.result IS E'The measured value';
+-- ddl-end --
+ALTER TABLE data.observations OWNER TO postgres;
+-- ddl-end --
+ALTER TABLE data.observations ENABLE ROW LEVEL SECURITY;
 -- ddl-end --
 
 -- object: allow_webuser_select_own_participant_data | type: POLICY --
@@ -484,8 +450,8 @@ CREATE POLICY allow_webuser_select_own_sensors ON data.sensors
 -- ddl-end --
 
 -- object: allow_webuser_select_own_datastream | type: POLICY --
--- DROP POLICY IF EXISTS allow_webuser_select_own_datastream ON data.data_stream CASCADE;
-CREATE POLICY allow_webuser_select_own_datastream ON data.data_stream
+-- DROP POLICY IF EXISTS allow_webuser_select_own_datastream ON data.data_streams CASCADE;
+CREATE POLICY allow_webuser_select_own_datastream ON data.data_streams
 	AS PERMISSIVE
 	FOR SELECT
 	TO webuser
@@ -504,7 +470,7 @@ CREATE POLICY allow_webuser_select_own_observations ON data.observations
 	FOR SELECT
 	TO webuser
 	USING (exists (
-  select 1 from data.data_stream ds
+  select 1 from data.data_streams ds
     join data.ownerships o on o.sensor_id = ds.sensor_id
     where ds.id = observations.data_stream_id
       and o.user_id=(current_setting('request.jwt.claims', true)::json->>'id')::uuid
@@ -512,20 +478,21 @@ CREATE POLICY allow_webuser_select_own_observations ON data.observations
 ));
 -- ddl-end --
 
--- object: allow_webuser_select_own_locations | type: POLICY --
--- DROP POLICY IF EXISTS allow_webuser_select_own_locations ON data.locations CASCADE;
-CREATE POLICY allow_webuser_select_own_locations ON data.locations
-	AS PERMISSIVE
-	FOR SELECT
-	TO webuser
-	USING (exists (
-  select 1 from data.observations ob
-    join data.data_stream ds on ds.id = ob.data_stream_id
-    join data.ownerships o on o.sensor_id = ds.sensor_id
-    where ob.location_id = locations.id
-      and o.user_id=(current_setting('request.jwt.claims', true)::json->>'id')::uuid
-      and ob.phenomenon_time && tstzrange(o.start_date, o.end_date)
-));
+-- object: data.locations | type: TABLE --
+-- DROP TABLE IF EXISTS data.locations CASCADE;
+CREATE TABLE data.locations (
+	id bigint NOT NULL DEFAULT nextval('data.locations_id_seq'::regclass),
+	geog geography,
+	properties jsonb,
+	CONSTRAINT features_of_interest_pk PRIMARY KEY (id),
+	CONSTRAINT locations_geog_unique UNIQUE (geog)
+);
+-- ddl-end --
+COMMENT ON TABLE data.locations IS E'Geographic location where the observation was made';
+-- ddl-end --
+ALTER TABLE data.locations OWNER TO postgres;
+-- ddl-end --
+ALTER TABLE data.locations ENABLE ROW LEVEL SECURITY;
 -- ddl-end --
 
 -- object: api.observations | type: VIEW --
@@ -609,12 +576,12 @@ CREATE POLICY allow_admin_insert_all_ownerships_cp ON data.ownerships
 	WITH CHECK (true);
 -- ddl-end --
 
--- object: allow_admin_researcher_select_all_sensors | type: POLICY --
--- DROP POLICY IF EXISTS allow_admin_researcher_select_all_sensors ON data.sensors CASCADE;
-CREATE POLICY allow_admin_researcher_select_all_sensors ON data.sensors
+-- object: allow_admin_researcher_pipeline_select_all_sensors | type: POLICY --
+-- DROP POLICY IF EXISTS allow_admin_researcher_pipeline_select_all_sensors ON data.sensors CASCADE;
+CREATE POLICY allow_admin_researcher_pipeline_select_all_sensors ON data.sensors
 	AS PERMISSIVE
 	FOR SELECT
-	TO admin, researcher
+	TO admin, researcher, pipeline
 	USING (true);
 -- ddl-end --
 
@@ -636,30 +603,30 @@ CREATE POLICY allow_admin_insert_all_sensors ON data.sensors
 	WITH CHECK (true);
 -- ddl-end --
 
--- object: allow_admin_researcher_select_all_datastream | type: POLICY --
--- DROP POLICY IF EXISTS allow_admin_researcher_select_all_datastream ON data.data_stream CASCADE;
-CREATE POLICY allow_admin_researcher_select_all_datastream ON data.data_stream
+-- object: allow_admin_researcher_pipeline_select_all_datastream | type: POLICY --
+-- DROP POLICY IF EXISTS allow_admin_researcher_pipeline_select_all_datastream ON data.data_streams CASCADE;
+CREATE POLICY allow_admin_researcher_pipeline_select_all_datastream ON data.data_streams
 	AS PERMISSIVE
 	FOR SELECT
-	TO admin, researcher
+	TO admin, researcher, pipeline
 	USING (true);
 -- ddl-end --
 
--- object: allow_admin_researcher_select_all_observations | type: POLICY --
--- DROP POLICY IF EXISTS allow_admin_researcher_select_all_observations ON data.observations CASCADE;
-CREATE POLICY allow_admin_researcher_select_all_observations ON data.observations
+-- object: allow_admin_researcher_pipeline_select_all_observations | type: POLICY --
+-- DROP POLICY IF EXISTS allow_admin_researcher_pipeline_select_all_observations ON data.observations CASCADE;
+CREATE POLICY allow_admin_researcher_pipeline_select_all_observations ON data.observations
 	AS PERMISSIVE
 	FOR SELECT
-	TO admin, researcher
+	TO admin, researcher, pipeline
 	USING (true);
 -- ddl-end --
 
--- object: allow_admin_researcher_select_all_locations | type: POLICY --
--- DROP POLICY IF EXISTS allow_admin_researcher_select_all_locations ON data.locations CASCADE;
-CREATE POLICY allow_admin_researcher_select_all_locations ON data.locations
+-- object: allow_admin_researcher_pipeline_select_all_locations | type: POLICY --
+-- DROP POLICY IF EXISTS allow_admin_researcher_pipeline_select_all_locations ON data.locations CASCADE;
+CREATE POLICY allow_admin_researcher_pipeline_select_all_locations ON data.locations
 	AS PERMISSIVE
 	FOR SELECT
-	TO admin, researcher
+	TO admin, researcher, pipeline
 	USING (true);
 -- ddl-end --
 
@@ -668,7 +635,7 @@ CREATE POLICY allow_admin_researcher_select_all_locations ON data.locations
 CREATE POLICY allow_integration_select_all_credentials ON auth.credentials
 	AS PERMISSIVE
 	FOR SELECT
-	TO integration
+	TO pipeline
 	USING (true);
 -- ddl-end --
 
@@ -686,7 +653,7 @@ CREATE POLICY allow_admin_insert_all_credentials ON auth.credentials
 CREATE POLICY allow_integration_insert_all_integration_execution ON log.integration_execution
 	AS PERMISSIVE
 	FOR INSERT
-	TO integration
+	TO pipeline
 	WITH CHECK (true);
 -- ddl-end --
 
@@ -709,38 +676,38 @@ CREATE POLICY allow_admin_insert_all_participants_cp_cp ON data.participants
 -- ddl-end --
 
 -- object: allow_admin_update_all_datastream | type: POLICY --
--- DROP POLICY IF EXISTS allow_admin_update_all_datastream ON data.data_stream CASCADE;
-CREATE POLICY allow_admin_update_all_datastream ON data.data_stream
+-- DROP POLICY IF EXISTS allow_admin_update_all_datastream ON data.data_streams CASCADE;
+CREATE POLICY allow_admin_update_all_datastream ON data.data_streams
 	AS PERMISSIVE
 	FOR UPDATE
 	TO admin
 	USING (true);
 -- ddl-end --
 
--- object: allow_admin_insert_all_datastream | type: POLICY --
--- DROP POLICY IF EXISTS allow_admin_insert_all_datastream ON data.data_stream CASCADE;
-CREATE POLICY allow_admin_insert_all_datastream ON data.data_stream
+-- object: allow_admin_pipeline_insert_all_datastream | type: POLICY --
+-- DROP POLICY IF EXISTS allow_admin_pipeline_insert_all_datastream ON data.data_streams CASCADE;
+CREATE POLICY allow_admin_pipeline_insert_all_datastream ON data.data_streams
 	AS PERMISSIVE
 	FOR INSERT
-	TO admin
+	TO admin, pipeline
 	WITH CHECK (true);
 -- ddl-end --
 
--- object: allow_integration_insert_all_observations | type: POLICY --
--- DROP POLICY IF EXISTS allow_integration_insert_all_observations ON data.observations CASCADE;
-CREATE POLICY allow_integration_insert_all_observations ON data.observations
+-- object: allow_pipeline_insert_all_observations | type: POLICY --
+-- DROP POLICY IF EXISTS allow_pipeline_insert_all_observations ON data.observations CASCADE;
+CREATE POLICY allow_pipeline_insert_all_observations ON data.observations
 	AS PERMISSIVE
 	FOR INSERT
-	TO integration
+	TO pipeline
 	WITH CHECK (true);
 -- ddl-end --
 
--- object: allow_integration_insert_all_locations | type: POLICY --
--- DROP POLICY IF EXISTS allow_integration_insert_all_locations ON data.locations CASCADE;
-CREATE POLICY allow_integration_insert_all_locations ON data.locations
+-- object: allow_pipeline_insert_all_locations | type: POLICY --
+-- DROP POLICY IF EXISTS allow_pipeline_insert_all_locations ON data.locations CASCADE;
+CREATE POLICY allow_pipeline_insert_all_locations ON data.locations
 	AS PERMISSIVE
 	FOR INSERT
-	TO integration
+	TO pipeline
 	WITH CHECK (true);
 -- ddl-end --
 
@@ -796,6 +763,88 @@ end;
 $function$;
 -- ddl-end --
 ALTER FUNCTION api.add_participant(text,text,jsonb) OWNER TO postgres;
+-- ddl-end --
+
+-- object: api.login | type: FUNCTION --
+-- DROP FUNCTION IF EXISTS api.login(text,text) CASCADE;
+CREATE OR REPLACE FUNCTION api.login (IN username text, IN password text)
+	RETURNS json
+	LANGUAGE plpgsql
+	VOLATILE 
+	CALLED ON NULL INPUT
+	SECURITY DEFINER
+	PARALLEL UNSAFE
+	COST 1
+	AS 
+$function$
+declare
+_role name;
+_id uuid;
+_jwt_secret text;
+_jwt_duration_seconds bigint;
+_token text;
+begin
+SELECT role, id INTO _role, _id 
+  FROM auth.get_user_by_username(login.username, login.password);
+
+  if _role is null then
+    insert into log.login_attempts (username, success, properties) 
+      values (login.username, false, '{}');
+    perform set_config('response.status', '401', true);
+    return  json_build_object('error', 'invalid username or password') ;
+  end if;
+
+  select setting_value into _jwt_secret
+  from config.app_settings s where s.setting_name = 'POSTGREST_JWT_SECRET';
+
+  select setting_value::bigint into _jwt_duration_seconds
+  from config.app_settings s where s.setting_name = 'POSTGREST_JWT_DURATION_SECONDS';
+
+  select sign(
+      row_to_json(r), _jwt_secret
+    ) as token
+    from (
+      select _role as role, _id as id,
+         extract(epoch from now())::bigint + _jwt_duration_seconds as exp
+    ) r
+    into _token;
+
+  insert into log.login_attempts (username, success, properties) values (login.username, true, '{}');
+
+  return json_build_object('token', _token);
+end;
+$function$;
+-- ddl-end --
+ALTER FUNCTION api.login(text,text) OWNER TO postgres;
+-- ddl-end --
+
+-- object: api.list_sensors | type: VIEW --
+-- DROP VIEW IF EXISTS api.list_sensors CASCADE;
+CREATE OR REPLACE VIEW api.list_sensors
+WITH (security_invoker=true)
+AS 
+select s.*, max(upper(phenomenon_time)) as last_activity from data.sensors s
+left join data.data_streams ds on s.id = ds.sensor_id
+left join data.observations ob on ob.data_stream_id = ds.id
+group by s.id;
+-- ddl-end --
+ALTER VIEW api.list_sensors OWNER TO postgres;
+-- ddl-end --
+
+-- object: allow_webuser_select_own_locations | type: POLICY --
+-- DROP POLICY IF EXISTS allow_webuser_select_own_locations ON data.locations CASCADE;
+CREATE POLICY allow_webuser_select_own_locations ON data.locations
+	AS PERMISSIVE
+	FOR SELECT
+	TO webuser
+	USING (exists (
+  select 1 from data.observations ob
+    join data.data_streams ds on ds.id = ob.data_stream_id
+    join data.ownerships o on o.sensor_id = ds.sensor_id
+    where ob.location_id = locations.id
+      and o.user_id=(current_setting('request.jwt.claims', true)::json->>'id')::uuid
+      and ob.phenomenon_time && tstzrange(o.start_date, o.end_date)
+));
 -- ddl-end --
 
 -- object: data.studies_id_seq | type: SEQUENCE --
@@ -916,6 +965,18 @@ select * from data.sensors;
 ALTER VIEW api.sensors OWNER TO postgres;
 -- ddl-end --
 
+ALTER DATABASE postgres SET search_path TO public, postgis;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA postgis TO public;
+-- object: allow_pipeline_update_all_locations | type: POLICY --
+-- DROP POLICY IF EXISTS allow_pipeline_update_all_locations ON data.locations CASCADE;
+CREATE POLICY allow_pipeline_update_all_locations ON data.locations
+	AS PERMISSIVE
+	FOR UPDATE
+	TO pipeline
+	USING (true)
+	WITH CHECK (true);
+-- ddl-end --
+
 -- object: fk_sensors_credentials_credential_id | type: CONSTRAINT --
 -- ALTER TABLE data.sensors DROP CONSTRAINT IF EXISTS fk_sensors_credentials_credential_id CASCADE;
 ALTER TABLE data.sensors ADD CONSTRAINT fk_sensors_credentials_credential_id FOREIGN KEY (credential_id)
@@ -924,8 +985,8 @@ ON DELETE NO ACTION ON UPDATE NO ACTION;
 -- ddl-end --
 
 -- object: data_stream_sensor_fk | type: CONSTRAINT --
--- ALTER TABLE data.data_stream DROP CONSTRAINT IF EXISTS data_stream_sensor_fk CASCADE;
-ALTER TABLE data.data_stream ADD CONSTRAINT data_stream_sensor_fk FOREIGN KEY (sensor_id)
+-- ALTER TABLE data.data_streams DROP CONSTRAINT IF EXISTS data_stream_sensor_fk CASCADE;
+ALTER TABLE data.data_streams ADD CONSTRAINT data_stream_sensor_fk FOREIGN KEY (sensor_id)
 REFERENCES data.sensors (id) MATCH SIMPLE
 ON DELETE RESTRICT ON UPDATE CASCADE;
 -- ddl-end --
@@ -954,7 +1015,7 @@ ON DELETE NO ACTION ON UPDATE NO ACTION;
 -- object: observations_datastreams_fk | type: CONSTRAINT --
 -- ALTER TABLE data.observations DROP CONSTRAINT IF EXISTS observations_datastreams_fk CASCADE;
 ALTER TABLE data.observations ADD CONSTRAINT observations_datastreams_fk FOREIGN KEY (data_stream_id)
-REFERENCES data.data_stream (id) MATCH SIMPLE
+REFERENCES data.data_streams (id) MATCH SIMPLE
 ON DELETE NO ACTION ON UPDATE NO ACTION;
 -- ddl-end --
 
@@ -979,10 +1040,10 @@ REFERENCES data.studies (id) MATCH SIMPLE
 ON DELETE NO ACTION ON UPDATE NO ACTION;
 -- ddl-end --
 
--- object: "grant_U_f6731eb835" | type: PERMISSION --
+-- object: "grant_U_03e5024383" | type: PERMISSION --
 GRANT USAGE
    ON SCHEMA data
-   TO webuser,researcher,admin;
+   TO webuser,researcher,admin,pipeline;
 
 -- ddl-end --
 
@@ -1005,7 +1066,7 @@ GRANT SELECT
 
 -- object: grant_r_35bae7d3cf | type: PERMISSION --
 GRANT SELECT
-   ON TABLE data.data_stream
+   ON TABLE data.data_streams
    TO webuser;
 
 -- ddl-end --
@@ -1117,7 +1178,7 @@ GRANT SELECT,INSERT,UPDATE
 
 -- object: grant_raw_e91b25ded6 | type: PERMISSION --
 GRANT SELECT,INSERT,UPDATE
-   ON TABLE data.data_stream
+   ON TABLE data.data_streams
    TO admin;
 
 -- ddl-end --
@@ -1125,7 +1186,7 @@ GRANT SELECT,INSERT,UPDATE
 
 -- object: grant_r_fc29f6b8c5 | type: PERMISSION --
 GRANT SELECT
-   ON TABLE data.data_stream
+   ON TABLE data.data_streams
    TO researcher;
 
 -- ddl-end --
@@ -1147,18 +1208,18 @@ GRANT SELECT
 -- ddl-end --
 
 
--- object: grant_a_c3b08acce4 | type: PERMISSION --
-GRANT INSERT
+-- object: grant_raw_3e4735480e | type: PERMISSION --
+GRANT SELECT,INSERT,UPDATE
    ON TABLE data.locations
-   TO integration;
+   TO pipeline;
 
 -- ddl-end --
 
 
--- object: grant_a_309b87cbf9 | type: PERMISSION --
-GRANT INSERT
+-- object: grant_ra_fd1acb3374 | type: PERMISSION --
+GRANT SELECT,INSERT
    ON TABLE data.observations
-   TO integration;
+   TO pipeline;
 
 -- ddl-end --
 
@@ -1174,7 +1235,7 @@ GRANT SELECT
 -- object: "grant_U_6ded8013fd" | type: PERMISSION --
 GRANT USAGE
    ON SCHEMA log
-   TO integration;
+   TO pipeline;
 
 -- ddl-end --
 
@@ -1182,7 +1243,7 @@ GRANT USAGE
 -- object: grant_a_fdee9c6f99 | type: PERMISSION --
 GRANT INSERT
    ON TABLE log.integration_execution
-   TO integration;
+   TO pipeline;
 
 -- ddl-end --
 
@@ -1206,7 +1267,7 @@ GRANT USAGE
 -- object: "grant_U_8b750cb7c9" | type: PERMISSION --
 GRANT USAGE
    ON SCHEMA auth
-   TO integration;
+   TO pipeline;
 
 -- ddl-end --
 
@@ -1214,7 +1275,7 @@ GRANT USAGE
 -- object: grant_r_cbb9c942e9 | type: PERMISSION --
 GRANT SELECT
    ON TABLE auth.credentials
-   TO integration;
+   TO pipeline;
 
 -- ddl-end --
 
@@ -1222,7 +1283,7 @@ GRANT SELECT
 -- object: grant_r_a12a1b4b17 | type: PERMISSION --
 GRANT SELECT
    ON TABLE data.sensors
-   TO integration;
+   TO pipeline;
 
 -- ddl-end --
 
@@ -1287,6 +1348,46 @@ GRANT SELECT,INSERT,UPDATE
 GRANT SELECT,INSERT,UPDATE
    ON TABLE api.ownerships
    TO admin;
+
+-- ddl-end --
+
+
+-- object: grant_ra_d6f2ca3c48 | type: PERMISSION --
+GRANT SELECT,INSERT
+   ON TABLE data.data_streams
+   TO pipeline;
+
+-- ddl-end --
+
+
+-- object: "grant_rU_d0138e767d" | type: PERMISSION --
+GRANT SELECT,USAGE
+   ON SEQUENCE data.data_streams_id_seq
+   TO pipeline;
+
+-- ddl-end --
+
+
+-- object: "grant_rU_ea7e95bd07" | type: PERMISSION --
+GRANT SELECT,USAGE
+   ON SEQUENCE data.observations_id_seq
+   TO pipeline;
+
+-- ddl-end --
+
+
+-- object: "grant_U_d422b53dfa" | type: PERMISSION --
+GRANT USAGE
+   ON SCHEMA postgis
+   TO pipeline;
+
+-- ddl-end --
+
+
+-- object: "grant_rU_71c2a27548" | type: PERMISSION --
+GRANT SELECT,USAGE
+   ON SEQUENCE data.locations_id_seq
+   TO pipeline;
 
 -- ddl-end --
 
