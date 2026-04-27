@@ -55,4 +55,4 @@ services:
       depends_on:
         - db
       environment:
-        PIPELINE_CONNECTION_STRING=${PIPELINE_CONNECTION_STRING}
+        - PIPELINE_CONNECTION_STRING=${PIPELINE_CONNECTION_STRING}
