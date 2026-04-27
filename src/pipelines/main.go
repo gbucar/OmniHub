@@ -49,7 +49,7 @@ type AtmotubeResponse struct {
 	} `json:"data"`
 }
 
-func extract(atmotubeId string, apiKey string, startDate time.Time, endDate time.Time) ([]AtmotubeDataItem, error) {
+func extract(ctx context.Context, atmotubeId string, apiKey string, startDate time.Time, endDate time.Time) ([]AtmotubeDataItem, error) {
 
 	atmotubeUrl, err := url.Parse("https://api.atmotube.com/api/v1/data")
 
@@ -66,7 +66,7 @@ func extract(atmotubeId string, apiKey string, startDate time.Time, endDate time
 
 	atmotubeUrl.RawQuery = q.Encode()
 
-	req, err := http.NewRequest("GET", atmotubeUrl.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", atmotubeUrl.String(), nil)
 
 	if err != nil {
 		return []AtmotubeDataItem{}, fmt.Errorf("building the request: %w", err)
@@ -83,13 +83,14 @@ func extract(atmotubeId string, apiKey string, startDate time.Time, endDate time
 	if res.StatusCode != http.StatusOK {
 		if res.StatusCode == http.StatusTooManyRequests {
 			time.Sleep(1 * time.Second)
-			return extract(atmotubeId, apiKey, startDate, endDate)
+			return extract(ctx, atmotubeId, apiKey, startDate, endDate)
 		} else {
 			return []AtmotubeDataItem{}, fmt.Errorf("Bad status getting measurements from atmotube API for atmotube %s: %s", atmotubeId, res.Status)
 		}
 	}
 
 	var apiResponse AtmotubeResponse
+
 	if err := json.NewDecoder(res.Body).Decode(&apiResponse); err != nil {
 		panic(err)
 	}
@@ -241,7 +242,7 @@ func load(atmotube db.ListAtmotubesRow, vals []AtmotubeDataItem, ctx context.Con
 
 	}
 
-	tx.Commit(ctx)
+	err = tx.Commit(ctx)
 
 	return err
 
@@ -278,7 +279,7 @@ func main() {
 		endTime := time.Now()
 		startTime := endTime.AddDate(0, 0, -6)
 
-		extracted, err := extract(atmotube.AtmotubeID, atmotube.ApiKey, startTime, endTime)
+		extracted, err := extract(ctx, atmotube.AtmotubeID, atmotube.ApiKey, startTime, endTime)
 
 		if err != nil {
 			log.Fatalf("extracting error: %v", err)
