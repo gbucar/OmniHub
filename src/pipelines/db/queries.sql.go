@@ -99,6 +99,27 @@ func (q *Queries) CreateObservation(ctx context.Context, arg CreateObservationPa
 	return err
 }
 
+const executionLog = `-- name: ExecutionLog :exec
+insert into log.integration_execution (
+    name,
+    datetime,
+    value
+) values (
+    $1,$2,$3
+)
+`
+
+type ExecutionLogParams struct {
+	Name     string
+	Datetime pgtype.Timestamptz
+	Value    []byte
+}
+
+func (q *Queries) ExecutionLog(ctx context.Context, arg ExecutionLogParams) error {
+	_, err := q.db.Exec(ctx, executionLog, arg.Name, arg.Datetime, arg.Value)
+	return err
+}
+
 const getDataStreams = `-- name: GetDataStreams :many
 select id, name from data.data_streams eds
 where eds.sensor_id = $1

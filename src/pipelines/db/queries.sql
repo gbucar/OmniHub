@@ -40,3 +40,12 @@ insert into data.observations (
 ) values (
     $1,$2,$3,$4,$5
 ) on conflict (data_stream_id, phenomenon_time) do nothing;
+
+-- name: ExecutionLog :exec
+insert into log.integration_execution (
+    name,
+    datetime,
+    value
+) values (
+    $1,$2,$3
+);
