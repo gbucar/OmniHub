@@ -47,7 +47,7 @@ CREATE ROLE pipeline WITH
 
 -- object: postgres | type: DATABASE --
 -- DROP DATABASE IF EXISTS postgres;
-CREATE DATABASE postgres;
+-- CREATE DATABASE postgres;
 -- ddl-end --
 
 
