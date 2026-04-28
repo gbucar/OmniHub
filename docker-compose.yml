@@ -38,15 +38,16 @@ services:
       - "8080:8080"
     environment:
       - SWAGGER_JSON_URL=${POSTGREST_URL}
-  admin-dashboard:
-    build: ./src/admin-dashboard
-    restart: unless-stopped
-    depends_on:
-      - postgrest
-    environment:
-      - VITE_API_URL=http://postgrest:3000
-    ports:
-      - "3001:3000"
+   admin-dashboard:
+     build:
+       context: ./src/admin-dashboard
+       args:
+         - POSTGREST_URL=${POSTGREST_URL}
+     restart: unless-stopped
+     depends_on:
+       - postgrest
+     ports:
+       - "3001:3000"
   
   pipelines:
       build: ./src/pipelines
