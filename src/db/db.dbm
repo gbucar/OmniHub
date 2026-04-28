@@ -3,9 +3,9 @@
 CAUTION: Do not modify this file unless you know what you are doing.
  Unexpected results may occur if the code is changed deliberately.
 -->
-<dbmodel pgmodeler-ver="1.2.2" use-changelog="false" max-obj-count="52"
+<dbmodel pgmodeler-ver="1.2.2" use-changelog="false" max-obj-count="56"
 	 gen-disabled-objs-code="false" show-sys-schemas-rects="true"
-	 last-position="-644,0" last-zoom="0.7" scene-rect="-948,-170,2914.32,1841.72"
+	 last-position="17,0" last-zoom="0.7" scene-rect="-948,-170,2914.32,1851.32"
 	 default-schema="public" default-owner="postgres"
 	 layers="Default layer"
 	 active-layers="0"
@@ -405,7 +405,7 @@ end;
 	<schema name="data"/>
 	<role name="postgres"/>
 	<comment> <![CDATA[Measurement of the datastream]]> </comment>
-	<position x="-200" y="1300"/>
+	<position x="-120" y="1300"/>
 	<column name="id" not-null="true" sequence="data.observations_id_seq">
 		<type name="bigint" length="0"/>
 	</column>
@@ -867,6 +867,14 @@ group by s.id]]> </definition>
 	<expression type="check-exp"> <![CDATA[true]]> </expression>
 </policy>
 
+<policy name="allow_researcher_select_many_participants_studies" table="data.many_participants_studies" command="SELECT" permissive="true">	<roles names="researcher"/>
+	<expression type="using-exp"> <![CDATA[true]]> </expression>
+</policy>
+
+<policy name="allow_researcher_select_studies" table="data.studies" command="SELECT" permissive="true">	<roles names="researcher"/>
+	<expression type="using-exp"> <![CDATA[true]]> </expression>
+</policy>
+
 <constraint name="fk_sensors_credentials_credential_id" type="fk-constr" comparison-type="MATCH SIMPLE"
 	 upd-action="NO ACTION" del-action="NO ACTION" ref-table="auth.credentials" table="data.sensors">
 	<columns names="credential_id" ref-type="src-columns"/>
@@ -1189,5 +1197,20 @@ group by s.id]]> </definition>
 	<object name="data.locations_id_seq" type="sequence"/>
 	<roles names="pipeline"/>
 	<privileges select="true" usage="true"/>
+</permission>
+<permission>
+	<object name="data.participants" type="table"/>
+	<roles names="researcher"/>
+	<privileges select="true"/>
+</permission>
+<permission>
+	<object name="data.many_participants_studies" type="table"/>
+	<roles names="researcher"/>
+	<privileges select="true"/>
+</permission>
+<permission>
+	<object name="data.studies" type="table"/>
+	<roles names="researcher"/>
+	<privileges select="true"/>
 </permission>
 </dbmodel>

@@ -47,7 +47,7 @@ CREATE ROLE pipeline WITH
 
 -- object: postgres | type: DATABASE --
 -- DROP DATABASE IF EXISTS postgres;
--- CREATE DATABASE postgres;
+CREATE DATABASE postgres;
 -- ddl-end --
 
 
@@ -977,6 +977,24 @@ CREATE POLICY allow_pipeline_update_all_locations ON data.locations
 	WITH CHECK (true);
 -- ddl-end --
 
+-- object: allow_researcher_select_many_participants_studies | type: POLICY --
+-- DROP POLICY IF EXISTS allow_researcher_select_many_participants_studies ON data.many_participants_studies CASCADE;
+CREATE POLICY allow_researcher_select_many_participants_studies ON data.many_participants_studies
+	AS PERMISSIVE
+	FOR SELECT
+	TO researcher
+	USING (true);
+-- ddl-end --
+
+-- object: allow_researcher_select_studies | type: POLICY --
+-- DROP POLICY IF EXISTS allow_researcher_select_studies ON data.studies CASCADE;
+CREATE POLICY allow_researcher_select_studies ON data.studies
+	AS PERMISSIVE
+	FOR SELECT
+	TO researcher
+	USING (true);
+-- ddl-end --
+
 -- object: fk_sensors_credentials_credential_id | type: CONSTRAINT --
 -- ALTER TABLE data.sensors DROP CONSTRAINT IF EXISTS fk_sensors_credentials_credential_id CASCADE;
 ALTER TABLE data.sensors ADD CONSTRAINT fk_sensors_credentials_credential_id FOREIGN KEY (credential_id)
@@ -1388,6 +1406,30 @@ GRANT USAGE
 GRANT SELECT,USAGE
    ON SEQUENCE data.locations_id_seq
    TO pipeline;
+
+-- ddl-end --
+
+
+-- object: grant_r_3dc8d12b34 | type: PERMISSION --
+GRANT SELECT
+   ON TABLE data.participants
+   TO researcher;
+
+-- ddl-end --
+
+
+-- object: grant_r_24ee020902 | type: PERMISSION --
+GRANT SELECT
+   ON TABLE data.many_participants_studies
+   TO researcher;
+
+-- ddl-end --
+
+
+-- object: grant_r_0ef130abf7 | type: PERMISSION --
+GRANT SELECT
+   ON TABLE data.studies
+   TO researcher;
 
 -- ddl-end --
 
