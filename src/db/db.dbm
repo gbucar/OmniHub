@@ -5,7 +5,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 -->
 <dbmodel pgmodeler-ver="1.2.2" use-changelog="false" max-obj-count="56"
 	 gen-disabled-objs-code="false" show-sys-schemas-rects="true"
-	 last-position="17,0" last-zoom="0.7" scene-rect="-948,-170,2914.32,1851.32"
+	 last-position="-664,-119" last-zoom="0.7" scene-rect="-948,-170,2914.32,1851.32"
 	 default-schema="public" default-owner="postgres"
 	 layers="Default layer"
 	 active-layers="0"
@@ -875,15 +875,14 @@ group by s.id]]> </definition>
 	<expression type="using-exp"> <![CDATA[true]]> </expression>
 </policy>
 
+<genericsql name="grant_select_on_all_tables_in_schema_postgis_to_public">
+	<definition> <![CDATA[GRANT USAGE ON SCHEMA postgis TO public;
+GRANT SELECT ON ALL TABLES IN SCHEMA postgis TO public;]]> </definition>
+</genericsql>
+
 <constraint name="fk_sensors_credentials_credential_id" type="fk-constr" comparison-type="MATCH SIMPLE"
 	 upd-action="NO ACTION" del-action="NO ACTION" ref-table="auth.credentials" table="data.sensors">
 	<columns names="credential_id" ref-type="src-columns"/>
-	<columns names="id" ref-type="dst-columns"/>
-</constraint>
-
-<constraint name="data_stream_sensor_fk" type="fk-constr" comparison-type="MATCH SIMPLE"
-	 upd-action="CASCADE" del-action="RESTRICT" ref-table="data.sensors" table="data.data_streams">
-	<columns names="sensor_id" ref-type="src-columns"/>
 	<columns names="id" ref-type="dst-columns"/>
 </constraint>
 
@@ -905,15 +904,9 @@ group by s.id]]> </definition>
 	<columns names="id" ref-type="dst-columns"/>
 </constraint>
 
-<constraint name="observations_datastreams_fk" type="fk-constr" comparison-type="MATCH SIMPLE"
-	 upd-action="NO ACTION" del-action="NO ACTION" ref-table="data.data_streams" table="data.observations">
-	<columns names="data_stream_id" ref-type="src-columns"/>
-	<columns names="id" ref-type="dst-columns"/>
-</constraint>
-
-<constraint name="observation_location_fk" type="fk-constr" comparison-type="MATCH SIMPLE"
-	 upd-action="NO ACTION" del-action="NO ACTION" ref-table="data.locations" table="data.observations">
-	<columns names="location_id" ref-type="src-columns"/>
+<constraint name="data_stream_sensor_fk" type="fk-constr" comparison-type="MATCH SIMPLE"
+	 upd-action="CASCADE" del-action="RESTRICT" ref-table="data.sensors" table="data.data_streams">
+	<columns names="sensor_id" ref-type="src-columns"/>
 	<columns names="id" ref-type="dst-columns"/>
 </constraint>
 
@@ -926,6 +919,18 @@ group by s.id]]> </definition>
 <constraint name="many_participants_studies_studies_fk" type="fk-constr" comparison-type="MATCH SIMPLE"
 	 upd-action="NO ACTION" del-action="NO ACTION" ref-table="data.studies" table="data.many_participants_studies">
 	<columns names="study_id" ref-type="src-columns"/>
+	<columns names="id" ref-type="dst-columns"/>
+</constraint>
+
+<constraint name="observations_datastreams_fk" type="fk-constr" comparison-type="MATCH SIMPLE"
+	 upd-action="NO ACTION" del-action="NO ACTION" ref-table="data.data_streams" table="data.observations">
+	<columns names="data_stream_id" ref-type="src-columns"/>
+	<columns names="id" ref-type="dst-columns"/>
+</constraint>
+
+<constraint name="observation_location_fk" type="fk-constr" comparison-type="MATCH SIMPLE"
+	 upd-action="NO ACTION" del-action="NO ACTION" ref-table="data.locations" table="data.observations">
+	<columns names="location_id" ref-type="src-columns"/>
 	<columns names="id" ref-type="dst-columns"/>
 </constraint>
 

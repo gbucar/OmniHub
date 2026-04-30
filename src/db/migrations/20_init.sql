@@ -995,18 +995,13 @@ CREATE POLICY allow_researcher_select_studies ON data.studies
 	USING (true);
 -- ddl-end --
 
+GRANT USAGE ON SCHEMA postgis TO public;
+GRANT SELECT ON ALL TABLES IN SCHEMA postgis TO public;
 -- object: fk_sensors_credentials_credential_id | type: CONSTRAINT --
 -- ALTER TABLE data.sensors DROP CONSTRAINT IF EXISTS fk_sensors_credentials_credential_id CASCADE;
 ALTER TABLE data.sensors ADD CONSTRAINT fk_sensors_credentials_credential_id FOREIGN KEY (credential_id)
 REFERENCES auth.credentials (id) MATCH SIMPLE
 ON DELETE NO ACTION ON UPDATE NO ACTION;
--- ddl-end --
-
--- object: data_stream_sensor_fk | type: CONSTRAINT --
--- ALTER TABLE data.data_streams DROP CONSTRAINT IF EXISTS data_stream_sensor_fk CASCADE;
-ALTER TABLE data.data_streams ADD CONSTRAINT data_stream_sensor_fk FOREIGN KEY (sensor_id)
-REFERENCES data.sensors (id) MATCH SIMPLE
-ON DELETE RESTRICT ON UPDATE CASCADE;
 -- ddl-end --
 
 -- object: ownerships_users_fk | type: CONSTRAINT --
@@ -1030,18 +1025,11 @@ REFERENCES auth.users (id) MATCH SIMPLE
 ON DELETE NO ACTION ON UPDATE NO ACTION;
 -- ddl-end --
 
--- object: observations_datastreams_fk | type: CONSTRAINT --
--- ALTER TABLE data.observations DROP CONSTRAINT IF EXISTS observations_datastreams_fk CASCADE;
-ALTER TABLE data.observations ADD CONSTRAINT observations_datastreams_fk FOREIGN KEY (data_stream_id)
-REFERENCES data.data_streams (id) MATCH SIMPLE
-ON DELETE NO ACTION ON UPDATE NO ACTION;
--- ddl-end --
-
--- object: observation_location_fk | type: CONSTRAINT --
--- ALTER TABLE data.observations DROP CONSTRAINT IF EXISTS observation_location_fk CASCADE;
-ALTER TABLE data.observations ADD CONSTRAINT observation_location_fk FOREIGN KEY (location_id)
-REFERENCES data.locations (id) MATCH SIMPLE
-ON DELETE NO ACTION ON UPDATE NO ACTION;
+-- object: data_stream_sensor_fk | type: CONSTRAINT --
+-- ALTER TABLE data.data_streams DROP CONSTRAINT IF EXISTS data_stream_sensor_fk CASCADE;
+ALTER TABLE data.data_streams ADD CONSTRAINT data_stream_sensor_fk FOREIGN KEY (sensor_id)
+REFERENCES data.sensors (id) MATCH SIMPLE
+ON DELETE RESTRICT ON UPDATE CASCADE;
 -- ddl-end --
 
 -- object: many_participnts_studies_participants_fk | type: CONSTRAINT --
@@ -1055,6 +1043,20 @@ ON DELETE NO ACTION ON UPDATE NO ACTION;
 -- ALTER TABLE data.many_participants_studies DROP CONSTRAINT IF EXISTS many_participants_studies_studies_fk CASCADE;
 ALTER TABLE data.many_participants_studies ADD CONSTRAINT many_participants_studies_studies_fk FOREIGN KEY (study_id)
 REFERENCES data.studies (id) MATCH SIMPLE
+ON DELETE NO ACTION ON UPDATE NO ACTION;
+-- ddl-end --
+
+-- object: observations_datastreams_fk | type: CONSTRAINT --
+-- ALTER TABLE data.observations DROP CONSTRAINT IF EXISTS observations_datastreams_fk CASCADE;
+ALTER TABLE data.observations ADD CONSTRAINT observations_datastreams_fk FOREIGN KEY (data_stream_id)
+REFERENCES data.data_streams (id) MATCH SIMPLE
+ON DELETE NO ACTION ON UPDATE NO ACTION;
+-- ddl-end --
+
+-- object: observation_location_fk | type: CONSTRAINT --
+-- ALTER TABLE data.observations DROP CONSTRAINT IF EXISTS observation_location_fk CASCADE;
+ALTER TABLE data.observations ADD CONSTRAINT observation_location_fk FOREIGN KEY (location_id)
+REFERENCES data.locations (id) MATCH SIMPLE
 ON DELETE NO ACTION ON UPDATE NO ACTION;
 -- ddl-end --
 
@@ -1082,7 +1084,7 @@ GRANT SELECT
 -- ddl-end --
 
 
--- object: grant_r_35bae7d3cf | type: PERMISSION --
+-- object: grant_r_03dcb31bb7 | type: PERMISSION --
 GRANT SELECT
    ON TABLE data.data_streams
    TO webuser;
@@ -1138,7 +1140,7 @@ GRANT SELECT
 -- ddl-end --
 
 
--- object: grant_r_565cc0b08e | type: PERMISSION --
+-- object: grant_r_c2d81725fe | type: PERMISSION --
 GRANT SELECT
    ON TABLE api.list_sensors
    TO webuser,admin;
@@ -1146,7 +1148,7 @@ GRANT SELECT
 -- ddl-end --
 
 
--- object: grant_r_9a5345b4e0 | type: PERMISSION --
+-- object: grant_r_10d865529f | type: PERMISSION --
 GRANT SELECT
    ON TABLE api.list_participants
    TO admin;
@@ -1194,7 +1196,7 @@ GRANT SELECT,INSERT,UPDATE
 -- ddl-end --
 
 
--- object: grant_raw_e91b25ded6 | type: PERMISSION --
+-- object: grant_raw_ce5acaeb8d | type: PERMISSION --
 GRANT SELECT,INSERT,UPDATE
    ON TABLE data.data_streams
    TO admin;
@@ -1202,7 +1204,7 @@ GRANT SELECT,INSERT,UPDATE
 -- ddl-end --
 
 
--- object: grant_r_fc29f6b8c5 | type: PERMISSION --
+-- object: grant_r_96c5ca0e0a | type: PERMISSION --
 GRANT SELECT
    ON TABLE data.data_streams
    TO researcher;
@@ -1250,7 +1252,7 @@ GRANT SELECT
 -- ddl-end --
 
 
--- object: "grant_U_6ded8013fd" | type: PERMISSION --
+-- object: "grant_U_911f7e8d6d" | type: PERMISSION --
 GRANT USAGE
    ON SCHEMA log
    TO pipeline;
@@ -1258,7 +1260,7 @@ GRANT USAGE
 -- ddl-end --
 
 
--- object: grant_a_fdee9c6f99 | type: PERMISSION --
+-- object: grant_a_c225001da6 | type: PERMISSION --
 GRANT INSERT
    ON TABLE log.integration_execution
    TO pipeline;
@@ -1282,7 +1284,7 @@ GRANT USAGE
 -- ddl-end --
 
 
--- object: "grant_U_8b750cb7c9" | type: PERMISSION --
+-- object: "grant_U_cb9c337eec" | type: PERMISSION --
 GRANT USAGE
    ON SCHEMA auth
    TO pipeline;
@@ -1290,7 +1292,7 @@ GRANT USAGE
 -- ddl-end --
 
 
--- object: grant_r_cbb9c942e9 | type: PERMISSION --
+-- object: grant_r_e42e1cd397 | type: PERMISSION --
 GRANT SELECT
    ON TABLE auth.credentials
    TO pipeline;
@@ -1298,7 +1300,7 @@ GRANT SELECT
 -- ddl-end --
 
 
--- object: grant_r_a12a1b4b17 | type: PERMISSION --
+-- object: grant_r_a54fdede12 | type: PERMISSION --
 GRANT SELECT
    ON TABLE data.sensors
    TO pipeline;
