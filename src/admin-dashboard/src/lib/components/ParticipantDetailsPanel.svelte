@@ -1,0 +1,475 @@
+<script lang="ts">
+	import { createEventDispatcher } from 'svelte';
+	import {
+		getParticipantStudies,
+		getUserOwnerships,
+		updateParticipant,
+		type Participant,
+		type Ownership
+	} from '$lib/api';
+	import { showToast } from '$lib/stores/toast';
+	import StudySection from './StudySection.svelte';
+
+	interface Props {
+		show: boolean;
+		selectedParticipant: Participant | null;
+		studies: { id: number; name: string }[];
+	}
+
+	let { show, selectedParticipant, studies }: Props = $props();
+
+	const dispatch = createEventDispatcher<{
+		close: void;
+		editParticipant: { user_id: string; properties: Record<string, unknown> };
+		addToStudy: void;
+		addDevice: void;
+		editStudyPeriod: { user_id: string; study_id: number; membership_period: string | null };
+	}>();
+
+	let isEditing = $state(false);
+	let editedProperties = $state({
+		name: '',
+		age: '',
+		sex: ''
+	});
+	let participantStudies = $state<
+		{ study_id: number; membership_period: string | null; studies: { id: number; name: string } }[]
+	>([]);
+	let userOwnerships = $state<Ownership[]>([]);
+	let panelVisible = $state(false);
+
+	$effect(() => {
+		if (show) {
+			panelVisible = true;
+		} else {
+			panelVisible = false;
+		}
+	});
+
+	$effect(() => {
+		if (selectedParticipant) {
+			isEditing = false;
+			editedProperties = {
+				name: (selectedParticipant.properties?.name as string) || '',
+				age: (selectedParticipant.properties?.age as string) || '',
+				sex: (selectedParticipant.properties?.sex as string) || ''
+			};
+
+			(async () => {
+				try {
+					participantStudies = await getParticipantStudies(selectedParticipant.user_id);
+					userOwnerships = await getUserOwnerships(selectedParticipant.user_id);
+				} catch (error) {
+					console.error('Failed to load participant data:', error);
+					showToast('Failed to load participant data', 'error');
+				}
+			})();
+		}
+	});
+
+	const closeDetailsPanel = () => {
+		panelVisible = false;
+		setTimeout(() => dispatch('close'), 200);
+	};
+
+	const startEditing = () => {
+		isEditing = true;
+	};
+
+	const cancelEditing = () => {
+		if (selectedParticipant) {
+			editedProperties = {
+				name: (selectedParticipant.properties?.name as string) || '',
+				age: (selectedParticipant.properties?.age as string) || '',
+				sex: (selectedParticipant.properties?.sex as string) || ''
+			};
+		}
+		isEditing = false;
+	};
+
+	const saveParticipant = () => {
+		if (!selectedParticipant) return;
+
+		const nameRegex = /^[a-zA-ZÀ-ž\s]+$/;
+		if (editedProperties.name && !nameRegex.test(editedProperties.name.trim())) {
+			showToast('Name can only contain letters', 'error');
+			return;
+		}
+
+		dispatch('editParticipant', {
+			user_id: selectedParticipant.user_id,
+			properties: {
+				...selectedParticipant.properties,
+				name: editedProperties.name.trim() || null,
+				age: editedProperties.age ? parseInt(editedProperties.age) : null,
+				sex: editedProperties.sex || null
+			}
+		});
+
+		isEditing = false;
+	};
+
+	const saveStudyPeriod = async (studyId: number, start: string, end: string) => {
+		if (!selectedParticipant) return;
+
+		try {
+			const membershipPeriod =
+				start && end ? `[${start} 00:00:00, ${end} 23:59:59.99999999)` : null;
+
+			dispatch('editStudyPeriod', {
+				user_id: selectedParticipant.user_id,
+				study_id: studyId,
+				membership_period: membershipPeriod
+			});
+		} catch (error) {
+			console.error('Failed to update study period:', error);
+			showToast('Failed to update study period', 'error');
+		}
+	};
+</script>
+
+{#if show}
+	<button
+		class="fixed inset-0 z-40 cursor-default bg-black/50 backdrop-blur-sm transition-all duration-200 {panelVisible
+			? 'opacity-100'
+			: 'pointer-events-none opacity-0'}"
+		aria-label="Close details"
+		onclick={closeDetailsPanel}
+	></button>
+
+	<aside
+		class="fixed top-0 right-0 z-50 h-full w-full max-w-md overflow-y-auto border-l border-neutral/20 bg-base-200 shadow-2xl transition-transform duration-200 ease-out {panelVisible
+			? 'translate-x-0'
+			: 'translate-x-full'}"
+	>
+		{#if selectedParticipant}
+			<div class="sticky top-0 z-10 border-b border-neutral/20 bg-base-200">
+				<div class="flex items-center justify-between p-4">
+					<div class="flex items-center gap-3">
+						<div
+							class="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/20 bg-primary/10"
+						>
+							<span class="font-display text-lg font-bold text-primary">
+								{(
+									(
+										(selectedParticipant.properties?.name as string) ||
+										selectedParticipant.username ||
+										'U'
+									).slice(0, 1) || 'U'
+								).toUpperCase()}
+							</span>
+						</div>
+						<div>
+							<h2 class="font-display text-lg font-semibold">
+								{(selectedParticipant.properties?.name as string) ||
+									selectedParticipant.username ||
+									'Participant Details'}
+							</h2>
+							<p class="font-mono text-xs text-base-content/40">
+								@{selectedParticipant.username || 'unknown'}
+							</p>
+						</div>
+					</div>
+					<button
+						class="btn btn-circle btn-ghost btn-sm"
+						onclick={closeDetailsPanel}
+						aria-label="Close panel"
+					>
+						<svg
+							class="h-5 w-5"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+						>
+							<path d="M18 6L6 18M6 6l12 12" />
+						</svg>
+					</button>
+				</div>
+			</div>
+
+			<div class="space-y-6 p-4">
+				<div class="card bg-base-300">
+					<div class="card-body p-4">
+						<div class="mb-4 flex items-center justify-between">
+							<h3 class="font-mono text-xs tracking-wider text-base-content/40 uppercase">
+								Personal Information
+							</h3>
+							{#if !isEditing}
+								<button class="btn btn-sm btn-primary" onclick={startEditing}>
+									<svg
+										class="h-3.5 w-3.5"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+									>
+										<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+										<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+									</svg>
+									Edit
+								</button>
+							{:else}
+								<div class="flex gap-2">
+									<button class="btn btn-ghost btn-sm" onclick={cancelEditing}>Cancel</button>
+									<button class="btn btn-sm btn-primary" onclick={saveParticipant}>Save</button>
+								</div>
+							{/if}
+						</div>
+
+						<div class="grid grid-cols-3 gap-4">
+							<div class="form-control">
+								<label class="label" for="edit-name">
+									<span
+										class="label-text font-mono text-xs tracking-wider text-base-content/30 uppercase"
+										>Name</span
+									>
+								</label>
+								{#if isEditing}
+									<input
+										id="edit-name"
+										class="input-bordered input input-sm w-full"
+										type="text"
+										placeholder="Enter name"
+										bind:value={editedProperties.name}
+									/>
+								{:else}
+									<p class="text-sm font-medium">{selectedParticipant.properties?.name ?? '—'}</p>
+								{/if}
+							</div>
+
+							<div class="form-control">
+								<label class="label" for="edit-age">
+									<span
+										class="label-text font-mono text-xs tracking-wider text-base-content/30 uppercase"
+										>Age</span
+									>
+								</label>
+								{#if isEditing}
+									<input
+										id="edit-age"
+										class="input-bordered input input-sm w-full"
+										type="number"
+										placeholder="Age"
+										min="1"
+										max="120"
+										bind:value={editedProperties.age}
+									/>
+								{:else}
+									<p class="text-sm font-medium">{selectedParticipant.properties?.age ?? '—'}</p>
+								{/if}
+							</div>
+
+							<div class="form-control">
+								<label class="label" for="edit-sex">
+									<span
+										class="label-text font-mono text-xs tracking-wider text-base-content/30 uppercase"
+										>Sex</span
+									>
+								</label>
+								{#if isEditing}
+									<select
+										id="edit-sex"
+										class="select-bordered select w-full select-sm"
+										bind:value={editedProperties.sex}
+									>
+										<option value="" disabled>Select</option>
+										<option value="male">Male</option>
+										<option value="female">Female</option>
+									</select>
+								{:else}
+									<p class="text-sm font-medium capitalize">
+										{selectedParticipant.properties?.sex ?? '—'}
+									</p>
+								{/if}
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="card bg-base-300">
+					<div class="card-body p-4">
+						<div class="mb-4 flex items-center justify-between">
+							<h3 class="font-mono text-xs tracking-wider text-base-content/40 uppercase">
+								Studies
+							</h3>
+							{#if !isEditing}
+								<button class="btn btn-sm btn-accent" onclick={() => dispatch('addToStudy')}>
+									<svg
+										class="h-3.5 w-3.5"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+									>
+										<path d="M12 5v14M5 12h14" />
+									</svg>
+									Add
+								</button>
+							{/if}
+						</div>
+
+						{#if participantStudies.length === 0}
+							<div class="flex flex-col items-center justify-center py-4 text-base-content/30">
+								<svg
+									class="mb-2 h-8 w-8 opacity-30"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="1.5"
+								>
+									<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+									<path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+								</svg>
+								<span class="font-mono text-xs">No studies assigned</span>
+							</div>
+						{:else}
+							<div class="space-y-2">
+								{#each participantStudies as ps (ps.study_id)}
+									<div class="flex items-center justify-between rounded-lg bg-base-200 p-3">
+										<div class="flex items-center gap-3">
+											<div
+												class="flex h-8 w-8 items-center justify-center rounded-lg border border-accent/20 bg-accent/10"
+											>
+												<svg
+													class="h-4 w-4 text-accent"
+													viewBox="0 0 24 24"
+													fill="none"
+													stroke="currentColor"
+													stroke-width="2"
+												>
+													<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+													<path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+												</svg>
+											</div>
+											<div>
+												<span class="font-mono text-sm">{ps.studies.name}</span>
+												{#if ps.membership_period}
+													<p class="mt-0.5 font-mono text-xs text-base-content/40">
+														{ps.membership_period.split(',')[0].replace('[', '')} — {ps.membership_period
+															.split(',')[1]
+															.replace(')', '')
+															.split('.')[0]}
+													</p>
+												{/if}
+											</div>
+										</div>
+									</div>
+								{/each}
+							</div>
+						{/if}
+					</div>
+				</div>
+
+				<div class="card bg-base-300">
+					<div class="card-body p-4">
+						<div class="mb-4 flex items-center justify-between">
+							<h3 class="font-mono text-xs tracking-wider text-base-content/40 uppercase">
+								Devices
+							</h3>
+							{#if !isEditing}
+								<button class="btn btn-sm btn-warning" onclick={() => dispatch('addDevice')}>
+									<svg
+										class="h-3.5 w-3.5"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+									>
+										<path d="M12 5v14M5 12h14" />
+									</svg>
+									Assign
+								</button>
+							{/if}
+						</div>
+
+						{#if userOwnerships.length === 0}
+							<div class="flex flex-col items-center justify-center py-4 text-base-content/30">
+								<svg
+									class="mb-2 h-8 w-8 opacity-30"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="1.5"
+								>
+									<rect x="2" y="6" width="20" height="12" rx="2" />
+									<path d="M6 12h.01M12 12h.01" />
+								</svg>
+								<span class="font-mono text-xs">No devices assigned</span>
+							</div>
+						{:else}
+							<div class="space-y-2">
+								{#each userOwnerships as ownership (ownership.sensor_id)}
+									<div class="flex items-center justify-between rounded-lg bg-base-200 p-3">
+										<div class="flex items-center gap-3">
+											<div
+												class="flex h-8 w-8 items-center justify-center rounded-lg border border-warning/20 bg-warning/10"
+											>
+												<svg
+													class="h-4 w-4 text-warning"
+													viewBox="0 0 24 24"
+													fill="none"
+													stroke="currentColor"
+													stroke-width="2"
+												>
+													<rect x="2" y="6" width="20" height="12" rx="2" />
+													<path d="M6 12h.01M12 12h.01" />
+												</svg>
+											</div>
+											<div>
+												<span class="font-mono text-sm"
+													>{ownership.list_sensors?.name ?? 'Unknown'}</span
+												>
+												<p class="mt-0.5 font-mono text-xs text-base-content/40">
+													{ownership.start_date} to {ownership.end_date}
+												</p>
+											</div>
+										</div>
+									</div>
+								{/each}
+							</div>
+						{/if}
+					</div>
+				</div>
+
+				<div class="card bg-base-300">
+					<div class="card-body p-4">
+						<h3 class="mb-4 font-mono text-xs tracking-wider text-base-content/40 uppercase">
+							Account Details
+						</h3>
+						<div class="space-y-3">
+							<div class="flex items-center justify-between">
+								<span class="font-mono text-xs text-base-content/40">Username</span>
+								<span class="font-mono text-sm text-primary"
+									>@{selectedParticipant.username || '—'}</span
+								>
+							</div>
+							<div class="flex items-center justify-between">
+								<span class="font-mono text-xs text-base-content/40">Role</span>
+								<span class="font-mono text-sm text-base-content/70"
+									>{selectedParticipant.role ?? '—'}</span
+								>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		{:else}
+			<div class="flex h-full items-center justify-center">
+				<div class="text-center text-base-content/30">
+					<svg
+						class="mx-auto mb-3 h-12 w-12 opacity-30"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.5"
+					>
+						<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+						<circle cx="12" cy="7" r="4" />
+					</svg>
+					<p class="font-mono text-sm">No participant selected</p>
+				</div>
+			</div>
+		{/if}
+	</aside>
+{/if}

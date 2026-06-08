@@ -1,80 +1,100 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { clearAuth, login, setAuthToken } from '$lib/api';
+	import { login } from '$lib/api';
+	import { showToast } from '$lib/stores/toast';
 
 	let password = $state('');
 	let username = $state('');
-
-	let toastMessage = $state('');
-	let toastType = $state<'success' | 'error'>('success');
-	let showToast = $state(false);
+	let isLoading = $state(false);
 
 	const handleSubmit = async (
 		event: SubmitEvent & { currentTarget: EventTarget & HTMLFormElement }
 	) => {
 		event.preventDefault();
+		isLoading = true;
 		try {
-			const user = await login(username, password);
+			await login(username, password);
 			username = '';
 			password = '';
 			goto('/');
 		} catch (error) {
-			showToastMessage('Invalid username or password', 'error');
+			showToast('Invalid username or password', 'error');
+		} finally {
+			isLoading = false;
 		}
-	};
-
-	const showToastMessage = (message: string, type: 'success' | 'error') => {
-		toastMessage = message;
-		toastType = type;
-		showToast = true;
-		setTimeout(() => {
-			showToast = false;
-		}, 3000);
 	};
 </script>
 
-<div class="flex h-full items-center justify-center bg-base-200">
-	<form
-		onsubmit={handleSubmit}
-		method="POST"
-		class="w-full max-w-sm rounded-lg bg-base-100 p-6 shadow-md"
-	>
-		<h2 class="mb-6 text-center text-2xl font-bold">Login</h2>
+<svelte:head>
+	<title>Sign In — OmniHub</title>
+</svelte:head>
 
-		<div class="form-control mb-4">
-			<label for="username" class="label">
-				<span class="label-text">Username</span>
-			</label>
-			<input
-				bind:value={username}
-				name="username"
-				type="text"
-				placeholder="Enter your username"
-				class="input-bordered input w-full"
-			/>
-		</div>
+<div
+	class="relative flex h-full min-h-screen items-center justify-center overflow-hidden bg-base-100"
+>
+	<div
+		class="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent"
+	></div>
 
-		<div class="form-control mb-6">
-			<label for="password" class="label">
-				<span class="label-text">Password</span>
-			</label>
-			<input
-				bind:value={password}
-				name="password"
-				type="password"
-				placeholder="Enter your password"
-				class="input-bordered input w-full"
-			/>
-		</div>
+	<div class="animate-fade-in-up card w-full max-w-sm bg-base-200 shadow-2xl">
+		<div class="card-body p-8">
+			<div class="mb-6 flex flex-col items-center">
+				<div
+					class="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-primary/30 bg-primary/10 shadow-lg shadow-primary/10"
+				>
+					<span class="font-display text-2xl font-bold text-primary">Ω</span>
+				</div>
+				<h1 class="font-display text-2xl font-bold">Welcome back</h1>
+				<p class="mt-1 text-sm text-base-content/50">Sign in to access the dashboard</p>
+			</div>
 
-		<button class="btn w-full btn-primary">Login</button>
-	</form>
-</div>
+			<form onsubmit={handleSubmit} method="POST" class="space-y-4">
+				<div class="form-control">
+					<label class="label" for="username">
+						<span class="label-text font-mono text-xs tracking-wider text-base-content/50 uppercase"
+							>Username</span
+						>
+					</label>
+					<input
+						id="username"
+						bind:value={username}
+						name="username"
+						type="text"
+						placeholder="Enter your username"
+						class="input-bordered input w-full"
+						required
+					/>
+				</div>
 
-{#if showToast}
-	<div class="toast toast-start toast-bottom">
-		<div class="alert {toastType === 'success' ? 'alert-success' : 'alert-error'}">
-			<span>{toastMessage}</span>
+				<div class="form-control">
+					<label class="label" for="password">
+						<span class="label-text font-mono text-xs tracking-wider text-base-content/50 uppercase"
+							>Password</span
+						>
+					</label>
+					<input
+						id="password"
+						bind:value={password}
+						name="password"
+						type="password"
+						placeholder="Enter your password"
+						class="input-bordered input w-full"
+						required
+					/>
+				</div>
+
+				<button type="submit" disabled={isLoading} class="btn mt-6 w-full btn-primary">
+					{#if isLoading}
+						<span class="loading loading-sm loading-spinner"></span>
+					{:else}
+						Sign In
+					{/if}
+				</button>
+			</form>
+
+			<p class="mt-6 text-center font-mono text-xs text-base-content/30">
+				OmniHub Research Platform
+			</p>
 		</div>
 	</div>
-{/if}
+</div>

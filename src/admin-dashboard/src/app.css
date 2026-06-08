@@ -1,0 +1,189 @@
+@import 'tailwindcss';
+@plugin 'daisyui' {
+	themes:
+		omnihub --default,
+		omnihub-dark --prefersdark;
+}
+
+@plugin 'daisyui/theme' {
+	name: 'omnihub';
+	default: true;
+	prefersdark: false;
+	color-scheme: light;
+
+	--color-base-100: oklch(0.97 0.01 250);
+	--color-base-200: oklch(0.93 0.01 250);
+	--color-base-300: oklch(0.88 0.02 250);
+	--color-base-content: oklch(0.18 0.02 250);
+
+	--color-primary: oklch(0.65 0.22 195);
+	--color-primary-content: oklch(0.98 0.01 250);
+
+	--color-secondary: oklch(0.55 0.18 195);
+	--color-secondary-content: oklch(0.98 0.01 250);
+
+	--color-accent: oklch(0.62 0.19 160);
+	--color-accent-content: oklch(0.98 0.01 250);
+
+	--color-neutral: oklch(0.35 0.02 250);
+	--color-neutral-content: oklch(0.98 0.01 250);
+
+	--color-info: oklch(0.65 0.22 220);
+	--color-info-content: oklch(0.98 0.01 250);
+
+	--color-success: oklch(0.62 0.19 145);
+	--color-success-content: oklch(0.98 0.01 250);
+
+	--color-warning: oklch(0.78 0.18 85);
+	--color-warning-content: oklch(0.25 0.05 85);
+
+	--color-error: oklch(0.62 0.25 25);
+	--color-error-content: oklch(0.98 0.01 250);
+
+	--radius-selector: 0.5rem;
+	--radius-field: 0.5rem;
+	--radius-box: 0.75rem;
+
+	--size-selector: 0.25rem;
+	--size-field: 0.25rem;
+
+	--border: 1px;
+
+	--depth: 1;
+	--noise: 0;
+}
+
+@plugin 'daisyui/theme' {
+	name: 'omnihub-dark';
+	extends: omnihub;
+	prefersdark: true;
+
+	--color-base-100: oklch(0.07 0.01 240);
+	--color-base-200: oklch(0.12 0.01 240);
+	--color-base-300: oklch(0.18 0.02 240);
+	--color-base-content: oklch(0.93 0.01 240);
+
+	--color-neutral: oklch(0.25 0.03 240);
+	--color-neutral-content: oklch(0.93 0.01 240);
+
+	--color-primary: oklch(0.72 0.2 195);
+	--color-primary-content: oklch(0.08 0.01 240);
+
+	--color-secondary: oklch(0.55 0.18 195);
+	--color-secondary-content: oklch(0.95 0.01 240);
+
+	--color-accent: oklch(0.62 0.19 160);
+	--color-accent-content: oklch(0.08 0.01 240);
+
+	--color-warning: oklch(0.78 0.18 85);
+	--color-warning-content: oklch(0.12 0.05 85);
+
+	--color-error: oklch(0.62 0.25 25);
+	--color-error-content: oklch(0.98 0.01 240);
+}
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Sora:wght@400;500;600;700&display=swap');
+
+:root {
+	--font-display: 'Sora', sans-serif;
+	--font-mono: 'JetBrains Mono', monospace;
+}
+
+html {
+	scroll-behavior: smooth;
+}
+
+body {
+	font-family: var(--font-mono);
+}
+
+::selection {
+	background: oklch(0.65 0.22 195);
+	color: oklch(0.97 0.01 250);
+}
+
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+::-webkit-scrollbar-track {
+	background: oklch(0.93 0.01 250);
+}
+
+::-webkit-scrollbar-thumb {
+	background: oklch(0.35 0.02 250);
+	border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: oklch(0.55 0.18 195);
+}
+
+.dark ::-webkit-scrollbar-track {
+	background: oklch(0.12 0.01 240);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+	background: oklch(0.25 0.03 240);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+	background: oklch(0.45 0.15 195);
+}
+
+.font-display {
+	font-family: var(--font-display);
+}
+
+input,
+select,
+textarea {
+	font-family: var(--font-mono) !important;
+}
+
+@keyframes fadeInUp {
+	from {
+		opacity: 0;
+		transform: translateY(10px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes toast-in {
+	from {
+		opacity: 0;
+		transform: translateX(-100%);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}
+
+.animate-fade-in-up {
+	animation: fadeInUp 0.4s ease-out forwards;
+}
+
+.toast-animate {
+	animation: toast-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.stagger-1 {
+	animation-delay: 0.05s;
+}
+.stagger-2 {
+	animation-delay: 0.1s;
+}
+.stagger-3 {
+	animation-delay: 0.15s;
+}
+.stagger-4 {
+	animation-delay: 0.2s;
+}
+.stagger-5 {
+	animation-delay: 0.25s;
+}

@@ -2,50 +2,108 @@
 	import {
 		addParticipant,
 		addStudy,
-		getParicipants,
+		addOwnership,
 		getParticipantStudies,
 		getStudies,
-		updateParticipant,
+		getParticipants,
 		addParticipantToStudy,
 		updateParticipantStudyPeriod,
+		updateParticipant,
 		getSensors,
-		getUserOwnerships,
-		addOwnership,
 		type Participant,
 		type Sensor,
-		type Ownership
+		type ParticipantStudy,
+		type Study
 	} from '$lib/api';
+	import { showToast } from '$lib/stores/toast';
+	import AddParticipantModal from '$lib/components/modals/AddParticipantModal.svelte';
+	import AddStudyModal from '$lib/components/modals/AddStudyModal.svelte';
+	import AddToStudyModal from '$lib/components/modals/AddToStudyModal.svelte';
+	import AddDeviceModal from '$lib/components/modals/AddDeviceModal.svelte';
+	import ParticipantDetailsPanel from '$lib/components/ParticipantDetailsPanel.svelte';
 	import { onMount } from 'svelte';
-	import AddParticipantModal from '$lib/assets/modals/AddParticipantModal.svelte';
-	import AddStudyModal from '$lib/assets/modals/AddStudyModal.svelte';
-	import AddToStudyModal from '$lib/assets/modals/AddToStudyModal.svelte';
-	import AddDeviceModal from '$lib/assets/modals/AddDeviceModal.svelte';
-	import ParticipantDetailsPanel from '$lib/assets/ParticipantDetailsPanel.svelte';
 
-	let selectedParticipant: Participant | null = $state(null);
-	let participants: Participant[] = $state([]);
-	let studies: { id: number; name: string }[] = $state([]);
+	let mounted = $state(false);
+	onMount(() => setTimeout(() => (mounted = true), 50));
+
+	let participants = $state.raw<Participant[]>([]);
+	let studies = $state.raw<Study[]>([]);
 	let totalCount = $state(0);
-	let isLoading = $state(false);
+	let isLoadingParticipants = $state(false);
+	let isLoadingStudies = $state(false);
+	let currentPage = $state(1);
+	let pageSize = $state(100);
+	let filterSearch = $state('');
+	let filterStudy = $state('all');
+	let totalPages = $derived(Math.ceil(totalCount / pageSize) || 1);
+
+	async function loadParticipants() {
+		isLoadingParticipants = true;
+		try {
+			const result = await getParticipants({
+				search: filterSearch || undefined,
+				study: filterStudy !== 'all' ? filterStudy : undefined,
+				limit: pageSize,
+				offset: (currentPage - 1) * pageSize
+			});
+			participants = result.data;
+			totalCount = result.count;
+		} catch (error) {
+			console.error('Failed to load participants:', error);
+		} finally {
+			isLoadingParticipants = false;
+		}
+	}
+
+	async function loadStudies() {
+		isLoadingStudies = true;
+		try {
+			studies = await getStudies();
+		} catch (error) {
+			console.error('Failed to load studies:', error);
+		} finally {
+			isLoadingStudies = false;
+		}
+	}
+
+	function goToPreviousPage() {
+		if (currentPage > 1) currentPage--;
+	}
+
+	function goToNextPage() {
+		if (currentPage < totalPages) currentPage++;
+	}
+
+	$effect(() => {
+		filterSearch;
+		filterStudy;
+		pageSize;
+		currentPage = 1;
+	});
+
+	$effect(() => {
+		currentPage;
+		loadParticipants();
+	});
+
+	$effect(() => {
+		loadStudies();
+		loadSensors();
+	});
+
+	let showLoading = $derived(isLoadingParticipants && participants.length === 0);
+
+	let selectedParticipant = $state.raw<Participant | null>(null);
 	let showDetailsPanel = $state(false);
-	let participantStudies = $state<
-		{ study_id: number; membership_period: string | null; studies: { id: number; name: string } }[]
-	>([]);
+	let participantStudies = $state.raw<ParticipantStudy[]>([]);
 
-	// Toast notifications
-	let toastMessage = $state('');
-	let toastType = $state<'success' | 'error'>('success');
-	let showToast = $state(false);
-
-	// Existing create-user state kept intact
-	let showAddParticipantModal = $state(false);
 	let newUser = $state({
 		username: '',
 		password: '',
 		properties: { name: '', age: '', sex: '' }
 	});
+	let showAddParticipantModal = $state(false);
 
-	// Add study state
 	let showAddStudyModal = $state(false);
 	let newStudy = $state({
 		name: '',
@@ -53,14 +111,12 @@
 		activePeriodEnd: ''
 	});
 
-	// Add participant to study
 	let showAddToStudyModal = $state(false);
 	let studyToAdd = $state('');
 	let studyStart = $state('');
 	let studyEnd = $state('');
 
-	// Device management state
-	let sensors: Sensor[] = $state([]);
+	let sensors = $state.raw<Sensor[]>([]);
 	let showAddDeviceModal = $state(false);
 	let newOwnership = $state({
 		sensor_id: '',
@@ -68,13 +124,10 @@
 		end_date: ''
 	});
 
-	// Sensor search state
 	let sensorSearch = $state('');
 	let showSensorDropdown = $state(false);
-	let selectedSensorId = $state('');
 	let focusedSensorIndex = $state(-1);
 
-	// Filtered sensors for search
 	let filteredSensors = $derived(
 		sensors.filter((sensor) => {
 			const searchLower = sensorSearch.toLowerCase();
@@ -88,43 +141,21 @@
 		})
 	);
 
-	// Filter state
-	let filterSearch = $state('');
-	let filterStudy = $state('all');
+	async function loadSensors() {
+		try {
+			sensors = await getSensors();
+		} catch (error) {
+			console.error('Failed to load sensors:', error);
+		}
+	}
 
-	// Pagination
-	let currentPage = $state(1);
-	let pageSize = $state(100);
-
-	// Reset page when filters change
-	$effect(() => {
-		filterSearch;
-		filterStudy;
-		currentPage = 1;
-	});
-
-	// Reset page when page size changes
-	$effect(() => {
-		pageSize;
-		currentPage = 1;
-	});
-
-	// Load participants when page changes
-	$effect(() => {
-		currentPage;
-		loadParticipants();
-	});
-
-	// Sensor selection function
 	const selectSensor = (sensor: Sensor) => {
 		newOwnership.sensor_id = sensor.id.toString();
 		sensorSearch = sensor.name;
 		showSensorDropdown = false;
 		focusedSensorIndex = -1;
-		selectedSensorId = sensor.id.toString();
 	};
 
-	// Modal callback functions
 	const onSensorSearchChange = (value: string) => {
 		sensorSearch = value;
 	};
@@ -142,91 +173,52 @@
 		showDetailsPanel = true;
 	};
 
-	// Load participants with current filters
-	const loadParticipants = async () => {
-		isLoading = true;
-		try {
-			const result = await getParicipants({
-				search: filterSearch || undefined,
-				study: filterStudy !== 'all' ? filterStudy : undefined,
-				limit: pageSize,
-				offset: (currentPage - 1) * pageSize
-			});
-			participants = result.data;
-			totalCount = result.count;
-		} catch (error) {
-			console.error('Failed to load participants:', error);
-		} finally {
-			isLoading = false;
-		}
-	};
-
-	// Load studies
-	const loadStudies = async () => {
-		try {
-			studies = await getStudies();
-		} catch (error) {
-			console.error('Failed to load studies:', error);
-		}
-	};
-
-	// Load sensors
-	const loadSensors = async () => {
-		try {
-			sensors = await getSensors();
-		} catch (error) {
-			console.error('Failed to load sensors:', error);
-		}
-	};
-
-	onMount(async () => {
-		await loadStudies();
-		await loadSensors();
-	});
-
 	const handleAddUser = async (user: typeof newUser) => {
-		let processedProperties: Record<string, any> = { ...user.properties };
+		const processedProperties: Record<string, unknown> = { ...user.properties };
 		if (user.properties.age) {
 			processedProperties.age = parseInt(user.properties.age);
 		}
 
-		await addParticipant({
-			username: user.username,
-			password: user.password,
-			properties: processedProperties
-		});
-		showAddParticipantModal = false;
-		newUser = { username: '', password: '', properties: { name: '', age: '', sex: '' } };
-		await loadParticipants(); // Refresh the list
+		try {
+			await addParticipant({
+				username: user.username,
+				password: user.password,
+				properties: processedProperties
+			});
+			showAddParticipantModal = false;
+			newUser = { username: '', password: '', properties: { name: '', age: '', sex: '' } };
+			await loadParticipants();
+			showToast('Participant added successfully', 'success');
+		} catch (error) {
+			console.error('Failed to add participant:', error);
+			showToast('Failed to add participant', 'error');
+		}
 	};
 
-	const handleAddToStudy = async (studyId: string, start: string, end: string) => {
-		if (!selectedParticipant || !studyId) return;
+	const handleAddToStudy = async () => {
+		if (!selectedParticipant || !studyToAdd) return;
 
 		try {
 			const membershipPeriod =
-				start && end ? `[${start} 00:00:00, ${end} 23:59:59.99999999)` : null;
+				studyStart && studyEnd ? `[${studyStart} 00:00:00, ${studyEnd} 23:59:59.99999999)` : null;
 
-			await addParticipantToStudy(selectedParticipant.user_id, parseInt(studyId), membershipPeriod);
+			await addParticipantToStudy(
+				selectedParticipant.user_id,
+				parseInt(studyToAdd),
+				membershipPeriod
+			);
 
 			showAddToStudyModal = false;
 			studyToAdd = '';
 			studyStart = '';
 			studyEnd = '';
 
-			// Refresh participant's studies
-			participantStudies = (await getParticipantStudies(
-				selectedParticipant.user_id
-			)) as unknown as {
-				study_id: number;
-				membership_period: string | null;
-				studies: { id: number; name: string };
-			}[];
+			participantStudies = await getParticipantStudies(selectedParticipant.user_id);
 
-			showToastMessage('Participant added to study successfully', 'success');
+			showToast('Participant added to study successfully', 'success');
 		} catch (error) {
 			console.error('Failed to add participant to study:', error);
-			showToastMessage('Failed to add participant to study', 'error');
+			showToast('Failed to add participant to study', 'error');
 		}
 	};
 
@@ -235,87 +227,78 @@
 			await addStudy(study);
 			showAddStudyModal = false;
 			newStudy = { name: '', activePeriodStart: '', activePeriodEnd: '' };
-			await loadStudies(); // Refresh the studies list
-			showToastMessage('Study added successfully', 'success');
+			await loadStudies();
+			showToast('Study added successfully', 'success');
 		} catch (error) {
 			console.error('Failed to add study:', error);
-			showToastMessage('Failed to add study', 'error');
+			showToast('Failed to add study', 'error');
 		}
 	};
 
-	const handleAddDevice = async (ownership: typeof newOwnership) => {
+	const handleAddDevice = async () => {
 		if (
 			!selectedParticipant ||
-			!ownership.sensor_id ||
-			!ownership.start_date ||
-			!ownership.end_date
+			!newOwnership.sensor_id ||
+			!newOwnership.start_date ||
+			!newOwnership.end_date
 		) {
-			showToastMessage('Please fill in all required fields', 'error');
+			showToast('Please fill in all required fields', 'error');
 			return;
 		}
 
 		try {
 			await addOwnership({
 				user_id: selectedParticipant.user_id,
-				sensor_id: parseInt(ownership.sensor_id),
-				start_date: ownership.start_date,
-				end_date: ownership.end_date
+				sensor_id: parseInt(newOwnership.sensor_id),
+				start_date: newOwnership.start_date,
+				end_date: newOwnership.end_date
 			});
 
 			showAddDeviceModal = false;
 			newOwnership = { sensor_id: '', start_date: '', end_date: '' };
 			sensorSearch = '';
 			showSensorDropdown = false;
-			selectedSensorId = '';
 			focusedSensorIndex = -1;
 
-			showToastMessage('Device added successfully', 'success');
+			showToast('Device added successfully', 'success');
 		} catch (error) {
 			console.error('Failed to add device:', error);
-			showToastMessage('Failed to add device', 'error');
-		}
-	};
-
-	const goToPreviousPage = async () => {
-		if (currentPage > 1) {
-			currentPage--;
-			await loadParticipants();
-		}
-	};
-
-	const goToNextPage = async () => {
-		const maxPages = Math.ceil(totalCount / pageSize);
-		if (currentPage < maxPages) {
-			currentPage++;
-			await loadParticipants();
+			showToast('Failed to add device', 'error');
 		}
 	};
 
 	const handleEditParticipant = async (
-		event: CustomEvent<{ user_id: string; properties: Record<string, any> }>
+		event: CustomEvent<{ user_id: string; properties: Record<string, unknown> }>
 	) => {
 		try {
 			await updateParticipant(event.detail);
 
-			// Update the selected participant and participants list
 			if (selectedParticipant) {
 				selectedParticipant.properties = event.detail.properties;
 
-				const index = participants.findIndex((p) => p.user_id === event.detail.user_id);
+				const index = participants.findIndex(
+					(p: Participant) => p.user_id === event.detail.user_id
+				);
 				if (index !== -1) {
-					participants[index].properties = event.detail.properties;
+					const updated = [...participants];
+					updated[index] = { ...updated[index], properties: event.detail.properties };
+					participants = updated;
 				}
 			}
 
-			showToastMessage('Participant updated successfully', 'success');
+			showToast('Participant updated successfully', 'success');
 		} catch (error) {
 			console.error('Failed to update participant:', error);
-			showToastMessage('Failed to update participant', 'error');
+			showToast('Failed to update participant', 'error');
 		}
 	};
 
 	const handleEditStudyPeriod = async (
-		event: CustomEvent<{ user_id: string; study_id: number; membership_period: string | null }>
+		event: CustomEvent<{
+			user_id: string;
+			study_id: number;
+			membership_period: string | null;
+		}>
 	) => {
 		try {
 			await updateParticipantStudyPeriod(
@@ -323,146 +306,257 @@
 				event.detail.study_id,
 				event.detail.membership_period
 			);
-			showToastMessage('Study period updated successfully', 'success');
+			showToast('Study period updated successfully', 'success');
 		} catch (error) {
 			console.error('Failed to update study period:', error);
-			showToastMessage('Failed to update study period', 'error');
+			showToast('Failed to update study period', 'error');
 		}
 	};
 
-	const handleToast = (event: CustomEvent<{ message: string; type: 'success' | 'error' }>) => {
-		showToastMessage(event.detail.message, event.detail.type);
-	};
-
-	const showToastMessage = (message: string, type: 'success' | 'error') => {
-		toastMessage = message;
-		toastType = type;
-		showToast = true;
-		setTimeout(() => {
-			showToast = false;
-		}, 3000);
-	};
+	const stats = $derived({
+		total: totalCount,
+		filtered: participants.length
+	});
 </script>
 
-<div class="relative h-full w-full bg-base-200">
-	<div class="flex h-full flex-col gap-4 p-4">
-		<!-- Filters  -->
-		<div class="card bg-base-100 shadow-sm">
-			<div class="card-body p-4">
-				<div class="grid grid-cols-1 gap-3 md:grid-cols-3">
-					<label class="form-control w-full">
-						<div class="label">
-							<span class="label-text">Search</span>
-						</div>
+<svelte:head>
+	<title>Participants — OmniHub</title>
+</svelte:head>
+
+<div class="relative h-full w-full overflow-hidden bg-base-100">
+	<div
+		class="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent"
+	></div>
+
+	<div class="relative z-10 flex h-full flex-col gap-4 p-4 lg:p-6">
+		<div class="flex items-center justify-between {mounted ? 'animate-fade-in-up' : 'opacity-0'}">
+			<div>
+				<h1 class="font-display text-2xl font-bold">Participants</h1>
+				<p class="mt-1 font-mono text-sm text-base-content/50">
+					{#if showLoading}
+						<span class="loading loading-xs loading-spinner"></span>
+						<span class="font-mono text-base-content/50">Loading...</span>
+					{:else}
+						<span class="text-primary">{stats.filtered}</span> of {stats.total} records
+					{/if}
+				</p>
+			</div>
+
+			<div class="flex items-center gap-3">
+				<button onclick={() => (showAddStudyModal = true)} class="btn font-mono btn-ghost">
+					<svg
+						class="h-4 w-4"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+					>
+						<path d="M12 5v14M5 12h14" />
+					</svg>
+					Add Study
+				</button>
+				<button onclick={() => (showAddParticipantModal = true)} class="btn font-mono btn-primary">
+					<svg
+						class="h-4 w-4"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+					>
+						<path d="M12 5v14M5 12h14" />
+					</svg>
+					Add Participant
+				</button>
+			</div>
+		</div>
+
+		<div class="card bg-base-200 {mounted ? 'animate-fade-in-up stagger-1' : 'opacity-0'}">
+			<div class="card-body p-4 lg:p-6">
+				<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+					<div class="form-control">
+						<label class="label" for="search">
+							<span
+								class="label-text font-mono text-xs tracking-wider text-base-content/40 uppercase"
+								>Search</span
+							>
+						</label>
 						<input
-							class="input-bordered input"
+							id="search"
+							class="input-bordered input w-full"
 							type="text"
-							placeholder="Search participants"
+							placeholder="Search participants..."
 							bind:value={filterSearch}
 						/>
-					</label>
+					</div>
 
-					<label class="form-control w-full">
-						<div class="label">
-							<span class="label-text">Study</span>
-						</div>
-						<select class="select-bordered select" bind:value={filterStudy}>
+					<div class="form-control">
+						<label class="label" for="study-filter">
+							<span
+								class="label-text font-mono text-xs tracking-wider text-base-content/40 uppercase"
+								>Study</span
+							>
+						</label>
+						<select
+							id="study-filter"
+							class="select-bordered select w-full"
+							bind:value={filterStudy}
+						>
 							<option value="all">All Studies</option>
 							{#each studies as study}
 								<option value={study.id.toString()}>{study.name}</option>
 							{/each}
 						</select>
-					</label>
-				</div>
+					</div>
 
-				<div class="flex justify-end gap-2">
-					<button class="btn btn-primary" onclick={() => (showAddParticipantModal = true)}>
-						Add New Participant
-					</button>
-					<button class="btn btn-secondary" onclick={() => (showAddStudyModal = true)}>
-						Add New Study
-					</button>
+					<div class="form-control">
+						<label class="label" for="page-size">
+							<span
+								class="label-text font-mono text-xs tracking-wider text-base-content/40 uppercase"
+								>Records per page</span
+							>
+						</label>
+						<select id="page-size" class="select-bordered select w-full" bind:value={pageSize}>
+							<option value={10}>10</option>
+							<option value={25}>25</option>
+							<option value={50}>50</option>
+							<option value={100}>100</option>
+							<option value={500}>500</option>
+						</select>
+					</div>
 				</div>
 			</div>
 		</div>
 
-		<!-- Table + pagination -->
-		<div class="card min-h-0 flex-1 bg-base-100 shadow-sm">
-			<div class="card-body flex h-full min-h-0 flex-col p-0">
-				<div class="min-h-0 flex-1 overflow-y-auto">
-					<table class="table-pin-rows table">
-						<thead>
+		<div
+			class="card min-h-0 flex-1 overflow-hidden bg-base-200 {mounted
+				? 'animate-fade-in-up stagger-2'
+				: 'opacity-0'}"
+		>
+			<div class="h-full overflow-x-auto">
+				<table class="table">
+					<thead class="bg-base-300/50">
+						<tr>
+							<th class="font-mono text-xs tracking-wider text-base-content/40 uppercase"
+								>Username</th
+							>
+							<th class="font-mono text-xs tracking-wider text-base-content/40 uppercase">Study</th>
+							<th
+								class="hidden font-mono text-xs tracking-wider text-base-content/40 uppercase md:table-cell"
+								>Role</th
+							>
+							<th class="font-mono text-xs tracking-wider text-base-content/40 uppercase">Name</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#if isLoadingParticipants && participants.length === 0}
 							<tr>
-								<th>Username</th>
-								<th>Study</th>
-								<th>Role</th>
-								<th>Name</th>
+								<td colspan="4" class="py-12 text-center">
+									<span class="loading loading-lg loading-spinner text-primary"></span>
+									<span class="ml-2 font-mono text-base-content/50">Loading participants...</span>
+								</td>
 							</tr>
-						</thead>
-						<tbody>
-							{#if isLoading}
-								<tr>
-									<td colspan="4" class="py-10 text-center text-base-content/70">
-										<span class="loading loading-lg loading-spinner"></span>
-										<span class="ml-2">Loading participants...</span>
+						{:else if participants.length === 0}
+							<tr>
+								<td colspan="4" class="py-12 text-center">
+									<div class="flex flex-col items-center gap-2 text-base-content/30">
+										<svg
+											class="h-12 w-12 opacity-30"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="1.5"
+										>
+											<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+											<circle cx="12" cy="7" r="4" />
+										</svg>
+										<span class="font-mono text-sm">No participants found</span>
+									</div>
+								</td>
+							</tr>
+						{:else}
+							{#each participants as participant (participant.user_id)}
+								<tr
+									class="cursor-pointer transition-colors hover:bg-primary/5"
+									onclick={() => openParticipant(participant)}
+									role="button"
+									tabindex="0"
+								>
+									<td>
+										<div class="flex items-center gap-3">
+											<div
+												class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 font-mono text-sm text-primary"
+											>
+												{(participant.username?.[0] ?? 'U').toUpperCase()}
+											</div>
+											<span class="font-mono text-sm">{participant.username || '—'}</span>
+										</div>
+									</td>
+									<td>
+										{#if participant.study_name}
+											<span class="badge badge-soft badge-primary">{participant.study_name}</span>
+										{:else}
+											<span class="text-base-content/30">—</span>
+										{/if}
+									</td>
+									<td class="hidden md:table-cell">
+										<span class="font-mono text-sm text-base-content/50"
+											>{participant.role ?? '—'}</span
+										>
+									</td>
+									<td>
+										<span class="text-sm text-base-content/70"
+											>{participant.properties?.name ?? '—'}</span
+										>
 									</td>
 								</tr>
-							{:else if participants.length === 0}
-								<tr>
-									<td colspan="4" class="py-10 text-center text-base-content/70">
-										No participants found.
-									</td>
-								</tr>
-							{:else}
-								{#each participants as participant, index}
-									<tr
-										class="hover cursor-pointer hover:bg-base-200"
-										onclick={() => openParticipant(participant)}
-									>
-										<td>{participant.username ?? '—'}</td>
-										<td>{participant.study_name ?? '—'}</td>
-										<td>{participant.role ?? '—'}</td>
-										<td>{participant.properties?.name ?? '—'}</td>
-									</tr>
-								{/each}
-							{/if}
-						</tbody>
-					</table>
-				</div>
+							{/each}
+						{/if}
+					</tbody>
+				</table>
+			</div>
 
-				<div class="border-t border-base-300 p-3">
-					<div class="flex items-center justify-between">
-						<div class="flex items-center gap-2">
-							<span class="text-sm text-base-content/70">Records per page:</span>
-							<select class="select-bordered select select-sm" bind:value={pageSize}>
-								<option value={10}>10</option>
-								<option value={25}>25</option>
-								<option value={50}>50</option>
-								<option value={100}>100</option>
-								<option value={500}>500</option>
-							</select>
-						</div>
-
-						<div class="join">
-							<button
-								class="btn join-item"
-								onclick={goToPreviousPage}
-								disabled={currentPage === 1 || isLoading}
-							>
-								«
-							</button>
-							<button class="btn join-item">
-								Page {currentPage} / {Math.ceil(totalCount / pageSize) || 1}
-							</button>
-							<button
-								class="btn join-item"
-								onclick={goToNextPage}
-								disabled={currentPage >= Math.ceil(totalCount / pageSize) || isLoading}
-							>
-								»
-							</button>
-						</div>
-					</div>
+			<div
+				class="flex items-center justify-between border-t border-neutral/20 bg-base-200/50 px-4 py-3"
+			>
+				<span class="font-mono text-xs text-base-content/40">
+					Page {currentPage} of {totalPages}
+				</span>
+				<div class="join">
+					<button
+						class="btn join-item btn-sm"
+						onclick={goToPreviousPage}
+						disabled={currentPage === 1 || isLoadingParticipants}
+						aria-label="Previous page"
+					>
+						<svg
+							class="h-4 w-4"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+						>
+							<path d="M15 18l-6-6 6-6" />
+						</svg>
+					</button>
+					<button class="btn join-item cursor-default btn-sm">
+						{currentPage} / {totalPages}
+					</button>
+					<button
+						class="btn join-item btn-sm"
+						onclick={goToNextPage}
+						disabled={currentPage >= totalPages || isLoadingParticipants}
+						aria-label="Next page"
+					>
+						<svg
+							class="h-4 w-4"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+						>
+							<path d="M9 18l6-6-6-6" />
+						</svg>
+					</button>
 				</div>
 			</div>
 		</div>
@@ -477,13 +571,7 @@
 			showAddToStudyModal = true;
 			if (selectedParticipant) {
 				try {
-					participantStudies = (await getParticipantStudies(
-						selectedParticipant.user_id
-					)) as unknown as {
-						study_id: number;
-						membership_period: string | null;
-						studies: { id: number; name: string };
-					}[];
+					participantStudies = await getParticipantStudies(selectedParticipant.user_id);
 				} catch (error) {
 					console.error('Failed to load participant studies:', error);
 				}
@@ -493,12 +581,10 @@
 			showAddDeviceModal = true;
 			sensorSearch = '';
 			showSensorDropdown = false;
-			selectedSensorId = '';
 			focusedSensorIndex = -1;
 		}}
 		on:editParticipant={handleEditParticipant}
 		on:editStudyPeriod={handleEditStudyPeriod}
-		on:toast={handleToast}
 	/>
 
 	<AddParticipantModal
@@ -519,7 +605,6 @@
 		onClose={() => (showAddToStudyModal = false)}
 	/>
 
-	<!-- Add study modal -->
 	<AddStudyModal
 		show={showAddStudyModal}
 		bind:newStudy
@@ -542,13 +627,4 @@
 		{onToggleDropdown}
 		{onFocusSensor}
 	/>
-
-	<!-- Toast notification -->
-	{#if showToast}
-		<div class="toast toast-start toast-bottom">
-			<div class="alert {toastType === 'success' ? 'alert-success' : 'alert-error'}">
-				<span>{toastMessage}</span>
-			</div>
-		</div>
-	{/if}
 </div>
