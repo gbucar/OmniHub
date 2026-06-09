@@ -29,6 +29,7 @@ services:
       # - PGRST_JWT_SECRET_IS_BASE64=${PGRST_JWT_SECRET_IS_BASE64}
     ports:
       - "${PGRST_PORT:-3000}:3000"
+
   apidocs:
     image: docker.io/swaggerapi/swagger-ui:latest
     restart: unless-stopped
@@ -38,6 +39,7 @@ services:
       - "8080:8080"
     environment:
       - SWAGGER_JSON_URL=${POSTGREST_URL}
+
   admin-dashboard:
     build:
       context: ./src/admin-dashboard
@@ -47,7 +49,7 @@ services:
     depends_on:
       - postgrest
     ports:
-      - "3001:3000"
+      - "3001:5173"
   
   pipelines:
       build: ./src/pipelines
