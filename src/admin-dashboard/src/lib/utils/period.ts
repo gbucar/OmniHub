@@ -11,8 +11,8 @@ export function parseMembershipPeriod(period: string): { start: string; end: str
 		const match = period.match(/\[([^,]+),\s*([^)]+)\)/);
 		if (match) {
 			return {
-				start: match[1].slice(1, -1).split(' ')[0],
-				end: match[2].slice(1, -2).split(' ')[0]
+				start: match[1].replace(/"/g, '').trim().split(' ')[0],
+				end: match[2].replace(/"/g, '').trim().split(' ')[0]
 			};
 		}
 	}
@@ -26,16 +26,16 @@ export function formatMembershipPeriodDisplay(
 		const parsed = JSON.parse(period);
 		if (Array.isArray(parsed) && parsed.length === 2) {
 			return {
-				start: new Date(parsed[0].replace('+00', 'Z')).toLocaleDateString(),
-				end: new Date(parsed[1].replace('+00', 'Z')).toLocaleDateString()
+				start: parsed[0].split(' ')[0],
+				end: parsed[1].split(' ')[0]
 			};
 		}
 	} catch {
 		const match = period.match(/\[([^,]+),\s*([^)]+)\)/);
 		if (match) {
 			return {
-				start: new Date(match[1].replace('+00', 'Z')).toLocaleDateString(),
-				end: new Date(match[2].replace('+00', 'Z')).toLocaleDateString()
+				start: match[1].replace(/"/g, '').trim().split(' ')[0],
+				end: match[2].replace(/"/g, '').trim().split(' ')[0]
 			};
 		}
 	}

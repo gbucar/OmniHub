@@ -48,6 +48,7 @@
 
 	$effect(() => {
 		if (selectedParticipant) {
+			panelVisible = true;
 			isEditing = false;
 			editedProperties = {
 				name: (selectedParticipant.properties?.name as string) || '',
@@ -343,7 +344,7 @@
 												</svg>
 											</div>
 											<div>
-												<span class="font-mono text-sm">{ps.studies.name}</span>
+												<span class="font-mono text-sm">{ps.studies?.name ?? 'Unknown'}</span>
 												{#if ps.membership_period}
 													<p class="mt-0.5 font-mono text-xs text-base-content/40">
 														{ps.membership_period.split(',')[0].replace('[', '')} — {ps.membership_period

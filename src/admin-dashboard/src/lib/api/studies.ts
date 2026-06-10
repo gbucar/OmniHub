@@ -40,7 +40,7 @@ export const getParticipantStudies = async (userId: string): Promise<Participant
 	return raw.map((item: Record<string, unknown>) => ({
 		study_id: item.study_id as number,
 		membership_period: item.membership_period as string | null,
-		studies: (item.studies as unknown as { id: number; name: string }[])[0]
+		studies: item.studies as { id: number; name: string }
 	})) as ParticipantStudy[];
 };
 

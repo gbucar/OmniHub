@@ -146,6 +146,7 @@
 									index
 										? 'bg-primary/10 text-primary'
 										: ''}"
+									onmousedown={(e) => e.preventDefault()}
 									onclick={() => onSelectSensor(sensor)}
 									onmouseenter={() => onFocusSensor(index)}
 									onmouseleave={() => onFocusSensor(-1)}
