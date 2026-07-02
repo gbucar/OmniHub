@@ -30,7 +30,6 @@
 			start: string;
 			end: string;
 		};
-		removeStudy: { user_id: string; study_id: number; study_name: string };
 		changeOwnership: {
 			user_id: string;
 			sensor_id: number;
@@ -38,13 +37,6 @@
 			old_end_date: string;
 			new_start_date: string;
 			new_end_date: string;
-		};
-		removeOwnership: {
-			user_id: string;
-			sensor_id: number;
-			start_date: string;
-			end_date: string;
-			sensor_name: string;
 		};
 	}>();
 
@@ -64,22 +56,6 @@
 	let editOwnershipStart = $state('');
 	let editOwnershipEnd = $state('');
 
-	let confirmDialog = $state<
-		| {
-				type: 'study';
-				userId: string;
-				studyId: number;
-				studyName: string;
-		  }
-		| {
-				type: 'ownership';
-				userId: string;
-				sensorId: number;
-				sensorName: string;
-		  }
-		| null
-	>(null);
-
 	$effect(() => {
 		if (show) {
 			panelVisible = true;
@@ -87,7 +63,6 @@
 			panelVisible = false;
 			editingStudyId = null;
 			editingOwnershipKey = null;
-			confirmDialog = null;
 		}
 	});
 
@@ -106,7 +81,6 @@
 			editingOwnershipKey = null;
 			editOwnershipStart = '';
 			editOwnershipEnd = '';
-			confirmDialog = null;
 		}
 	});
 
@@ -204,16 +178,6 @@
 		cancelEditStudy();
 	};
 
-	const askRemoveStudy = (studyId: number, studyName: string) => {
-		if (!selectedParticipant) return;
-		confirmDialog = {
-			type: 'study',
-			userId: selectedParticipant.user_id,
-			studyId,
-			studyName
-		};
-	};
-
 	const confirmChangeOwnership = (ownership: Ownership) => {
 		if (!selectedParticipant) return;
 		if (!editOwnershipStart || !editOwnershipEnd) {
@@ -233,53 +197,6 @@
 			new_end_date: editOwnershipEnd
 		});
 		cancelEditOwnership();
-	};
-
-	const askRemoveOwnership = (ownership: Ownership) => {
-		if (!selectedParticipant) return;
-		confirmDialog = {
-			type: 'ownership',
-			userId: selectedParticipant.user_id,
-			sensorId: ownership.sensor_id,
-			sensorName: ownership.list_sensors?.name ?? 'Unknown'
-		};
-	};
-
-	const closeConfirm = () => {
-		confirmDialog = null;
-	};
-
-	const runConfirm = () => {
-		const dialog = confirmDialog;
-		if (!dialog) return;
-		if (dialog.type === 'study') {
-			dispatch('removeStudy', {
-				user_id: dialog.userId,
-				study_id: dialog.studyId,
-				study_name: dialog.studyName
-			});
-		} else {
-			// For ownership, we need the start_date to disambiguate; find it from
-			// userOwnerships in the panel since we stored only sensorId there.
-			// Note: the user may have edited and then asked to remove. The start_date
-			// we want is the CURRENT (server-side) start_date, not the edit buffer.
-			const ownership = userOwnerships.find(
-				(o) => o.sensor_id === dialog.sensorId && o.user_id === dialog.userId
-			);
-			if (!ownership) {
-				showToast('Ownership not found; refresh the panel', 'error');
-				closeConfirm();
-				return;
-			}
-			dispatch('removeOwnership', {
-				user_id: ownership.user_id,
-				sensor_id: ownership.sensor_id,
-				start_date: ownership.start_date,
-				end_date: ownership.end_date,
-				sensor_name: dialog.sensorName
-			});
-		}
-		closeConfirm();
 	};
 </script>
 
@@ -448,20 +365,18 @@
 							<h3 class="font-mono text-xs tracking-wider text-base-content/40 uppercase">
 								Studies
 							</h3>
-							{#if !isEditing}
-								<button class="btn btn-sm btn-accent" onclick={() => dispatch('addToStudy')}>
-									<svg
-										class="h-3.5 w-3.5"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="2"
-									>
-										<path d="M12 5v14M5 12h14" />
-									</svg>
-									Add
-								</button>
-							{/if}
+							<button class="btn btn-sm btn-accent" onclick={() => dispatch('addToStudy')}>
+								<svg
+									class="h-3.5 w-3.5"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+								>
+									<path d="M12 5v14M5 12h14" />
+								</svg>
+								Add
+							</button>
 						</div>
 
 						{#if participantStudies.length === 0}
@@ -527,26 +442,6 @@
 															Cancel
 														</button>
 														<button
-															class="btn btn-xs btn-error"
-															onclick={() =>
-																askRemoveStudy(ps.study_id, ps.studies?.name ?? 'Unknown')}
-															aria-label="Remove study"
-														>
-															<svg
-																class="h-3 w-3"
-																viewBox="0 0 24 24"
-																fill="none"
-																stroke="currentColor"
-																stroke-width="2"
-															>
-																<polyline points="3 6 5 6 21 6" />
-																<path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-																<path d="M10 11v6M14 11v6" />
-																<path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
-															</svg>
-															Remove
-														</button>
-														<button
 															class="btn btn-xs btn-accent"
 															onclick={() => confirmChangeStudy(ps.study_id)}
 															aria-label="Save changes"
@@ -590,26 +485,22 @@
 														</div>
 													</div>
 												</div>
-												{#if !isEditing}
-													<button
-														class="btn btn-circle btn-ghost btn-xs"
-														onclick={() => startEditStudy(ps)}
-														aria-label="Edit study"
+												<button
+													class="btn btn-circle btn-ghost btn-xs"
+													onclick={() => startEditStudy(ps)}
+													aria-label="Edit study"
+												>
+													<svg
+														class="h-3.5 w-3.5"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="2"
 													>
-														<svg
-															class="h-3.5 w-3.5"
-															viewBox="0 0 24 24"
-															fill="none"
-															stroke="currentColor"
-															stroke-width="2"
-														>
-															<path
-																d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
-															/>
-															<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-														</svg>
-													</button>
-												{/if}
+														<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+														<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+													</svg>
+												</button>
 											</div>
 										{/if}
 									</div>
@@ -625,20 +516,18 @@
 							<h3 class="font-mono text-xs tracking-wider text-base-content/40 uppercase">
 								Devices
 							</h3>
-							{#if !isEditing}
-								<button class="btn btn-sm btn-warning" onclick={() => dispatch('addDevice')}>
-									<svg
-										class="h-3.5 w-3.5"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="2"
-									>
-										<path d="M12 5v14M5 12h14" />
-									</svg>
-									Assign
-								</button>
-							{/if}
+							<button class="btn btn-sm btn-warning" onclick={() => dispatch('addDevice')}>
+								<svg
+									class="h-3.5 w-3.5"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+								>
+									<path d="M12 5v14M5 12h14" />
+								</svg>
+								Assign
+							</button>
 						</div>
 
 						{#if userOwnerships.length === 0}
@@ -704,25 +593,6 @@
 															Cancel
 														</button>
 														<button
-															class="btn btn-xs btn-error"
-															onclick={() => askRemoveOwnership(ownership)}
-															aria-label="Remove device"
-														>
-															<svg
-																class="h-3 w-3"
-																viewBox="0 0 24 24"
-																fill="none"
-																stroke="currentColor"
-																stroke-width="2"
-															>
-																<polyline points="3 6 5 6 21 6" />
-																<path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-																<path d="M10 11v6M14 11v6" />
-																<path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
-															</svg>
-															Remove
-														</button>
-														<button
 															class="btn btn-xs btn-warning"
 															onclick={() => confirmChangeOwnership(ownership)}
 															aria-label="Save changes"
@@ -768,26 +638,22 @@
 														</div>
 													</div>
 												</div>
-												{#if !isEditing}
-													<button
-														class="btn btn-circle btn-ghost btn-xs"
-														onclick={() => startEditOwnership(ownership)}
-														aria-label="Edit device"
+												<button
+													class="btn btn-circle btn-ghost btn-xs"
+													onclick={() => startEditOwnership(ownership)}
+													aria-label="Edit device"
+												>
+													<svg
+														class="h-3.5 w-3.5"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="2"
 													>
-														<svg
-															class="h-3.5 w-3.5"
-															viewBox="0 0 24 24"
-															fill="none"
-															stroke="currentColor"
-															stroke-width="2"
-														>
-															<path
-																d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
-															/>
-															<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-														</svg>
-													</button>
-												{/if}
+														<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+														<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+													</svg>
+												</button>
 											</div>
 										{/if}
 									</div>
@@ -837,48 +703,4 @@
 			</div>
 		{/if}
 	</aside>
-
-	{#if confirmDialog}
-		<div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-			<div class="card mx-4 max-w-sm bg-base-200 shadow-2xl">
-				<div class="card-body p-6">
-					<div class="flex items-start gap-3">
-						<div
-							class="flex h-10 w-10 flex-none items-center justify-center rounded-xl border border-error/20 bg-error/10"
-						>
-							<svg
-								class="h-5 w-5 text-error"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-							>
-								<path
-									d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
-								/>
-								<line x1="12" y1="9" x2="12" y2="13" />
-								<line x1="12" y1="17" x2="12.01" y2="17" />
-							</svg>
-						</div>
-						<div class="min-w-0 flex-1">
-							<h3 class="font-display text-lg font-semibold">Confirm removal</h3>
-							<p class="mt-1 font-mono text-sm text-base-content/70">
-								{#if confirmDialog.type === 'study'}
-									Remove study <span class="text-base-content">{confirmDialog.studyName}</span> from this
-									participant? The membership will be deactivated.
-								{:else}
-									Unassign device <span class="text-base-content">{confirmDialog.sensorName}</span>
-									from this participant? The assignment will be deactivated.
-								{/if}
-							</p>
-						</div>
-					</div>
-					<div class="mt-6 card-actions justify-end">
-						<button class="btn btn-ghost btn-sm" onclick={closeConfirm}>Cancel</button>
-						<button class="btn btn-sm btn-error" onclick={runConfirm}>Remove</button>
-					</div>
-				</div>
-			</div>
-		</div>
-	{/if}
 {/if}

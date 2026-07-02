@@ -4,13 +4,11 @@
 		addStudy,
 		addOwnership,
 		updateOwnership,
-		removeOwnership,
 		getParticipantStudies,
 		getStudies,
 		getParticipants,
 		addParticipantToStudy,
 		updateParticipantStudyPeriod,
-		removeParticipantFromStudy,
 		updateParticipant,
 		getSensors,
 		getUserOwnerships,
@@ -316,19 +314,6 @@
 		}
 	};
 
-	const handleRemoveStudyFromParticipant = async (
-		event: CustomEvent<{ user_id: string; study_id: number; study_name: string }>
-	) => {
-		try {
-			await removeParticipantFromStudy(event.detail.user_id, event.detail.study_id);
-			await loadParticipantStudies(event.detail.user_id);
-			showToast(`Study "${event.detail.study_name}" removed from participant`, 'success');
-		} catch (error) {
-			console.error('Failed to remove study from participant:', error);
-			showToast('Failed to remove study', 'error');
-		}
-	};
-
 	const handleChangeOwnership = async (
 		event: CustomEvent<{
 			user_id: string;
@@ -359,30 +344,6 @@
 			} else {
 				showToast('Failed to update device assignment', 'error');
 			}
-		}
-	};
-
-	const handleRemoveOwnership = async (
-		event: CustomEvent<{
-			user_id: string;
-			sensor_id: number;
-			start_date: string;
-			end_date: string;
-			sensor_name: string;
-		}>
-	) => {
-		try {
-			await removeOwnership(
-				event.detail.user_id,
-				event.detail.sensor_id,
-				event.detail.start_date,
-				event.detail.end_date
-			);
-			await loadUserOwnerships(event.detail.user_id);
-			showToast(`Device "${event.detail.sensor_name}" unassigned`, 'success');
-		} catch (error) {
-			console.error('Failed to remove ownership:', error);
-			showToast('Failed to unassign device', 'error');
 		}
 	};
 
@@ -681,9 +642,7 @@
 		}}
 		on:editParticipant={handleEditParticipant}
 		on:changeStudyPeriod={handleChangeStudyPeriod}
-		on:removeStudy={handleRemoveStudyFromParticipant}
 		on:changeOwnership={handleChangeOwnership}
-		on:removeOwnership={handleRemoveOwnership}
 	/>
 
 	<AddParticipantModal
