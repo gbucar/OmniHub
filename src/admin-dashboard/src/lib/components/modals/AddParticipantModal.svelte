@@ -1,4 +1,6 @@
 <script lang="ts">
+	import PasswordInput from '../PasswordInput.svelte';
+
 	interface Props {
 		show: boolean;
 		newUser: {
@@ -91,11 +93,10 @@
 							>Password</span
 						>
 					</label>
-					<input
+					<PasswordInput
 						id="modal-password"
-						type="password"
-						class="input-bordered input w-full"
 						placeholder="Enter password"
+						autocomplete="new-password"
 						bind:value={newUser.password}
 						required
 					/>

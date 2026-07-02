@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { login } from '$lib/api';
 	import { showToast } from '$lib/stores/toast';
+	import PasswordInput from '$lib/components/PasswordInput.svelte';
 
 	let password = $state('');
 	let username = $state('');
@@ -72,13 +73,12 @@
 							>Password</span
 						>
 					</label>
-					<input
+					<PasswordInput
 						id="password"
-						bind:value={password}
 						name="password"
-						type="password"
 						placeholder="Enter your password"
-						class="input-bordered input w-full"
+						autocomplete="current-password"
+						bind:value={password}
 						required
 					/>
 				</div>
