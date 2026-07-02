@@ -1,29 +1,28 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
-	import {
-		getParticipantStudies,
-		getUserOwnerships,
-		updateParticipant,
-		type Participant,
-		type Ownership
-	} from '$lib/api';
+	import { updateParticipant, type Participant, type Ownership } from '$lib/api';
 	import { showToast } from '$lib/stores/toast';
-	import StudySection from './StudySection.svelte';
+	import PeriodBadge from './PeriodBadge.svelte';
 
 	interface Props {
 		show: boolean;
 		selectedParticipant: Participant | null;
 		studies: { id: number; name: string }[];
+		participantStudies: {
+			study_id: number;
+			membership_period: string | null;
+			studies: { id: number; name: string };
+		}[];
+		userOwnerships: Ownership[];
 	}
 
-	let { show, selectedParticipant, studies }: Props = $props();
+	let { show, selectedParticipant, studies, participantStudies, userOwnerships }: Props = $props();
 
 	const dispatch = createEventDispatcher<{
 		close: void;
 		editParticipant: { user_id: string; properties: Record<string, unknown> };
 		addToStudy: void;
 		addDevice: void;
-		editStudyPeriod: { user_id: string; study_id: number; membership_period: string | null };
 	}>();
 
 	let isEditing = $state(false);
@@ -32,10 +31,6 @@
 		age: '',
 		sex: ''
 	});
-	let participantStudies = $state<
-		{ study_id: number; membership_period: string | null; studies: { id: number; name: string } }[]
-	>([]);
-	let userOwnerships = $state<Ownership[]>([]);
 	let panelVisible = $state(false);
 
 	$effect(() => {
@@ -55,16 +50,6 @@
 				age: (selectedParticipant.properties?.age as string) || '',
 				sex: (selectedParticipant.properties?.sex as string) || ''
 			};
-
-			(async () => {
-				try {
-					participantStudies = await getParticipantStudies(selectedParticipant.user_id);
-					userOwnerships = await getUserOwnerships(selectedParticipant.user_id);
-				} catch (error) {
-					console.error('Failed to load participant data:', error);
-					showToast('Failed to load participant data', 'error');
-				}
-			})();
 		}
 	});
 
@@ -108,24 +93,6 @@
 		});
 
 		isEditing = false;
-	};
-
-	const saveStudyPeriod = async (studyId: number, start: string, end: string) => {
-		if (!selectedParticipant) return;
-
-		try {
-			const membershipPeriod =
-				start && end ? `[${start} 00:00:00, ${end} 23:59:59.99999999)` : null;
-
-			dispatch('editStudyPeriod', {
-				user_id: selectedParticipant.user_id,
-				study_id: studyId,
-				membership_period: membershipPeriod
-			});
-		} catch (error) {
-			console.error('Failed to update study period:', error);
-			showToast('Failed to update study period', 'error');
-		}
 	};
 </script>
 
@@ -345,14 +312,9 @@
 											</div>
 											<div>
 												<span class="font-mono text-sm">{ps.studies?.name ?? 'Unknown'}</span>
-												{#if ps.membership_period}
-													<p class="mt-0.5 font-mono text-xs text-base-content/40">
-														{ps.membership_period.split(',')[0].replace('[', '')} — {ps.membership_period
-															.split(',')[1]
-															.replace(')', '')
-															.split('.')[0]}
-													</p>
-												{/if}
+												<div class="mt-0.5">
+													<PeriodBadge period={ps.membership_period} />
+												</div>
 											</div>
 										</div>
 									</div>
@@ -421,9 +383,9 @@
 												<span class="font-mono text-sm"
 													>{ownership.list_sensors?.name ?? 'Unknown'}</span
 												>
-												<p class="mt-0.5 font-mono text-xs text-base-content/40">
-													{ownership.start_date} to {ownership.end_date}
-												</p>
+												<div class="mt-0.5">
+													<PeriodBadge start={ownership.start_date} end={ownership.end_date} />
+												</div>
 											</div>
 										</div>
 									</div>

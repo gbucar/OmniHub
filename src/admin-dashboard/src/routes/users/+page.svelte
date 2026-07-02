@@ -7,13 +7,14 @@
 		getStudies,
 		getParticipants,
 		addParticipantToStudy,
-		updateParticipantStudyPeriod,
 		updateParticipant,
 		getSensors,
+		getUserOwnerships,
 		type Participant,
 		type Sensor,
 		type ParticipantStudy,
-		type Study
+		type Study,
+		type Ownership
 	} from '$lib/api';
 	import { showToast } from '$lib/stores/toast';
 	import AddParticipantModal from '$lib/components/modals/AddParticipantModal.svelte';
@@ -96,6 +97,7 @@
 	let selectedParticipant = $state.raw<Participant | null>(null);
 	let showDetailsPanel = $state(false);
 	let participantStudies = $state.raw<ParticipantStudy[]>([]);
+	let userOwnerships = $state<Ownership[]>([]);
 
 	let newUser = $state({
 		username: '',
@@ -149,6 +151,22 @@
 		}
 	}
 
+	async function loadUserOwnerships(userId: string) {
+		try {
+			userOwnerships = await getUserOwnerships(userId);
+		} catch (error) {
+			console.error('Failed to load ownerships:', error);
+		}
+	}
+
+	async function loadParticipantStudies(userId: string) {
+		try {
+			participantStudies = await getParticipantStudies(userId);
+		} catch (error) {
+			console.error('Failed to load participant studies:', error);
+		}
+	}
+
 	const selectSensor = (sensor: Sensor) => {
 		newOwnership.sensor_id = sensor.id.toString();
 		sensorSearch = sensor.name;
@@ -171,6 +189,8 @@
 	const openParticipant = async (participant: Participant) => {
 		selectedParticipant = participant;
 		showDetailsPanel = true;
+		await loadParticipantStudies(participant.user_id);
+		await loadUserOwnerships(participant.user_id);
 	};
 
 	const handleAddUser = async (user: typeof newUser) => {
@@ -213,7 +233,7 @@
 			studyStart = '';
 			studyEnd = '';
 
-			participantStudies = await getParticipantStudies(selectedParticipant.user_id);
+			await loadParticipantStudies(selectedParticipant.user_id);
 
 			showToast('Participant added to study successfully', 'success');
 		} catch (error) {
@@ -260,6 +280,8 @@
 			showSensorDropdown = false;
 			focusedSensorIndex = -1;
 
+			await loadUserOwnerships(selectedParticipant.user_id);
+
 			showToast('Device added successfully', 'success');
 		} catch (error) {
 			console.error('Failed to add device:', error);
@@ -273,43 +295,22 @@
 		try {
 			await updateParticipant(event.detail);
 
-			if (selectedParticipant) {
-				selectedParticipant.properties = event.detail.properties;
+			// Refetch the current page so the table row and the details panel
+			// both reflect the new properties from the database. Using a fresh
+			// reference for `selectedParticipant` is required because it is
+			// declared with `$state.raw` (no deep proxy), so in-place mutation
+			// of `.properties` would not trigger reactivity downstream.
+			await loadParticipants();
 
-				const index = participants.findIndex(
-					(p: Participant) => p.user_id === event.detail.user_id
-				);
-				if (index !== -1) {
-					const updated = [...participants];
-					updated[index] = { ...updated[index], properties: event.detail.properties };
-					participants = updated;
-				}
+			const refreshed = participants.find((p) => p.user_id === event.detail.user_id);
+			if (refreshed) {
+				selectedParticipant = refreshed;
 			}
 
 			showToast('Participant updated successfully', 'success');
 		} catch (error) {
 			console.error('Failed to update participant:', error);
 			showToast('Failed to update participant', 'error');
-		}
-	};
-
-	const handleEditStudyPeriod = async (
-		event: CustomEvent<{
-			user_id: string;
-			study_id: number;
-			membership_period: string | null;
-		}>
-	) => {
-		try {
-			await updateParticipantStudyPeriod(
-				event.detail.user_id,
-				event.detail.study_id,
-				event.detail.membership_period
-			);
-			showToast('Study period updated successfully', 'success');
-		} catch (error) {
-			console.error('Failed to update study period:', error);
-			showToast('Failed to update study period', 'error');
 		}
 	};
 
@@ -566,15 +567,13 @@
 		show={showDetailsPanel}
 		{selectedParticipant}
 		{studies}
+		{participantStudies}
+		{userOwnerships}
 		on:close={() => (showDetailsPanel = false)}
 		on:addToStudy={async () => {
 			showAddToStudyModal = true;
 			if (selectedParticipant) {
-				try {
-					participantStudies = await getParticipantStudies(selectedParticipant.user_id);
-				} catch (error) {
-					console.error('Failed to load participant studies:', error);
-				}
+				await loadParticipantStudies(selectedParticipant.user_id);
 			}
 		}}
 		on:addDevice={() => {
@@ -584,7 +583,6 @@
 			focusedSensorIndex = -1;
 		}}
 		on:editParticipant={handleEditParticipant}
-		on:editStudyPeriod={handleEditStudyPeriod}
 	/>
 
 	<AddParticipantModal
