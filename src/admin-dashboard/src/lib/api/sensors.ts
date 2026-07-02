@@ -97,8 +97,9 @@ export const updateOwnership = async (
 /**
  * "Remove" an ownership without deleting the row.
  * Implemented as a soft delete: set end_date to a date in the distant past
- * so the PeriodBadge displays "Expired" and the assignment is effectively
- * inactive. Uses the existing admin UPDATE RLS policy — no DELETE needed.
+ * so the PeriodBadge displays "Inactive" and the assignment is effectively
+ * hidden from active use. Uses the existing admin UPDATE RLS policy — no
+ * DELETE needed and no new RLS policies required.
  */
 export const removeOwnership = async (
 	userId: string,

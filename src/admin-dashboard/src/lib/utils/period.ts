@@ -7,7 +7,7 @@
  * can display validity consistently.
  */
 
-export type PeriodStatus = 'active' | 'upcoming' | 'expired' | 'none';
+export type PeriodStatus = 'active' | 'upcoming' | 'inactive' | 'none';
 
 /**
  * Parses a tstzrange string like:
@@ -97,12 +97,17 @@ function nowDate(): Date {
 }
 
 /**
- * Determines whether a period is currently active, upcoming, expired, or unset.
+ * Determines whether a period is currently active, upcoming, inactive, or unset.
  *
- *   - 'none'     - no valid start or end
- *   - 'upcoming' - both start and end are in the future (start > now)
- *   - 'expired'  - both start and end are in the past (end < now)
- *   - 'active'   - now is between start and end (inclusive on start, exclusive on end)
+ *   - 'none'      - no valid start or end
+ *   - 'upcoming'  - both start and end are in the future (start > now)
+ *   - 'inactive'  - both start and end are in the past (end < now). The
+ *                   word "inactive" is used instead of "expired" because
+ *                   having past dates is a normal lifecycle state for
+ *                   research studies and device assignments, not a
+ *                   failure or error.
+ *   - 'active'    - now is between start and end (inclusive on start,
+ *                   exclusive on end)
  */
 export function getPeriodStatus(
 	startOrRange: string | Date | null | undefined,
@@ -118,7 +123,7 @@ export function getPeriodStatus(
 	if (isNaN(start.getTime()) || isNaN(endDate.getTime())) return 'none';
 
 	if (now < start) return 'upcoming';
-	if (now > endDate) return 'expired';
+	if (now > endDate) return 'inactive';
 	return 'active';
 }
 

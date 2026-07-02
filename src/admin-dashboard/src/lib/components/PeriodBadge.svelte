@@ -42,10 +42,10 @@
 			badgeClass: 'badge-info badge-soft',
 			dotClass: 'bg-info'
 		},
-		expired: {
-			label: 'Expired',
-			badgeClass: 'badge-error badge-soft',
-			dotClass: 'bg-error'
+		inactive: {
+			label: 'Inactive',
+			badgeClass: 'badge-neutral badge-soft',
+			dotClass: 'bg-base-content/40'
 		},
 		none: {
 			label: 'No period',
