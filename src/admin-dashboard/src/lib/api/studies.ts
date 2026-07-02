@@ -75,3 +75,21 @@ export const updateParticipantStudyPeriod = async (
 	}
 	return data?.data ?? null;
 };
+
+/**
+ * "Remove" a participant from a study without deleting the row.
+ * Implemented as a soft delete: set membership_period to NULL so the
+ * PeriodBadge displays "No period" and the membership is effectively
+ * inactive. Uses the existing admin ALL RLS policy — no DELETE needed.
+ */
+export const removeParticipantFromStudy = async (userId: string, studyId: number) => {
+	const data = await pgClient
+		?.from('many_participants_studies')
+		.update({ membership_period: null })
+		.eq('user_id', userId)
+		.eq('study_id', studyId);
+	if (data?.error) {
+		throw new Error(data.error.message);
+	}
+	return data?.data ?? null;
+};

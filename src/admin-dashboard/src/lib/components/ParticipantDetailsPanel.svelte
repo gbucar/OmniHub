@@ -2,6 +2,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import { updateParticipant, type Participant, type Ownership } from '$lib/api';
 	import { showToast } from '$lib/stores/toast';
+	import { parseMembershipPeriod } from '$lib/utils/period';
 	import PeriodBadge from './PeriodBadge.svelte';
 
 	interface Props {
@@ -23,6 +24,28 @@
 		editParticipant: { user_id: string; properties: Record<string, unknown> };
 		addToStudy: void;
 		addDevice: void;
+		changeStudyPeriod: {
+			user_id: string;
+			study_id: number;
+			start: string;
+			end: string;
+		};
+		removeStudy: { user_id: string; study_id: number; study_name: string };
+		changeOwnership: {
+			user_id: string;
+			sensor_id: number;
+			old_start_date: string;
+			old_end_date: string;
+			new_start_date: string;
+			new_end_date: string;
+		};
+		removeOwnership: {
+			user_id: string;
+			sensor_id: number;
+			start_date: string;
+			end_date: string;
+			sensor_name: string;
+		};
 	}>();
 
 	let isEditing = $state(false);
@@ -33,11 +56,38 @@
 	});
 	let panelVisible = $state(false);
 
+	let editingStudyId = $state<string | null>(null);
+	let editStudyStart = $state('');
+	let editStudyEnd = $state('');
+
+	let editingOwnershipKey = $state<string | null>(null);
+	let editOwnershipStart = $state('');
+	let editOwnershipEnd = $state('');
+
+	let confirmDialog = $state<
+		| {
+				type: 'study';
+				userId: string;
+				studyId: number;
+				studyName: string;
+		  }
+		| {
+				type: 'ownership';
+				userId: string;
+				sensorId: number;
+				sensorName: string;
+		  }
+		| null
+	>(null);
+
 	$effect(() => {
 		if (show) {
 			panelVisible = true;
 		} else {
 			panelVisible = false;
+			editingStudyId = null;
+			editingOwnershipKey = null;
+			confirmDialog = null;
 		}
 	});
 
@@ -50,6 +100,13 @@
 				age: (selectedParticipant.properties?.age as string) || '',
 				sex: (selectedParticipant.properties?.sex as string) || ''
 			};
+			editingStudyId = null;
+			editStudyStart = '';
+			editStudyEnd = '';
+			editingOwnershipKey = null;
+			editOwnershipStart = '';
+			editOwnershipEnd = '';
+			confirmDialog = null;
 		}
 	});
 
@@ -93,6 +150,136 @@
 		});
 
 		isEditing = false;
+	};
+
+	const cancelEditStudy = () => {
+		editingStudyId = null;
+		editStudyStart = '';
+		editStudyEnd = '';
+	};
+
+	const cancelEditOwnership = () => {
+		editingOwnershipKey = null;
+		editOwnershipStart = '';
+		editOwnershipEnd = '';
+	};
+
+	const startEditStudy = (ps: { study_id: number; membership_period: string | null }) => {
+		editingStudyId = ps.study_id.toString();
+		if (ps.membership_period) {
+			const parsed = parseMembershipPeriod(ps.membership_period);
+			editStudyStart = parsed?.start ?? '';
+			editStudyEnd = parsed?.end ?? '';
+		} else {
+			editStudyStart = '';
+			editStudyEnd = '';
+		}
+	};
+
+	const startEditOwnership = (ownership: Ownership) => {
+		// extract YYYY-MM-DD from ISO timestamptz string
+		const startDate = ownership.start_date.split('T')[0] || ownership.start_date.split(' ')[0];
+		const endDate = ownership.end_date.split('T')[0] || ownership.end_date.split(' ')[0];
+		editingOwnershipKey = `${ownership.sensor_id}|${ownership.start_date}`;
+		editOwnershipStart = startDate;
+		editOwnershipEnd = endDate;
+	};
+
+	const confirmChangeStudy = (studyId: number) => {
+		if (!selectedParticipant) return;
+		if (!editStudyStart || !editStudyEnd) {
+			showToast('Please choose both start and end dates', 'error');
+			return;
+		}
+		if (editStudyEnd < editStudyStart) {
+			showToast('End date must be on or after start date', 'error');
+			return;
+		}
+		dispatch('changeStudyPeriod', {
+			user_id: selectedParticipant.user_id,
+			study_id: studyId,
+			start: editStudyStart,
+			end: editStudyEnd
+		});
+		cancelEditStudy();
+	};
+
+	const askRemoveStudy = (studyId: number, studyName: string) => {
+		if (!selectedParticipant) return;
+		confirmDialog = {
+			type: 'study',
+			userId: selectedParticipant.user_id,
+			studyId,
+			studyName
+		};
+	};
+
+	const confirmChangeOwnership = (ownership: Ownership) => {
+		if (!selectedParticipant) return;
+		if (!editOwnershipStart || !editOwnershipEnd) {
+			showToast('Please choose both start and end dates', 'error');
+			return;
+		}
+		if (editOwnershipEnd < editOwnershipStart) {
+			showToast('End date must be on or after start date', 'error');
+			return;
+		}
+		dispatch('changeOwnership', {
+			user_id: selectedParticipant.user_id,
+			sensor_id: ownership.sensor_id,
+			old_start_date: ownership.start_date,
+			old_end_date: ownership.end_date,
+			new_start_date: editOwnershipStart,
+			new_end_date: editOwnershipEnd
+		});
+		cancelEditOwnership();
+	};
+
+	const askRemoveOwnership = (ownership: Ownership) => {
+		if (!selectedParticipant) return;
+		confirmDialog = {
+			type: 'ownership',
+			userId: selectedParticipant.user_id,
+			sensorId: ownership.sensor_id,
+			sensorName: ownership.list_sensors?.name ?? 'Unknown'
+		};
+	};
+
+	const closeConfirm = () => {
+		confirmDialog = null;
+	};
+
+	const runConfirm = () => {
+		const dialog = confirmDialog;
+		if (!dialog) return;
+		if (dialog.type === 'study') {
+			dispatch('removeStudy', {
+				user_id: dialog.userId,
+				study_id: dialog.studyId,
+				study_name: dialog.studyName
+			});
+		} else {
+			// For ownership, we need the start_date to disambiguate; find it from
+			// userOwnerships in the panel since we stored only sensorId there.
+			// Note: the user may have edited and then asked to remove. The start_date
+			// we want is the CURRENT (server-side) start_date, not the edit buffer.
+			const ownership = userOwnerships.find(
+				(o) => o.sensor_id === dialog.sensorId && o.user_id === dialog.userId
+			);
+			if (!ownership) {
+				showToast('Ownership not found; refresh the panel', 'error');
+				closeConfirm();
+				return;
+			}
+			dispatch('removeOwnership', {
+				user_id: ownership.user_id,
+				sensor_id: ownership.sensor_id,
+				start_date: ownership.start_date,
+				end_date: ownership.end_date,
+				sensor_name: dialog.sensorName
+			});
+		}
+		closeConfirm();
 	};
 </script>
 
@@ -294,29 +481,137 @@
 						{:else}
 							<div class="space-y-2">
 								{#each participantStudies as ps (ps.study_id)}
-									<div class="flex items-center justify-between rounded-lg bg-base-200 p-3">
-										<div class="flex items-center gap-3">
-											<div
-												class="flex h-8 w-8 items-center justify-center rounded-lg border border-accent/20 bg-accent/10"
-											>
-												<svg
-													class="h-4 w-4 text-accent"
-													viewBox="0 0 24 24"
-													fill="none"
-													stroke="currentColor"
-													stroke-width="2"
+									<div class="rounded-lg bg-base-200 p-3">
+										{#if editingStudyId === ps.study_id.toString()}
+											<!-- EDIT MODE -->
+											<div class="flex items-center gap-3">
+												<div
+													class="flex h-8 w-8 flex-none items-center justify-center rounded-lg border border-accent/20 bg-accent/10"
 												>
-													<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-													<path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-												</svg>
-											</div>
-											<div>
-												<span class="font-mono text-sm">{ps.studies?.name ?? 'Unknown'}</span>
-												<div class="mt-0.5">
-													<PeriodBadge period={ps.membership_period} />
+													<svg
+														class="h-4 w-4 text-accent"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="2"
+													>
+														<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+														<path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+													</svg>
+												</div>
+												<div class="min-w-0 flex-1">
+													<span class="font-mono text-sm font-medium"
+														>{ps.studies?.name ?? 'Unknown'}</span
+													>
+													<div class="mt-2 flex items-center gap-2">
+														<input
+															type="date"
+															class="input-bordered input input-xs flex-1"
+															bind:value={editStudyStart}
+															aria-label="Edit start date"
+														/>
+														<span class="text-xs text-base-content/30">to</span>
+														<input
+															type="date"
+															class="input-bordered input input-xs flex-1"
+															bind:value={editStudyEnd}
+															aria-label="Edit end date"
+														/>
+													</div>
+													<div class="mt-2 flex items-center justify-end gap-1">
+														<button
+															class="btn btn-ghost btn-xs"
+															onclick={cancelEditStudy}
+															aria-label="Cancel edit"
+														>
+															Cancel
+														</button>
+														<button
+															class="btn btn-xs btn-error"
+															onclick={() =>
+																askRemoveStudy(ps.study_id, ps.studies?.name ?? 'Unknown')}
+															aria-label="Remove study"
+														>
+															<svg
+																class="h-3 w-3"
+																viewBox="0 0 24 24"
+																fill="none"
+																stroke="currentColor"
+																stroke-width="2"
+															>
+																<polyline points="3 6 5 6 21 6" />
+																<path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+																<path d="M10 11v6M14 11v6" />
+																<path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+															</svg>
+															Remove
+														</button>
+														<button
+															class="btn btn-xs btn-accent"
+															onclick={() => confirmChangeStudy(ps.study_id)}
+															aria-label="Save changes"
+														>
+															<svg
+																class="h-3 w-3"
+																viewBox="0 0 24 24"
+																fill="none"
+																stroke="currentColor"
+																stroke-width="2"
+															>
+																<polyline points="20 6 9 17 4 12" />
+															</svg>
+															Change
+														</button>
+													</div>
 												</div>
 											</div>
-										</div>
+										{:else}
+											<!-- DISPLAY MODE -->
+											<div class="flex items-center justify-between">
+												<div class="flex items-center gap-3">
+													<div
+														class="flex h-8 w-8 items-center justify-center rounded-lg border border-accent/20 bg-accent/10"
+													>
+														<svg
+															class="h-4 w-4 text-accent"
+															viewBox="0 0 24 24"
+															fill="none"
+															stroke="currentColor"
+															stroke-width="2"
+														>
+															<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+															<path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+														</svg>
+													</div>
+													<div>
+														<span class="font-mono text-sm">{ps.studies?.name ?? 'Unknown'}</span>
+														<div class="mt-0.5">
+															<PeriodBadge period={ps.membership_period} />
+														</div>
+													</div>
+												</div>
+												{#if !isEditing}
+													<button
+														class="btn btn-circle btn-ghost btn-xs"
+														onclick={() => startEditStudy(ps)}
+														aria-label="Edit study"
+													>
+														<svg
+															class="h-3.5 w-3.5"
+															viewBox="0 0 24 24"
+															fill="none"
+															stroke="currentColor"
+															stroke-width="2"
+														>
+															<path
+																d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+															/>
+															<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+														</svg>
+													</button>
+												{/if}
+											</div>
+										{/if}
 									</div>
 								{/each}
 							</div>
@@ -363,31 +658,138 @@
 						{:else}
 							<div class="space-y-2">
 								{#each userOwnerships as ownership (ownership.sensor_id)}
-									<div class="flex items-center justify-between rounded-lg bg-base-200 p-3">
-										<div class="flex items-center gap-3">
-											<div
-												class="flex h-8 w-8 items-center justify-center rounded-lg border border-warning/20 bg-warning/10"
-											>
-												<svg
-													class="h-4 w-4 text-warning"
-													viewBox="0 0 24 24"
-													fill="none"
-													stroke="currentColor"
-													stroke-width="2"
+									<div class="rounded-lg bg-base-200 p-3">
+										{#if editingOwnershipKey === `${ownership.sensor_id}|${ownership.start_date}`}
+											<!-- EDIT MODE -->
+											<div class="flex items-center gap-3">
+												<div
+													class="flex h-8 w-8 flex-none items-center justify-center rounded-lg border border-warning/20 bg-warning/10"
 												>
-													<rect x="2" y="6" width="20" height="12" rx="2" />
-													<path d="M6 12h.01M12 12h.01" />
-												</svg>
-											</div>
-											<div>
-												<span class="font-mono text-sm"
-													>{ownership.list_sensors?.name ?? 'Unknown'}</span
-												>
-												<div class="mt-0.5">
-													<PeriodBadge start={ownership.start_date} end={ownership.end_date} />
+													<svg
+														class="h-4 w-4 text-warning"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="2"
+													>
+														<rect x="2" y="6" width="20" height="12" rx="2" />
+														<path d="M6 12h.01M12 12h.01" />
+													</svg>
+												</div>
+												<div class="min-w-0 flex-1">
+													<span class="font-mono text-sm font-medium"
+														>{ownership.list_sensors?.name ?? 'Unknown'}</span
+													>
+													<div class="mt-2 flex items-center gap-2">
+														<input
+															type="date"
+															class="input-bordered input input-xs flex-1"
+															bind:value={editOwnershipStart}
+															aria-label="Edit start date"
+														/>
+														<span class="text-xs text-base-content/30">to</span>
+														<input
+															type="date"
+															class="input-bordered input input-xs flex-1"
+															bind:value={editOwnershipEnd}
+															aria-label="Edit end date"
+														/>
+													</div>
+													<div class="mt-2 flex items-center justify-end gap-1">
+														<button
+															class="btn btn-ghost btn-xs"
+															onclick={cancelEditOwnership}
+															aria-label="Cancel edit"
+														>
+															Cancel
+														</button>
+														<button
+															class="btn btn-xs btn-error"
+															onclick={() => askRemoveOwnership(ownership)}
+															aria-label="Remove device"
+														>
+															<svg
+																class="h-3 w-3"
+																viewBox="0 0 24 24"
+																fill="none"
+																stroke="currentColor"
+																stroke-width="2"
+															>
+																<polyline points="3 6 5 6 21 6" />
+																<path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+																<path d="M10 11v6M14 11v6" />
+																<path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+															</svg>
+															Remove
+														</button>
+														<button
+															class="btn btn-xs btn-warning"
+															onclick={() => confirmChangeOwnership(ownership)}
+															aria-label="Save changes"
+														>
+															<svg
+																class="h-3 w-3"
+																viewBox="0 0 24 24"
+																fill="none"
+																stroke="currentColor"
+																stroke-width="2"
+															>
+																<polyline points="20 6 9 17 4 12" />
+															</svg>
+															Change
+														</button>
+													</div>
 												</div>
 											</div>
-										</div>
+										{:else}
+											<!-- DISPLAY MODE -->
+											<div class="flex items-center justify-between">
+												<div class="flex items-center gap-3">
+													<div
+														class="flex h-8 w-8 items-center justify-center rounded-lg border border-warning/20 bg-warning/10"
+													>
+														<svg
+															class="h-4 w-4 text-warning"
+															viewBox="0 0 24 24"
+															fill="none"
+															stroke="currentColor"
+															stroke-width="2"
+														>
+															<rect x="2" y="6" width="20" height="12" rx="2" />
+															<path d="M6 12h.01M12 12h.01" />
+														</svg>
+													</div>
+													<div>
+														<span class="font-mono text-sm"
+															>{ownership.list_sensors?.name ?? 'Unknown'}</span
+														>
+														<div class="mt-0.5">
+															<PeriodBadge start={ownership.start_date} end={ownership.end_date} />
+														</div>
+													</div>
+												</div>
+												{#if !isEditing}
+													<button
+														class="btn btn-circle btn-ghost btn-xs"
+														onclick={() => startEditOwnership(ownership)}
+														aria-label="Edit device"
+													>
+														<svg
+															class="h-3.5 w-3.5"
+															viewBox="0 0 24 24"
+															fill="none"
+															stroke="currentColor"
+															stroke-width="2"
+														>
+															<path
+																d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+															/>
+															<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+														</svg>
+													</button>
+												{/if}
+											</div>
+										{/if}
 									</div>
 								{/each}
 							</div>
@@ -435,4 +837,48 @@
 			</div>
 		{/if}
 	</aside>
+
+	{#if confirmDialog}
+		<div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+			<div class="card mx-4 max-w-sm bg-base-200 shadow-2xl">
+				<div class="card-body p-6">
+					<div class="flex items-start gap-3">
+						<div
+							class="flex h-10 w-10 flex-none items-center justify-center rounded-xl border border-error/20 bg-error/10"
+						>
+							<svg
+								class="h-5 w-5 text-error"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<path
+									d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+								/>
+								<line x1="12" y1="9" x2="12" y2="13" />
+								<line x1="12" y1="17" x2="12.01" y2="17" />
+							</svg>
+						</div>
+						<div class="min-w-0 flex-1">
+							<h3 class="font-display text-lg font-semibold">Confirm removal</h3>
+							<p class="mt-1 font-mono text-sm text-base-content/70">
+								{#if confirmDialog.type === 'study'}
+									Remove study <span class="text-base-content">{confirmDialog.studyName}</span> from this
+									participant? The membership will be deactivated.
+								{:else}
+									Unassign device <span class="text-base-content">{confirmDialog.sensorName}</span>
+									from this participant? The assignment will be deactivated.
+								{/if}
+							</p>
+						</div>
+					</div>
+					<div class="mt-6 card-actions justify-end">
+						<button class="btn btn-ghost btn-sm" onclick={closeConfirm}>Cancel</button>
+						<button class="btn btn-sm btn-error" onclick={runConfirm}>Remove</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	{/if}
 {/if}

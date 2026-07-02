@@ -5,8 +5,15 @@ export {
 	addStudy,
 	getParticipantStudies,
 	addParticipantToStudy,
-	updateParticipantStudyPeriod
+	updateParticipantStudyPeriod,
+	removeParticipantFromStudy
 } from './studies';
-export { getSensors, getUserOwnerships, addOwnership } from './sensors';
+export {
+	getSensors,
+	getUserOwnerships,
+	addOwnership,
+	updateOwnership,
+	removeOwnership
+} from './sensors';
 export type { Sensor, Ownership, Participant, Study, ParticipantStudy, User } from './types';
 export { createUser } from './types';

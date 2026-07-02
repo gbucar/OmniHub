@@ -3,10 +3,14 @@
 		addParticipant,
 		addStudy,
 		addOwnership,
+		updateOwnership,
+		removeOwnership,
 		getParticipantStudies,
 		getStudies,
 		getParticipants,
 		addParticipantToStudy,
+		updateParticipantStudyPeriod,
+		removeParticipantFromStudy,
 		updateParticipant,
 		getSensors,
 		getUserOwnerships,
@@ -286,6 +290,99 @@
 		} catch (error) {
 			console.error('Failed to add device:', error);
 			showToast('Failed to add device', 'error');
+		}
+	};
+
+	const handleChangeStudyPeriod = async (
+		event: CustomEvent<{
+			user_id: string;
+			study_id: number;
+			start: string;
+			end: string;
+		}>
+	) => {
+		try {
+			const membershipPeriod = `[${event.detail.start} 00:00:00, ${event.detail.end} 23:59:59.99999999)`;
+			await updateParticipantStudyPeriod(
+				event.detail.user_id,
+				event.detail.study_id,
+				membershipPeriod
+			);
+			await loadParticipantStudies(event.detail.user_id);
+			showToast('Study period updated', 'success');
+		} catch (error) {
+			console.error('Failed to update study period:', error);
+			showToast('Failed to update study period', 'error');
+		}
+	};
+
+	const handleRemoveStudyFromParticipant = async (
+		event: CustomEvent<{ user_id: string; study_id: number; study_name: string }>
+	) => {
+		try {
+			await removeParticipantFromStudy(event.detail.user_id, event.detail.study_id);
+			await loadParticipantStudies(event.detail.user_id);
+			showToast(`Study "${event.detail.study_name}" removed from participant`, 'success');
+		} catch (error) {
+			console.error('Failed to remove study from participant:', error);
+			showToast('Failed to remove study', 'error');
+		}
+	};
+
+	const handleChangeOwnership = async (
+		event: CustomEvent<{
+			user_id: string;
+			sensor_id: number;
+			old_start_date: string;
+			old_end_date: string;
+			new_start_date: string;
+			new_end_date: string;
+		}>
+	) => {
+		try {
+			await updateOwnership(
+				event.detail.user_id,
+				event.detail.sensor_id,
+				event.detail.old_start_date,
+				event.detail.old_end_date,
+				event.detail.new_start_date,
+				event.detail.new_end_date
+			);
+			await loadUserOwnerships(event.detail.user_id);
+			showToast('Device assignment updated', 'success');
+		} catch (error) {
+			console.error('Failed to update ownership:', error);
+			// Detect Postgres unique_violation (code 23505) — surfaced as Error message
+			const msg = error instanceof Error ? error.message : String(error);
+			if (msg.includes('23505') || msg.toLowerCase().includes('duplicate key')) {
+				showToast('An assignment with these dates already exists for this device', 'error');
+			} else {
+				showToast('Failed to update device assignment', 'error');
+			}
+		}
+	};
+
+	const handleRemoveOwnership = async (
+		event: CustomEvent<{
+			user_id: string;
+			sensor_id: number;
+			start_date: string;
+			end_date: string;
+			sensor_name: string;
+		}>
+	) => {
+		try {
+			await removeOwnership(
+				event.detail.user_id,
+				event.detail.sensor_id,
+				event.detail.start_date,
+				event.detail.end_date
+			);
+			await loadUserOwnerships(event.detail.user_id);
+			showToast(`Device "${event.detail.sensor_name}" unassigned`, 'success');
+		} catch (error) {
+			console.error('Failed to remove ownership:', error);
+			showToast('Failed to unassign device', 'error');
 		}
 	};
 
@@ -583,6 +680,10 @@
 			focusedSensorIndex = -1;
 		}}
 		on:editParticipant={handleEditParticipant}
+		on:changeStudyPeriod={handleChangeStudyPeriod}
+		on:removeStudy={handleRemoveStudyFromParticipant}
+		on:changeOwnership={handleChangeOwnership}
+		on:removeOwnership={handleRemoveOwnership}
 	/>
 
 	<AddParticipantModal
