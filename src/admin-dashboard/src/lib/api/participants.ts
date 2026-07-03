@@ -51,6 +51,13 @@ export const getParticipants = async (filters?: {
 		username: u.username,
 		role: u.role,
 		properties: u.properties,
+		// Derive the free-text `type` classification from properties->>'type'.
+		// The DB doesn't have a dedicated column — we read/write it via
+		// the `properties` jsonb so no migration is required.
+		type:
+			u.properties && typeof u.properties.type === 'string' && u.properties.type.length > 0
+				? u.properties.type
+				: null,
 		studies: u.studies,
 		// Deprecated single-study fields — first study or null.
 		study_name: u.studies[0]?.name ?? null,

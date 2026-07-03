@@ -14,6 +14,19 @@
 
 	let dialogEl = $state<HTMLDialogElement | null>(null);
 
+	let dateError = $derived(
+		newStudy.activePeriodStart && newStudy.activePeriodEnd && newStudy.activePeriodEnd < newStudy.activePeriodStart
+			? 'End date must be on or after start date'
+			: ''
+	);
+
+	let isFormValid = $derived(
+		newStudy.name.trim() !== '' &&
+		newStudy.activePeriodStart !== '' &&
+		newStudy.activePeriodEnd !== '' &&
+		dateError === ''
+	);
+
 	$effect(() => {
 		if (show && dialogEl) {
 			dialogEl.showModal();
@@ -28,6 +41,7 @@
 	};
 
 	const handleSubmit = () => {
+		if (!isFormValid) return;
 		onAdd(newStudy);
 	};
 </script>
@@ -91,6 +105,7 @@
 						type="date"
 						class="input-bordered input w-full"
 						bind:value={newStudy.activePeriodStart}
+						required
 					/>
 				</div>
 				<div class="form-control">
@@ -104,16 +119,27 @@
 						type="date"
 						class="input-bordered input w-full"
 						bind:value={newStudy.activePeriodEnd}
+						min={newStudy.activePeriodStart || undefined}
+						required
 					/>
 				</div>
 			</div>
+			{#if dateError}
+				<div class="alert alert-error alert-sm">
+					<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<circle cx="12" cy="12" r="10" />
+						<path d="M12 8v4M12 16h.01" />
+					</svg>
+					<span class="text-xs">{dateError}</span>
+				</div>
+			{/if}
 		</div>
 
 		<div class="modal-action">
 			<form method="dialog">
 				<button class="btn btn-ghost">Cancel</button>
 			</form>
-			<button class="btn btn-accent" onclick={handleSubmit}>
+			<button class="btn btn-accent" onclick={handleSubmit} disabled={!isFormValid}>
 				<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 					<path d="M12 5v14M5 12h14" />
 				</svg>

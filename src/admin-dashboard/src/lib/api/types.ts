@@ -22,6 +22,11 @@ export type Participant = {
 	username: string | null;
 	role: string | null;
 	properties: Record<string, unknown> | null;
+	/**
+	 * Free-text participant classification. Stored as `properties->>'type'`
+	 * in `data.participants`. Derived on read for convenience.
+	 */
+	type: string | null;
 	/** All studies this participant is a member of. Empty array if none. */
 	studies: Study[];
 	/**

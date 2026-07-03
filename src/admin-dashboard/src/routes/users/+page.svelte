@@ -245,6 +245,18 @@
 	};
 
 	const handleAddStudy = async (study: typeof newStudy) => {
+		if (!study.name.trim()) {
+			showToast('Please enter a study name', 'error');
+			return;
+		}
+		if (!study.activePeriodStart || !study.activePeriodEnd) {
+			showToast('Please choose both start and end dates', 'error');
+			return;
+		}
+		if (study.activePeriodEnd < study.activePeriodStart) {
+			showToast('End date must be on or after start date', 'error');
+			return;
+		}
 		try {
 			await addStudy(study);
 			showAddStudyModal = false;
@@ -265,6 +277,11 @@
 			!newOwnership.end_date
 		) {
 			showToast('Please fill in all required fields', 'error');
+			return;
+		}
+
+		if (newOwnership.end_date < newOwnership.start_date) {
+			showToast('End date must be on or after start date', 'error');
 			return;
 		}
 
@@ -369,6 +386,42 @@
 		} catch (error) {
 			console.error('Failed to update participant:', error);
 			showToast('Failed to update participant', 'error');
+		}
+	};
+
+	const handleChangeType = async (event: CustomEvent<{ user_id: string; type: string | null }>) => {
+		const target = participants.find((p) => p.user_id === event.detail.user_id);
+		if (!target) {
+			showToast('Participant not found', 'error');
+			return;
+		}
+
+		// `type` is stored as `properties->>'type'` (free-text, no migration).
+		// Build the new properties object, preserving all other keys.
+		const nextProperties: Record<string, unknown> = { ...(target.properties ?? {}) };
+		if (event.detail.type === null) {
+			delete nextProperties.type;
+		} else {
+			nextProperties.type = event.detail.type;
+		}
+
+		try {
+			await updateParticipant({
+				user_id: event.detail.user_id,
+				properties: nextProperties
+			});
+
+			await loadParticipants();
+
+			const refreshed = participants.find((p) => p.user_id === event.detail.user_id);
+			if (refreshed) {
+				selectedParticipant = refreshed;
+			}
+
+			showToast('Type updated successfully', 'success');
+		} catch (error) {
+			console.error('Failed to update type:', error);
+			showToast('Failed to update type', 'error');
 		}
 	};
 
@@ -501,7 +554,7 @@
 							<th class="font-mono text-xs tracking-wider text-base-content/40 uppercase">Study</th>
 							<th
 								class="hidden font-mono text-xs tracking-wider text-base-content/40 uppercase md:table-cell"
-								>Role</th
+								>Type</th
 							>
 							<th class="font-mono text-xs tracking-wider text-base-content/40 uppercase">Name</th>
 						</tr>
@@ -572,7 +625,7 @@
 									</td>
 									<td class="hidden md:table-cell">
 										<span class="font-mono text-sm text-base-content/50"
-											>{participant.role ?? '—'}</span
+											>{participant.type ?? '—'}</span
 										>
 									</td>
 									<td>
@@ -656,6 +709,7 @@
 		on:editParticipant={handleEditParticipant}
 		on:changeStudyPeriod={handleChangeStudyPeriod}
 		on:changeOwnership={handleChangeOwnership}
+		on:changeType={handleChangeType}
 	/>
 
 	<AddParticipantModal

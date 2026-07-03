@@ -45,6 +45,7 @@ services:
       context: ./src/admin-dashboard
       args:
         - POSTGREST_URL=${POSTGREST_URL}
+    image: ghcr.io/gbucar/omnihub/admin-dashboard:latest
     restart: unless-stopped
     depends_on:
       - postgrest
@@ -52,10 +53,10 @@ services:
       - "3001:5173"
   
   pipelines:
-      build: ./src/pipelines
-      image: pipelines
-      restart: unless-stopped
-      depends_on:
-        - db
-      environment:
-        - PIPELINE_CONNECTION_STRING=${PIPELINE_CONNECTION_STRING}
+    build: ./src/pipelines
+    image: ghcr.io/gbucar/omnihub/pipelines:latest
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      - PIPELINE_CONNECTION_STRING=${PIPELINE_CONNECTION_STRING}

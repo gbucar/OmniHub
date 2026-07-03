@@ -38,6 +38,7 @@
 			new_start_date: string;
 			new_end_date: string;
 		};
+		changeType: { user_id: string; type: string | null };
 	}>();
 
 	let isEditing = $state(false);
@@ -56,6 +57,9 @@
 	let editOwnershipStart = $state('');
 	let editOwnershipEnd = $state('');
 
+	let isEditingType = $state(false);
+	let editedType = $state('');
+
 	$effect(() => {
 		if (show) {
 			panelVisible = true;
@@ -63,6 +67,7 @@
 			panelVisible = false;
 			editingStudyId = null;
 			editingOwnershipKey = null;
+			isEditingType = false;
 		}
 	});
 
@@ -81,6 +86,8 @@
 			editingOwnershipKey = null;
 			editOwnershipStart = '';
 			editOwnershipEnd = '';
+			isEditingType = false;
+			editedType = selectedParticipant.type ?? '';
 		}
 	});
 
@@ -197,6 +204,29 @@
 			new_end_date: editOwnershipEnd
 		});
 		cancelEditOwnership();
+	};
+
+	const startEditType = () => {
+		if (!selectedParticipant) return;
+		editedType = selectedParticipant.type ?? '';
+		isEditingType = true;
+	};
+
+	const cancelEditType = () => {
+		if (selectedParticipant) {
+			editedType = selectedParticipant.type ?? '';
+		}
+		isEditingType = false;
+	};
+
+	const confirmChangeType = () => {
+		if (!selectedParticipant) return;
+		const trimmed = editedType.trim();
+		dispatch('changeType', {
+			user_id: selectedParticipant.user_id,
+			type: trimmed.length > 0 ? trimmed : null
+		});
+		isEditingType = false;
 	};
 </script>
 
@@ -676,10 +706,70 @@
 								>
 							</div>
 							<div class="flex items-center justify-between">
-								<span class="font-mono text-xs text-base-content/40">Role</span>
-								<span class="font-mono text-sm text-base-content/70"
-									>{selectedParticipant.role ?? '—'}</span
-								>
+								<span class="font-mono text-xs text-base-content/40">Type</span>
+								{#if isEditingType}
+									<div class="flex items-center gap-2">
+										<input
+											type="text"
+											class="input-bordered input input-xs w-40"
+											placeholder="Enter type"
+											bind:value={editedType}
+											aria-label="Edit type"
+										/>
+										<button
+											class="btn btn-circle btn-ghost btn-xs"
+											onclick={cancelEditType}
+											aria-label="Cancel edit"
+										>
+											<svg
+												class="h-3.5 w-3.5"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2"
+											>
+												<path d="M18 6L6 18M6 6l12 12" />
+											</svg>
+										</button>
+										<button
+											class="btn btn-circle btn-xs btn-primary"
+											onclick={confirmChangeType}
+											aria-label="Save type"
+										>
+											<svg
+												class="h-3.5 w-3.5"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2"
+											>
+												<polyline points="20 6 9 17 4 12" />
+											</svg>
+										</button>
+									</div>
+								{:else}
+									<div class="flex items-center gap-2">
+										<span class="font-mono text-sm text-base-content/70"
+											>{selectedParticipant.type ?? '—'}</span
+										>
+										<button
+											class="btn btn-circle btn-ghost btn-xs"
+											onclick={startEditType}
+											aria-label="Edit type"
+										>
+											<svg
+												class="h-3.5 w-3.5"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2"
+											>
+												<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+												<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+											</svg>
+										</button>
+									</div>
+								{/if}
 							</div>
 						</div>
 					</div>
