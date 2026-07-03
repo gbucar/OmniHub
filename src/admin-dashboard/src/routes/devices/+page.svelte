@@ -237,7 +237,7 @@
 		     ============================================================= -->
 		<div
 			role="alert"
-			class="alert alert-soft alert-error flex flex-col items-start gap-2 sm:flex-row sm:items-center"
+			class="alert flex flex-col items-start gap-2 alert-soft alert-error sm:flex-row sm:items-center"
 		>
 			<svg
 				class="h-5 w-5 flex-none text-error"
@@ -257,8 +257,8 @@
 				<p class="mt-1 font-mono text-xs text-base-content/70">
 					Urejanje senzorjev (<code class="text-error">PATCH /sensors</code>) vrača
 					<code class="text-error">403 Forbidden</code>, ker manjka
-					<code class="text-error">GRANT SELECT,INSERT,UPDATE ON api.sensors TO admin</code>.
-					Data Streams in Ownerships kartici v sidebaru sta prazni, ker view-a
+					<code class="text-error">GRANT SELECT,INSERT,UPDATE ON api.sensors TO admin</code>. Data
+					Streams in Ownerships kartici v sidebaru sta prazni, ker view-a
 					<code class="text-error">api.data_streams</code> in
 					<code class="text-error">api.users</code> sploh ne obstajata.
 				</p>

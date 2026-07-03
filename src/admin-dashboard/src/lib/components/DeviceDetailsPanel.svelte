@@ -503,23 +503,6 @@
 							<h3 class="font-mono text-xs tracking-wider text-base-content/40 uppercase">
 								Data Streams
 							</h3>
-							<button
-								class="btn btn-sm btn-primary"
-								disabled
-								title="Coming soon"
-								aria-label="Add data stream (coming soon)"
-							>
-								<svg
-									class="h-3.5 w-3.5"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-								>
-									<path d="M12 5v14M5 12h14" />
-								</svg>
-								Add
-							</button>
 						</div>
 
 						{#if streams.length === 0}
