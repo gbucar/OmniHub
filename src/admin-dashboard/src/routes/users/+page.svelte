@@ -551,8 +551,21 @@
 										</div>
 									</td>
 									<td>
-										{#if participant.study_name}
-											<span class="badge badge-soft badge-primary">{participant.study_name}</span>
+										{#if participant.studies.length === 1}
+											<span class="badge badge-soft badge-primary"
+												>{participant.studies[0].name}</span
+											>
+										{:else if participant.studies.length > 1}
+											<div class="flex flex-wrap items-center gap-1">
+												<span class="badge badge-soft badge-primary"
+													>{participant.studies.length} studies</span
+												>
+												{#each participant.studies as study (study.id)}
+													<span class="badge badge-outline badge-xs" title={study.name}
+														>{study.name}</span
+													>
+												{/each}
+											</div>
 										{:else}
 											<span class="text-base-content/30">—</span>
 										{/if}

@@ -75,21 +75,3 @@ export const updateParticipantStudyPeriod = async (
 	}
 	return data?.data ?? null;
 };
-
-/**
- * Remove a participant from a study.
- * Implemented as an actual DELETE on the many_participants_studies join table.
- * The `data.many_participants_studies` admin policy is `FOR ALL`, so DELETE
- * is permitted without any RLS changes.
- */
-export const removeParticipantFromStudy = async (userId: string, studyId: number) => {
-	const data = await pgClient
-		?.from('many_participants_studies')
-		.delete()
-		.eq('user_id', userId)
-		.eq('study_id', studyId);
-	if (data?.error) {
-		throw new Error(data.error.message);
-	}
-	return data?.data ?? null;
-};

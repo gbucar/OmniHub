@@ -5,8 +5,7 @@ export {
 	addStudy,
 	getParticipantStudies,
 	addParticipantToStudy,
-	updateParticipantStudyPeriod,
-	removeParticipantFromStudy
+	updateParticipantStudyPeriod
 } from './studies';
 export {
 	getSensors,

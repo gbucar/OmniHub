@@ -22,7 +22,17 @@ export type Participant = {
 	username: string | null;
 	role: string | null;
 	properties: Record<string, unknown> | null;
+	/** All studies this participant is a member of. Empty array if none. */
+	studies: Study[];
+	/**
+	 * @deprecated Kept for backward compatibility — always equals the first
+	 * study's name (or null). Prefer `participant.studies` in new code.
+	 */
 	study_name: string | null;
+	/**
+	 * @deprecated Kept for backward compatibility — always equals the first
+	 * study's id (or null). Prefer `participant.studies` in new code.
+	 */
 	study_id: number | null;
 };
 

@@ -1,37 +1,87 @@
 import { pgClient } from './client';
-import type { Participant } from './types';
+import type { Participant, Study } from './types';
 
+type RawParticipantRow = {
+	user_id: string;
+	username: string | null;
+	role: string | null;
+	properties: Record<string, unknown> | null;
+	study_name: string | null;
+	study_id: number | null;
+};
+
+/**
+ * `api.list_participants` is a SQL view that joins `data.participants` to
+ * `data.many_participants_studies`, so a participant belonging to N studies
+ * appears in N rows. The UI wants one row per user, with all their studies
+ * collected into a `studies: Study[]` array — so we de-duplicate here and
+ * also re-implement the search/filter/limit/offset semantics on the
+ * de-duplicated set.
+ */
 export const getParticipants = async (filters?: {
 	search?: string;
 	study?: string;
 	limit?: number;
 	offset?: number;
 }) => {
-	let query = pgClient?.from('list_participants').select('*', { count: 'exact' });
+	const data = await pgClient?.from('list_participants').select('*');
+	const rawRows = (data?.data ?? []) as RawParticipantRow[];
 
+	// 1. Group raw rows by user_id, collecting all (study_id, study_name) pairs.
+	const byUser = new Map<string, RawParticipantRow & { studies: Study[] }>();
+	for (const row of rawRows) {
+		const existing = byUser.get(row.user_id);
+		if (existing) {
+			if (row.study_id != null && row.study_name != null) {
+				existing.studies.push({ id: row.study_id, name: row.study_name });
+			}
+		} else {
+			byUser.set(row.user_id, {
+				...row,
+				studies:
+					row.study_id != null && row.study_name != null
+						? [{ id: row.study_id, name: row.study_name }]
+						: []
+			});
+		}
+	}
+
+	let participants: Participant[] = Array.from(byUser.values()).map((u) => ({
+		user_id: u.user_id,
+		username: u.username,
+		role: u.role,
+		properties: u.properties,
+		studies: u.studies,
+		// Deprecated single-study fields — first study or null.
+		study_name: u.studies[0]?.name ?? null,
+		study_id: u.studies[0]?.id ?? null
+	}));
+
+	// 2. Apply search filter (case-insensitive over username and properties.name).
 	if (filters?.search) {
-		query = query?.or(
-			`username.ilike.%${filters.search}%,properties->>name.ilike.%${filters.search}%`
-		);
+		const needle = filters.search.toLowerCase();
+		participants = participants.filter((p) => {
+			if (p.username?.toLowerCase().includes(needle)) return true;
+			const name = p.properties?.name;
+			if (typeof name === 'string' && name.toLowerCase().includes(needle)) return true;
+			return false;
+		});
 	}
 
+	// 3. Apply study filter (participants must be a member of the chosen study).
 	if (filters?.study && filters.study !== 'all') {
-		query = query?.eq('study_id', parseInt(filters.study));
+		const wantedStudyId = parseInt(filters.study);
+		participants = participants.filter((p) => p.studies.some((s) => s.id === wantedStudyId));
 	}
 
-	if (filters?.limit) {
-		query = query?.limit(filters.limit);
-	}
+	const count = participants.length;
 
-	if (filters?.offset) {
-		query = query?.range(filters.offset, filters.offset + (filters.limit || 10) - 1);
-	}
+	// 4. Apply pagination.
+	const offset = filters?.offset ?? 0;
+	const limit = filters?.limit ?? 10;
+	participants = participants.slice(offset, offset + limit);
 
-	const data = await query;
-	return {
-		data: (data?.data ?? []) as Participant[],
-		count: data?.count ?? 0
-	};
+	return { data: participants, count };
 };
 
 export const addParticipant = async (participant: {
