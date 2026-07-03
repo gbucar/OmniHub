@@ -45,7 +45,8 @@
 
 	const navItems = [
 		{ href: '/', label: 'Dashboard', icon: '◈' },
-		{ href: '/users', label: 'Participants', icon: '◉' }
+		{ href: '/users', label: 'Participants', icon: '◉' },
+		{ href: '/devices', label: 'Devices', icon: '◐' }
 	];
 </script>
 
@@ -145,6 +146,9 @@
 					<div class="divider my-1 divider-neutral"></div>
 					{#if $user.isLoggedIn}
 						<li><a href="/users" class="font-mono"><span class="opacity-50">◉</span> Users</a></li>
+						<li>
+							<a href="/devices" class="font-mono"><span class="opacity-50">◐</span> Devices</a>
+						</li>
 						<li>
 							<button onclick={logout} class="font-mono text-error">
 								<span class="opacity-50">▿</span> Logout

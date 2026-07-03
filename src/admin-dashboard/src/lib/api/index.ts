@@ -12,7 +12,23 @@ export {
 	getUserOwnerships,
 	addOwnership,
 	updateOwnership,
-	removeOwnership
+	removeOwnership,
+	addSensor,
+	updateSensor,
+	getSensorStreams,
+	getSensorOwnerships,
+	getRecentObservations
 } from './sensors';
-export type { Sensor, Ownership, Participant, Study, ParticipantStudy, User } from './types';
+export type {
+	Sensor,
+	NewSensor,
+	DataStream,
+	SensorOwnership,
+	RecentObservation,
+	Ownership,
+	Participant,
+	Study,
+	ParticipantStudy,
+	User
+} from './types';
 export { createUser } from './types';

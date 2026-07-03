@@ -6,6 +6,44 @@ export type Sensor = {
 	credential_id?: number;
 	sys_created_at?: string;
 	last_activity?: string;
+	/**
+	 * Sensor classification (e.g. "ATMOTUBE_PRO"). Stored as
+	 * `data.sensors.sensor_type` and exposed by both the `sensors` and
+	 * `list_sensors` views. `Sensor` is sourced from `list_sensors` which
+	 * selects `s.*` — so the field is present on returned rows.
+	 */
+	sensor_type?: string;
+};
+
+export type NewSensor = {
+	name: string;
+	sensor_type: string;
+	description?: string;
+	properties?: Record<string, unknown>;
+	credential_id?: number;
+};
+
+export type DataStream = {
+	id: number;
+	sensor_id: number;
+	name: string;
+	description?: string | null;
+	unit_of_measurement?: string | null;
+	properties?: Record<string, unknown> | null;
+};
+
+export type SensorOwnership = Ownership & {
+	username: string | null;
+	participant_name: string | null;
+};
+
+export type RecentObservation = {
+	id: number;
+	data_stream_id: number;
+	data_stream_name: string;
+	phenomenon_time: string;
+	result: number;
+	location: string | null;
 };
 
 export type Ownership = {

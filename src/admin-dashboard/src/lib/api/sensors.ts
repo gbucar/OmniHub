@@ -1,5 +1,12 @@
 import { pgClient } from './client';
-import type { Sensor, Ownership } from './types';
+import type {
+	Sensor,
+	Ownership,
+	NewSensor,
+	DataStream,
+	SensorOwnership,
+	RecentObservation
+} from './types';
 
 export const getSensors = async (): Promise<Sensor[]> => {
 	const data = await pgClient?.from('list_sensors').select('*');
@@ -119,4 +126,187 @@ export const removeOwnership = async (
 		throw new Error(data.error.message);
 	}
 	return data?.data ?? null;
+};
+
+/**
+ * Insert a new sensor. Uses the existing RLS policy
+ * `allow_admin_insert_all_sensors` on `data.sensors`.
+ *
+ * Returns the inserted row (with the new `id`); the rest of the field set
+ * matches the columns of `data.sensors`.
+ */
+export const addSensor = async (sensor: NewSensor): Promise<{ id: number }> => {
+	const data = await pgClient?.from('sensors').insert({
+		name: sensor.name,
+		sensor_type: sensor.sensor_type,
+		description: sensor.description ?? null,
+		properties: sensor.properties ?? {},
+		credential_id: sensor.credential_id ?? null
+	});
+	if (data?.error) {
+		throw new Error(data.error.message);
+	}
+	const inserted = Array.isArray(data?.data) ? (data.data[0] as { id: number } | undefined) : null;
+	if (!inserted) {
+		throw new Error('Sensor insert returned no row');
+	}
+	return inserted;
+};
+
+/**
+ * Update sensor fields. Uses the existing RLS policy
+ * `allow_admin_update_all_sensors` on `data.sensors`.
+ *
+ * Pass only the fields you want to change — undefined values are forwarded
+ * to PostgREST which will set the column to NULL. If you want to keep
+ * something untouched, omit it from the `changes` object.
+ */
+export const updateSensor = async (id: number, changes: Partial<Sensor>): Promise<void> => {
+	// Strip read-only / server-managed fields so the caller can't overwrite them.
+	const { id: _id, sys_created_at: _created, last_activity: _last, ...patch } = changes;
+	void _id;
+	void _created;
+	void _last;
+
+	const data = await pgClient?.from('sensors').update(patch).eq('id', id);
+	if (data?.error) {
+		throw new Error(data.error.message);
+	}
+};
+
+/**
+ * Fetch all data streams belonging to a sensor. Uses the existing RLS
+ * policy `allow_admin_researcher_pipeline_select_all_datastream`.
+ */
+export const getSensorStreams = async (sensorId: number): Promise<DataStream[]> => {
+	const data = await pgClient
+		?.from('data_streams')
+		.select('id, sensor_id, name, description, unit_of_measurement, properties')
+		.eq('sensor_id', sensorId);
+	return (data?.data ?? []) as DataStream[];
+};
+
+/**
+ * Fetch all ownerships of a sensor, joined with the owning user's username
+ * and the participant's display name (read from `data.participants.properties->>'name'`).
+ *
+ * Uses the existing RLS policies:
+ *   - `allow_admin_researcher_select_all_ownerships`
+ *   - `allow_admin_select_user_data`
+ *   - `allow_admin_researcher_select_all_participants`
+ *
+ * PostgREST resolves the nested selects in a single round-trip, so this is
+ * an O(1) network request, not an N+1.
+ */
+export const getSensorOwnerships = async (sensorId: number): Promise<SensorOwnership[]> => {
+	const data = await pgClient
+		?.from('ownerships')
+		.select(
+			`
+				user_id,
+				sensor_id,
+				start_date,
+				end_date,
+				sys_created_at,
+				users (
+					username
+				),
+				participants (
+					properties
+				)
+			`
+		)
+		.eq('sensor_id', sensorId);
+
+	const raw = (data?.data ?? []) as Record<string, unknown>[];
+	return raw.map((item) => {
+		const users = item.users as { username: string | null } | { username: string | null }[] | null;
+		const username = Array.isArray(users)
+			? (users[0]?.username ?? null)
+			: (users?.username ?? null);
+
+		const participants = item.participants as
+			| { properties: Record<string, unknown> | null }
+			| { properties: Record<string, unknown> | null }[]
+			| null;
+		const participantProps = Array.isArray(participants)
+			? (participants[0]?.properties ?? null)
+			: (participants?.properties ?? null);
+		const participantName =
+			participantProps && typeof participantProps.name === 'string'
+				? (participantProps.name as string)
+				: null;
+
+		return {
+			user_id: item.user_id as string,
+			sensor_id: item.sensor_id as number,
+			start_date: item.start_date as string,
+			end_date: item.end_date as string,
+			sys_created_at: item.sys_created_at as string | undefined,
+			username,
+			participant_name: participantName
+		} as SensorOwnership;
+	});
+};
+
+/**
+ * Fetch the most recent N observations for a sensor (across all its data
+ * streams). Joins observations -> data_streams -> locations and returns a
+ * compact representation suitable for the device details sidebar.
+ *
+ * Uses the existing RLS policies:
+ *   - `allow_admin_researcher_pipeline_select_all_observations`
+ *   - `allow_admin_researcher_pipeline_select_all_locations`
+ *   - `allow_admin_researcher_pipeline_select_all_datastream`
+ *
+ * The location is derived as `properties->>'city'` (or null) and then
+ * post-processed into a short "City" string. PostgREST can't extract a
+ * JSONB field in a single SELECT, so we read the whole `properties` object
+ * and resolve the city client-side.
+ */
+export const getRecentObservations = async (
+	sensorId: number,
+	limit: number = 20
+): Promise<RecentObservation[]> => {
+	const data = await pgClient
+		?.from('observations')
+		.select(
+			`
+				id,
+				data_stream_id,
+				phenomenon_time,
+				result,
+				data_streams!inner (
+					id,
+					sensor_id,
+					name
+				),
+				locations (
+					properties
+				)
+			`
+		)
+		.eq('data_streams.sensor_id', sensorId)
+		.order('phenomenon_time', { ascending: false })
+		.limit(limit);
+
+	const raw = (data?.data ?? []) as Record<string, unknown>[];
+	return raw.map((item) => {
+		const ds = item.data_streams as { id: number; name: string } | null;
+		const loc = item.locations as
+			| { properties: Record<string, unknown> | null }
+			| { properties: Record<string, unknown> | null }[]
+			| null;
+		const locProps = Array.isArray(loc) ? (loc[0]?.properties ?? null) : (loc?.properties ?? null);
+		const city = locProps && typeof locProps.city === 'string' ? (locProps.city as string) : null;
+
+		return {
+			id: item.id as number,
+			data_stream_id: item.data_stream_id as number,
+			data_stream_name: ds?.name ?? '—',
+			phenomenon_time: String(item.phenomenon_time ?? ''),
+			result: Number(item.result ?? 0),
+			location: city
+		};
+	});
 };
