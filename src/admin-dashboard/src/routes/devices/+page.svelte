@@ -227,6 +227,50 @@
 	></div>
 
 	<div class="relative z-10 flex h-full flex-col gap-4 p-4 lg:p-6">
+		<!-- =============================================================
+		     🔴 TODO: Manjkajoči api.* view-i in GRANT-i (blokira funkcionalnost)
+		     PATCH /sensors vrne 403 (manjka GRANT na api.sensors), Data Streams
+		     card v sidebaru je prazen (api.data_streams view ne obstaja),
+		     Ownerships card nima username/participant_name (api.users view
+		     ne obstaja). Popravek: nova migracija z GRANT-i in view-i.
+		     Podrobnosti: TODO.md, PLAN.md §10.1.
+		     ============================================================= -->
+		<div
+			role="alert"
+			class="alert alert-soft alert-error flex flex-col items-start gap-2 sm:flex-row sm:items-center"
+		>
+			<svg
+				class="h-5 w-5 flex-none text-error"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+			>
+				<circle cx="12" cy="12" r="10" />
+				<line x1="12" y1="8" x2="12" y2="12" />
+				<circle cx="12" cy="16" r="0.5" fill="currentColor" />
+			</svg>
+			<div class="min-w-0 flex-1">
+				<h3 class="font-display text-sm font-semibold text-error">
+					Stran /devices ni produkcijsko pripravljena — manjkajo api.* view-i in GRANT-i
+				</h3>
+				<p class="mt-1 font-mono text-xs text-base-content/70">
+					Urejanje senzorjev (<code class="text-error">PATCH /sensors</code>) vrača
+					<code class="text-error">403 Forbidden</code>, ker manjka
+					<code class="text-error">GRANT SELECT,INSERT,UPDATE ON api.sensors TO admin</code>.
+					Data Streams in Ownerships kartici v sidebaru sta prazni, ker view-a
+					<code class="text-error">api.data_streams</code> in
+					<code class="text-error">api.users</code> sploh ne obstajata.
+				</p>
+				<p class="mt-1 font-mono text-xs text-base-content/50">
+					Popravek: dodaj novo migracijo
+					<code class="text-base-content/70">22_views_and_grants.sql</code> (glej
+					<code class="text-base-content/70">TODO.md</code> in
+					<code class="text-base-content/70">PLAN.md §10.1</code>).
+				</p>
+			</div>
+		</div>
+
 		<div class="flex items-center justify-between {mounted ? 'animate-fade-in-up' : 'opacity-0'}">
 			<div>
 				<h1 class="font-display text-2xl font-bold">Devices</h1>
