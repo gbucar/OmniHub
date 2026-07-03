@@ -597,7 +597,8 @@
 												</div>
 												<div class="min-w-0 flex-1">
 													<span class="font-mono text-sm font-medium"
-														>{ownership.list_sensors?.name ?? 'Unknown'}</span
+														>{ownership.list_sensors?.name ??
+															`Sensor #${ownership.sensor_id}`}</span
 													>
 													<div class="mt-2 flex items-center gap-2">
 														<input
@@ -661,7 +662,8 @@
 													</div>
 													<div>
 														<span class="font-mono text-sm"
-															>{ownership.list_sensors?.name ?? 'Unknown'}</span
+															>{ownership.list_sensors?.name ??
+																`Sensor #${ownership.sensor_id}`}</span
 														>
 														<div class="mt-0.5">
 															<PeriodBadge start={ownership.start_date} end={ownership.end_date} />

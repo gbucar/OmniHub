@@ -15,16 +15,18 @@
 	let dialogEl = $state<HTMLDialogElement | null>(null);
 
 	let dateError = $derived(
-		newStudy.activePeriodStart && newStudy.activePeriodEnd && newStudy.activePeriodEnd < newStudy.activePeriodStart
+		newStudy.activePeriodStart &&
+			newStudy.activePeriodEnd &&
+			newStudy.activePeriodEnd < newStudy.activePeriodStart
 			? 'End date must be on or after start date'
 			: ''
 	);
 
 	let isFormValid = $derived(
 		newStudy.name.trim() !== '' &&
-		newStudy.activePeriodStart !== '' &&
-		newStudy.activePeriodEnd !== '' &&
-		dateError === ''
+			newStudy.activePeriodStart !== '' &&
+			newStudy.activePeriodEnd !== '' &&
+			dateError === ''
 	);
 
 	$effect(() => {
@@ -125,8 +127,14 @@
 				</div>
 			</div>
 			{#if dateError}
-				<div class="alert alert-error alert-sm">
-					<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<div class="alert-sm alert alert-error">
+					<svg
+						class="h-4 w-4"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+					>
 						<circle cx="12" cy="12" r="10" />
 						<path d="M12 8v4M12 16h.01" />
 					</svg>

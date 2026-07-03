@@ -40,16 +40,18 @@
 	let dialogEl = $state<HTMLDialogElement | null>(null);
 
 	let dateError = $derived(
-		newOwnership.start_date && newOwnership.end_date && newOwnership.end_date < newOwnership.start_date
+		newOwnership.start_date &&
+			newOwnership.end_date &&
+			newOwnership.end_date < newOwnership.start_date
 			? 'End date must be on or after start date'
 			: ''
 	);
 
 	let isFormValid = $derived(
 		newOwnership.sensor_id !== '' &&
-		newOwnership.start_date !== '' &&
-		newOwnership.end_date !== '' &&
-		dateError === ''
+			newOwnership.start_date !== '' &&
+			newOwnership.end_date !== '' &&
+			dateError === ''
 	);
 
 	$effect(() => {
@@ -209,8 +211,14 @@
 				</div>
 			</div>
 			{#if dateError}
-				<div class="alert alert-error alert-sm">
-					<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<div class="alert-sm alert alert-error">
+					<svg
+						class="h-4 w-4"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+					>
 						<circle cx="12" cy="12" r="10" />
 						<path d="M12 8v4M12 16h.01" />
 					</svg>

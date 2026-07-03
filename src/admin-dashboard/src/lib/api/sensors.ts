@@ -13,38 +13,44 @@ export const getSensors = async (): Promise<Sensor[]> => {
 	return (data?.data ?? []) as Sensor[];
 };
 
+/**
+ * Fetch all ownerships belonging to a user, joined with the owned sensor.
+ *
+ * Implementation note: PostgREST resource embedding across views
+ * (`api.ownerships` -> `api.list_sensors`) does not work reliably because
+ * there is no discoverable foreign-key relationship between the two views
+ * in pg_catalog — the embedded `list_sensors` always comes back as null,
+ * which the UI then renders as "Unknown". We work around this by issuing
+ * two independent queries and joining client-side on `sensor_id`. The
+ * result is equivalent to a LEFT JOIN. This mirrors the pattern already
+ * used by `getParticipants` (which fetches `list_participants` flat and
+ * groups by user_id client-side).
+ */
 export const getUserOwnerships = async (userId: string): Promise<Ownership[]> => {
-	const data = await pgClient
-		?.from('ownerships')
-		.select(
-			`
-			user_id,
-			sensor_id,
-			start_date,
-			end_date,
-			sys_created_at,
-			list_sensors (
-				id,
-				name,
-				description,
-				properties,
-				credential_id,
-				sys_created_at,
-				last_activity
-			)
-		`
-		)
-		.eq('user_id', userId);
+	const [ownershipsRes, sensorsRes] = await Promise.all([
+		pgClient?.from('ownerships').select('*').eq('user_id', userId),
+		pgClient?.from('list_sensors').select('*')
+	]);
 
-	const raw = data?.data ?? [];
-	return raw.map((item: Record<string, unknown>) => ({
-		user_id: item.user_id as string,
-		sensor_id: item.sensor_id as number,
-		start_date: item.start_date as string,
-		end_date: item.end_date as string,
-		sys_created_at: item.sys_created_at as string | undefined,
-		list_sensors: (item.list_sensors as unknown as Sensor[] | undefined)?.[0]
-	})) as Ownership[];
+	const sensors = (sensorsRes?.data ?? []) as Sensor[];
+	const sensorsById = new Map<number, Sensor>(sensors.map((s) => [s.id, s]));
+
+	const raw = (ownershipsRes?.data ?? []) as Array<{
+		user_id: string;
+		sensor_id: number;
+		start_date: string;
+		end_date: string;
+		sys_created_at?: string;
+	}>;
+
+	return raw.map((item) => ({
+		user_id: item.user_id,
+		sensor_id: item.sensor_id,
+		start_date: item.start_date,
+		end_date: item.end_date,
+		sys_created_at: item.sys_created_at,
+		list_sensors: sensorsById.get(item.sensor_id)
+	}));
 };
 
 export const addOwnership = async (ownership: {
@@ -190,62 +196,69 @@ export const getSensorStreams = async (sensorId: number): Promise<DataStream[]> 
  * Fetch all ownerships of a sensor, joined with the owning user's username
  * and the participant's display name (read from `data.participants.properties->>'name'`).
  *
+ * Implementation note: PostgREST resource embedding across views does not
+ * work reliably (no discoverable FK between `api.ownerships` and
+ * `auth.users` / `api.participants`), so the embedded `users` and
+ * `participants` always came back as null — which is why the Devices page
+ * showed "no ownerships" even though every user had at least one. We work
+ * around this by issuing two independent queries and joining client-side
+ * on `user_id`. The result is equivalent to a LEFT JOIN. Single round-trip
+ * per source set, joined in memory — O(1) network requests, not N+1.
+ *
+ * We use the existing `api.list_participants` view (which already JOINs
+ * `auth.users` + `data.participants` + `data.many_participants_studies`)
+ * as the source for `username` + `properties.name`. This avoids hitting
+ * the `auth` schema directly (which isn't exposed via `PGRST_DB_SCHEMAS`)
+ * and avoids the `api.users` view that the PostgREST layer doesn't expose.
+ *
  * Uses the existing RLS policies:
  *   - `allow_admin_researcher_select_all_ownerships`
- *   - `allow_admin_select_user_data`
- *   - `allow_admin_researcher_select_all_participants`
- *
- * PostgREST resolves the nested selects in a single round-trip, so this is
- * an O(1) network request, not an N+1.
+ *   - `allow_admin_select_user_data` (via list_participants -> auth.users)
+ *   - `allow_admin_researcher_select_all_participants` (via list_participants)
  */
 export const getSensorOwnerships = async (sensorId: number): Promise<SensorOwnership[]> => {
-	const data = await pgClient
-		?.from('ownerships')
-		.select(
-			`
-				user_id,
-				sensor_id,
-				start_date,
-				end_date,
-				sys_created_at,
-				users (
-					username
-				),
-				participants (
-					properties
-				)
-			`
-		)
-		.eq('sensor_id', sensorId);
+	const [ownershipsRes, participantsRes] = await Promise.all([
+		pgClient?.from('ownerships').select('*').eq('sensor_id', sensorId),
+		pgClient?.from('list_participants').select('user_id, username, properties')
+	]);
 
-	const raw = (data?.data ?? []) as Record<string, unknown>[];
+	const participantsById = new Map<
+		string,
+		{ user_id: string; username: string | null; properties: Record<string, unknown> | null }
+	>(
+		(
+			(participantsRes?.data ?? []) as {
+				user_id: string;
+				username: string | null;
+				properties: Record<string, unknown> | null;
+			}[]
+		).map((p) => [p.user_id, p])
+	);
+
+	const raw = (ownershipsRes?.data ?? []) as Array<{
+		user_id: string;
+		sensor_id: number;
+		start_date: string;
+		end_date: string;
+		sys_created_at?: string;
+	}>;
+
 	return raw.map((item) => {
-		const users = item.users as { username: string | null } | { username: string | null }[] | null;
-		const username = Array.isArray(users)
-			? (users[0]?.username ?? null)
-			: (users?.username ?? null);
-
-		const participants = item.participants as
-			| { properties: Record<string, unknown> | null }
-			| { properties: Record<string, unknown> | null }[]
-			| null;
-		const participantProps = Array.isArray(participants)
-			? (participants[0]?.properties ?? null)
-			: (participants?.properties ?? null);
+		const participant = participantsById.get(item.user_id);
 		const participantName =
-			participantProps && typeof participantProps.name === 'string'
-				? (participantProps.name as string)
+			participant?.properties && typeof participant.properties.name === 'string'
+				? (participant.properties.name as string)
 				: null;
 
 		return {
-			user_id: item.user_id as string,
-			sensor_id: item.sensor_id as number,
-			start_date: item.start_date as string,
-			end_date: item.end_date as string,
-			sys_created_at: item.sys_created_at as string | undefined,
-			username,
+			user_id: item.user_id,
+			sensor_id: item.sensor_id,
+			start_date: item.start_date,
+			end_date: item.end_date,
+			sys_created_at: item.sys_created_at,
+			username: participant?.username ?? null,
 			participant_name: participantName
-		} as SensorOwnership;
+		};
 	});
 };
 

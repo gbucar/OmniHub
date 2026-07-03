@@ -137,22 +137,22 @@
 											<path d="M18 6L6 18M6 6l12 12" />
 										</svg>
 									</button>
-								<button
-									class="btn btn-circle btn-xs btn-accent"
-									disabled={studyDateError !== '' || !localEditStart || !localEditEnd}
-									onclick={() => {
-										if (studyDateError !== '' || !localEditStart || !localEditEnd) return;
-										dispatch('saveStudyPeriod', {
-											studyId: participantStudy.study_id,
-											start: localEditStart,
-											end: localEditEnd
-										});
-										editingStudyId = null;
-										localEditStart = '';
-										localEditEnd = '';
-									}}
-									aria-label="Save"
-								>
+									<button
+										class="btn btn-circle btn-xs btn-accent"
+										disabled={studyDateError !== '' || !localEditStart || !localEditEnd}
+										onclick={() => {
+											if (studyDateError !== '' || !localEditStart || !localEditEnd) return;
+											dispatch('saveStudyPeriod', {
+												studyId: participantStudy.study_id,
+												start: localEditStart,
+												end: localEditEnd
+											});
+											editingStudyId = null;
+											localEditStart = '';
+											localEditEnd = '';
+										}}
+										aria-label="Save"
+									>
 										<svg
 											class="h-3.5 w-3.5"
 											viewBox="0 0 24 24"

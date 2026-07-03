@@ -228,7 +228,11 @@
 
 	// user_id: 'user-abc' / '00000000-...' → first letter for the avatar
 	const avatarInitial = (ownership: SensorOwnership): string => {
-		const seed = ownership.participant_name || ownership.username || ownership.user_id || '?';
+		const seed =
+			ownership.participant_name ||
+			(ownership.username ? '@' + ownership.username : null) ||
+			ownership.user_id ||
+			'?';
 		return seed.slice(0, 1).toUpperCase();
 	};
 </script>
@@ -621,9 +625,11 @@
 												</span>
 											</div>
 											<div class="min-w-0 flex-1">
-												<span class="block truncate font-mono text-sm font-medium"
-													>{ownership.participant_name || 'Unknown'}</span
-												>
+												<span class="block truncate font-mono text-sm font-medium">
+													{ownership.participant_name ||
+														(ownership.username ? '@' + ownership.username : null) ||
+														`User ${ownership.user_id.slice(0, 8)}`}
+												</span>
 												{#if ownership.username}
 													<span class="block truncate font-mono text-xs text-primary">
 														@{ownership.username}
