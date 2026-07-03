@@ -13,6 +13,7 @@ services:
     volumes:
       - ./app_data/db:/var/lib/postgresql:z
       - ./src/db/migrations:/docker-entrypoint-initdb.d:z
+
   postgrest:
     image: docker.io/postgrest/postgrest:v14.5
     restart: unless-stopped
