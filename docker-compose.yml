@@ -8,8 +8,8 @@ services:
       PIPELINE_DB_PASSWORD: ${PIPELINE_DB_PASSWORD}
       AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD}
       RESEARCHER_DB_PASSWORD: ${RESEARCHER_DB_PASSWORD}
-    ports:
-      - "${DB_PORT:-5432}:5432"
+    # ports:
+    #   - "${DB_PORT:-5432}:5432"
     volumes:
       - ./app_data/db:/var/lib/postgresql:z
       - ./src/db/migrations:/docker-entrypoint-initdb.d:z
@@ -44,12 +44,12 @@ services:
   admin-dashboard:
     build:
       context: ./src/admin-dashboard
-      args:
-        - POSTGREST_URL=${POSTGREST_URL}
     image: ghcr.io/gbucar/omnihub/admin-dashboard:latest
     restart: unless-stopped
     depends_on:
       - postgrest
+    environment:
+      - PUBLIC_POSTGREST_URL=${POSTGREST_URL}
     ports:
       - "3001:5173"
   

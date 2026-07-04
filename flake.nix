@@ -77,6 +77,7 @@
           # Set environment variables
           NODEJS_VERSION = "22";
           NPM_CONFIG_PREFIX = "$HOME/.npm-global";
+          REGISTRY_AUTH_FILE="./.podman-auth.json";
         };
       }
     );

@@ -1,10 +1,17 @@
 import { PostgrestClient } from '@supabase/postgrest-js';
-import { PUBLIC_POSTGREST_URL } from '$env/static/public';
+import { env } from '$env/dynamic/public';
 import { browser } from '$app/environment';
 import { writable, type Writable } from 'svelte/store';
 import { createUser, type User } from './types';
 
-const pgClient = browser ? new PostgrestClient(PUBLIC_POSTGREST_URL) : null;
+const pgUrl = env.PUBLIC_POSTGREST_URL;
+if (browser && !pgUrl) {
+	console.warn(
+		'PUBLIC_POSTGREST_URL is not set. API calls will fail. Set it in the container environment or .env file.'
+	);
+}
+
+const pgClient = browser && pgUrl ? new PostgrestClient(pgUrl) : null;
 export const user: Writable<User> = writable(createUser(null));
 
 export const setAuthToken = (token: string) => {
