@@ -24,6 +24,7 @@
 	import AddToStudyModal from '$lib/components/modals/AddToStudyModal.svelte';
 	import AddDeviceModal from '$lib/components/modals/AddDeviceModal.svelte';
 	import ParticipantDetailsPanel from '$lib/components/ParticipantDetailsPanel.svelte';
+	import StudyBadges from '$lib/components/StudyBadges.svelte';
 	import { onMount } from 'svelte';
 
 	let mounted = $state(false);
@@ -389,42 +390,6 @@
 		}
 	};
 
-	const handleChangeType = async (event: CustomEvent<{ user_id: string; type: string | null }>) => {
-		const target = participants.find((p) => p.user_id === event.detail.user_id);
-		if (!target) {
-			showToast('Participant not found', 'error');
-			return;
-		}
-
-		// `type` is stored as `properties->>'type'` (free-text, no migration).
-		// Build the new properties object, preserving all other keys.
-		const nextProperties: Record<string, unknown> = { ...(target.properties ?? {}) };
-		if (event.detail.type === null) {
-			delete nextProperties.type;
-		} else {
-			nextProperties.type = event.detail.type;
-		}
-
-		try {
-			await updateParticipant({
-				user_id: event.detail.user_id,
-				properties: nextProperties
-			});
-
-			await loadParticipants();
-
-			const refreshed = participants.find((p) => p.user_id === event.detail.user_id);
-			if (refreshed) {
-				selectedParticipant = refreshed;
-			}
-
-			showToast('Type updated successfully', 'success');
-		} catch (error) {
-			console.error('Failed to update type:', error);
-			showToast('Failed to update type', 'error');
-		}
-	};
-
 	const stats = $derived({
 		total: totalCount,
 		filtered: participants.length
@@ -552,24 +517,20 @@
 								>Username</th
 							>
 							<th class="font-mono text-xs tracking-wider text-base-content/40 uppercase">Study</th>
-							<th
-								class="hidden font-mono text-xs tracking-wider text-base-content/40 uppercase md:table-cell"
-								>Type</th
-							>
 							<th class="font-mono text-xs tracking-wider text-base-content/40 uppercase">Name</th>
 						</tr>
 					</thead>
 					<tbody>
 						{#if isLoadingParticipants && participants.length === 0}
 							<tr>
-								<td colspan="4" class="py-12 text-center">
+								<td colspan="3" class="py-12 text-center">
 									<span class="loading loading-lg loading-spinner text-primary"></span>
 									<span class="ml-2 font-mono text-base-content/50">Loading participants...</span>
 								</td>
 							</tr>
 						{:else if participants.length === 0}
 							<tr>
-								<td colspan="4" class="py-12 text-center">
+								<td colspan="3" class="py-12 text-center">
 									<div class="flex flex-col items-center gap-2 text-base-content/30">
 										<svg
 											class="h-12 w-12 opacity-30"
@@ -604,29 +565,16 @@
 										</div>
 									</td>
 									<td>
-										{#if participant.studies.length === 1}
-											<span class="badge badge-soft badge-primary"
-												>{participant.studies[0].name}</span
-											>
-										{:else if participant.studies.length > 1}
-											<div class="flex flex-wrap items-center gap-1">
-												<span class="badge badge-soft badge-primary"
-													>{participant.studies.length} studies</span
-												>
-												{#each participant.studies as study (study.id)}
-													<span class="badge badge-outline badge-xs" title={study.name}
-														>{study.name}</span
-													>
-												{/each}
-											</div>
-										{:else}
+										{#if participant.studies.length === 0}
 											<span class="text-base-content/30">—</span>
+										{:else}
+											<!--
+												StudyBadges measures the available width with ResizeObserver and
+												shows as many study badges as fit, collapsing the rest into a
+												`+N` overflow chip. At least one study is always shown.
+											-->
+											<StudyBadges studies={participant.studies} />
 										{/if}
-									</td>
-									<td class="hidden md:table-cell">
-										<span class="font-mono text-sm text-base-content/50"
-											>{participant.type ?? '—'}</span
-										>
 									</td>
 									<td>
 										<span class="text-sm text-base-content/70"
@@ -693,7 +641,14 @@
 		{studies}
 		{participantStudies}
 		{userOwnerships}
-		on:close={() => (showDetailsPanel = false)}
+		on:close={async () => {
+			showDetailsPanel = false;
+			// The drawer is the only place where participants can be added to
+			// studies, have assignments changed, etc. After it closes, refetch
+			// the participants list and the studies list so the table reflects
+			// the new state without requiring a manual refresh.
+			await Promise.all([loadParticipants(), loadStudies()]);
+		}}
 		on:addToStudy={async () => {
 			showAddToStudyModal = true;
 			if (selectedParticipant) {
@@ -709,7 +664,6 @@
 		on:editParticipant={handleEditParticipant}
 		on:changeStudyPeriod={handleChangeStudyPeriod}
 		on:changeOwnership={handleChangeOwnership}
-		on:changeType={handleChangeType}
 	/>
 
 	<AddParticipantModal
