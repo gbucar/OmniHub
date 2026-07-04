@@ -2,7 +2,6 @@ import { pgClient } from './client';
 import type {
 	Sensor,
 	Ownership,
-	NewSensor,
 	DataStream,
 	SensorOwnership,
 	RecentObservation
@@ -132,31 +131,6 @@ export const removeOwnership = async (
 		throw new Error(data.error.message);
 	}
 	return data?.data ?? null;
-};
-
-/**
- * Insert a new sensor. Uses the existing RLS policy
- * `allow_admin_insert_all_sensors` on `data.sensors`.
- *
- * Returns the inserted row (with the new `id`); the rest of the field set
- * matches the columns of `data.sensors`.
- */
-export const addSensor = async (sensor: NewSensor): Promise<{ id: number }> => {
-	const data = await pgClient?.from('sensors').insert({
-		name: sensor.name,
-		sensor_type: sensor.sensor_type,
-		description: sensor.description ?? null,
-		properties: sensor.properties ?? {},
-		credential_id: sensor.credential_id ?? null
-	});
-	if (data?.error) {
-		throw new Error(data.error.message);
-	}
-	const inserted = Array.isArray(data?.data) ? (data.data[0] as { id: number } | undefined) : null;
-	if (!inserted) {
-		throw new Error('Sensor insert returned no row');
-	}
-	return inserted;
 };
 
 /**

@@ -13,7 +13,6 @@ export {
 	addOwnership,
 	updateOwnership,
 	removeOwnership,
-	addSensor,
 	updateSensor,
 	getSensorStreams,
 	getSensorOwnerships,
@@ -21,7 +20,6 @@ export {
 } from './sensors';
 export type {
 	Sensor,
-	NewSensor,
 	DataStream,
 	SensorOwnership,
 	RecentObservation,

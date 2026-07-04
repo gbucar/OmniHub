@@ -15,14 +15,6 @@ export type Sensor = {
 	sensor_type?: string;
 };
 
-export type NewSensor = {
-	name: string;
-	sensor_type: string;
-	description?: string;
-	properties?: Record<string, unknown>;
-	credential_id?: number;
-};
-
 export type DataStream = {
 	id: number;
 	sensor_id: number;

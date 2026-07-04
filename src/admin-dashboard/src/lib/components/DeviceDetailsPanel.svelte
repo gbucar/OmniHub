@@ -47,9 +47,8 @@
 		updateSensor: { id: number; changes: Partial<Sensor> };
 	}>();
 
-	// --- SUGGESTED_TYPES mirrors AddSensorModal: the four IOT models we
-	// see in `99_populate.sql`. Users can still type a custom value via
-	// the "Other..." free-input combo.
+	// --- SUGGESTED_TYPES: the four IOT models we see in `99_populate.sql`.
+	// Users can still type a custom value via the "Other..." free-input combo.
 	const SUGGESTED_TYPES = ['ATMOTUBE_PRO', 'ATMOAIR_PRO', 'ATMODOT_PRO', 'ATMOAIR_V2'];
 
 	// --- local edit state ---
@@ -94,9 +93,9 @@
 		}
 	});
 
-	// Mirror AddSensorModal: when in custom-type mode, keep sensor_type
-	// in sync with the free-input field. We re-assign the whole object so
-	// the change is observable to downstream derivations / binds.
+	// When in custom-type mode, keep sensor_type in sync with the free-input
+	// field. We re-assign the whole object so the change is observable to
+	// downstream derivations / binds.
 	$effect(() => {
 		if (showCustomTypeInput) {
 			editedFields = { ...editedFields, sensor_type: customType };

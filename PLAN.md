@@ -400,9 +400,8 @@ GRANT SELECT ON TABLE api.users TO admin;
 
 **Dodatni TODO (dogovorjeno s produktom):**
 
-- **Dinamični sensor types** v `AddSensorModal` in `DeviceDetailsPanel` — trenutno statični seznam `['ATMOTUBE_PRO', 'ATMOAIR_PRO', 'ATMODOT_PRO', 'ATMOAIR_V2']`. Zamenjaj s `existingSensorTypes` prop, ki ga parent posreduje iz baze (npr. `sensorTypes` iz `+page.svelte`). Enako za `DeviceDetailsPanel.svelte` `SUGGESTED_TYPES`.
-- **Placeholder** za device name: `"e.g. Atmotube 12"` (namesto `"e.g. Living room Atmotube"`).
-- **Status pri novem senzorju**: `properties.status` naj bo vedno nastavljen (privzeto `'active'`), da badge v glavni strani in sidebaru kaže isto. Trenutno logika v `AddSensorModal.normalisedSensor` to že naredi — preveri, da se po `addSensor` takoj osveži `loadSensors()` in da `selectedSensor` prejme nov senzor.
+- **Add Device UI je izven scope-a** te faze — `AddSensorModal.svelte`, `addSensor` API helper in `NewSensor` tip so bili odstranjeni. Ko se bo Add Device implementiral v prihodnji fazi, glej zgodovino commitov za izhodišče.
+- **Dinamični sensor types** v `DeviceDetailsPanel` — trenutno statični seznam `['ATMOTUBE_PRO', 'ATMOAIR_PRO', 'ATMODOT_PRO', 'ATMOAIR_V2']`. Zamenjaj s `existingSensorTypes` prop, ki ga parent posreduje iz baze (npr. `sensorTypes` iz `+page.svelte`).
 - **Sidebar Information card — prikaži metadata v display mode**: trenutno metadata urejamo, ampak v display mode ni vidna. Dodaj prikaz ključ/vrednost parov v display mode (pod Description).
 
 ## 11. Kriteriji sprejetja
@@ -411,7 +410,7 @@ GRANT SELECT ON TABLE api.users TO admin;
 - [ ] Iskanje deluje po imenu, description in JSONB vrednostih
 - [ ] Filter po `sensor_type` in `status` deluje
 - [ ] Paginacija deluje s 4 velikostmi (10/25/50/100/500)
-- [ ] Gumb "Add Device" odpre modal, ki uspešno doda nov senzor
+- [x] ~~Gumb "Add Device" odpre modal, ki uspešno doda nov senzor~~ (izven scope-a te faze)
 - [ ] Klik na vrstico odpre desni sidebar z detajli
 - [ ] V sidebaru je mogoče urediti ime, tip, opis, status, credential_id, metadata
 - [ ] V sidebaru so prikazani vsi data_streams, ownerships in zadnjih 20 observationov

@@ -1,20 +1,17 @@
 <script lang="ts">
 	import {
 		getSensors,
-		addSensor,
 		updateSensor,
 		getSensorStreams,
 		getSensorOwnerships,
 		getRecentObservations,
 		type Sensor,
-		type NewSensor,
 		type DataStream,
 		type SensorOwnership,
 		type RecentObservation
 	} from '$lib/api';
 	import { showToast } from '$lib/stores/toast';
 	import { onMount } from 'svelte';
-	import AddSensorModal from '$lib/components/modals/AddSensorModal.svelte';
 	import DeviceDetailsPanel from '$lib/components/DeviceDetailsPanel.svelte';
 	import SensorStatusBadge from '$lib/components/SensorStatusBadge.svelte';
 
@@ -40,14 +37,7 @@
 	let recentObservations = $state.raw<RecentObservation[]>([]);
 
 	// --- add sensor modal ---
-	let showAddSensorModal = $state(false);
-	let newSensor = $state<NewSensor>({
-		name: '',
-		sensor_type: 'ATMOTUBE_PRO',
-		description: '',
-		properties: { status: 'active' },
-		credential_id: undefined
-	});
+	// (removed — Add Device UI is out of scope for this phase)
 
 	let showLoading = $derived(isLoadingSensors && sensors.length === 0);
 
@@ -151,25 +141,6 @@
 	});
 
 	// --- sensor CRUD handlers ---
-	const handleAddSensor = async (sensor: NewSensor) => {
-		try {
-			await addSensor(sensor);
-			showAddSensorModal = false;
-			newSensor = {
-				name: '',
-				sensor_type: 'ATMOTUBE_PRO',
-				description: '',
-				properties: { status: 'active' },
-				credential_id: undefined
-			};
-			await loadSensors();
-			showToast('Device added successfully', 'success');
-		} catch (error) {
-			console.error('Failed to add sensor:', error);
-			showToast('Failed to add device', 'error');
-		}
-	};
-
 	const handleUpdateSensor = async (
 		event: CustomEvent<{ id: number; changes: Partial<Sensor> }>
 	) => {
@@ -282,21 +253,6 @@
 						<span class="text-primary">{stats.filtered}</span> of {stats.total} records
 					{/if}
 				</p>
-			</div>
-
-			<div class="flex items-center gap-3">
-				<button onclick={() => (showAddSensorModal = true)} class="btn font-mono btn-primary">
-					<svg
-						class="h-4 w-4"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<path d="M12 5v14M5 12h14" />
-					</svg>
-					Add Device
-				</button>
 			</div>
 		</div>
 
@@ -537,12 +493,5 @@
 		{recentObservations}
 		on:close={() => (showDetailsPanel = false)}
 		on:updateSensor={handleUpdateSensor}
-	/>
-
-	<AddSensorModal
-		show={showAddSensorModal}
-		bind:newSensor
-		onAdd={handleAddSensor}
-		onClose={() => (showAddSensorModal = false)}
 	/>
 </div>

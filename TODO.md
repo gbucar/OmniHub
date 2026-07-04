@@ -41,6 +41,31 @@ Treba se je odločiti med dvema pristopoma:
 ### Problem
 `/devices` stran in `DeviceDetailsPanel` sta implementirana, a v praksi ne delujeta, ker `20_init.sql` (ki definira vse `api.*` view-e in GRANT-e) nima vseh potrebnih objektov. PostgREST bere samo iz `PGRST_DB_SCHEMAS=api`, zato brez `api.*` view-ev in GRANT-ov frontend dobi 403/404.
 
+### Dejansko stanje (preverjeno 2026-07-03 s curl + admin JWT)
+
+| `api.*` view       | HTTP status pri `GET /<view>?select=*&limit=1` | Vzrok                              | Vpliv v UI                                            |
+| ------------------ | --------------------------------------------- | ---------------------------------- | ----------------------------------------------------- |
+| `list_sensors`     | 200                                          | ✅ deluje                          | Seznam naprav v `/devices` deluje                    |
+| `list_participants`| 200                                          | ✅ deluje                          | Seznam udeležencev v `/users` deluje                  |
+| `observations`     | 200                                          | ✅ deluje                          | A v `DeviceDetailsPanel` se ne uporabi neposredno     |
+| `ownerships`       | 200                                          | ✅ deluje                          | Lastništva se vidijo (po nedavnem fixu s client-side join) |
+| `participants`     | 200                                          | ✅ deluje                          | Urejanje udeležencev deluje                           |
+| `studies`          | 200                                          | ✅ deluje                          | Študije delujejo                                      |
+| `many_participants_studies` | 200                                | ✅ deluje                          | Članstva v študijah delujejo                          |
+| `sensors`          | **403**                                      | ❌ manjka GRANT adminu             | `PATCH /sensors` (urejanje) ne deluje                 |
+| `data_streams`     | **404**                                      | ❌ view sploh ne obstaja           | Data Streams kartica v sidebaru vedno prazna          |
+| `users`            | **404**                                      | ❌ view sploh ne obstaja           | Username v Ownerships kartici manjka                  |
+
+### Dodatne ugotovitve iz testiranja
+
+- **AtmoTube #22 obstaja** v `data.sensors` (`id=22, name='Atmotube 22', sensor_type=ATMOTUBE_PRO`).
+- **Podatki so v bazi**: 7 data stream-ov (`voc, pm1, pm25, pm10, t, h, p`) in 7 observations, vstavljeni s psql — a se v UI **ne prikažejo**, ker `api.data_streams` manjka.
+- **Frontend query za opazovanja** (`getRecentObservations`) uporablja `data_streams!inner (...)` embed, ki prav tako ne deluje, ker `api.data_streams` manjka. PostgREST vrne `PGRST108: 'data_streams' is not an embedded resource in this request`.
+- **Frontend klici prizadetih API-jev** (v `src/lib/api/sensors.ts`):
+  - `getSensorStreams(sensorId)` → `from('data_streams')` (vrstice 187–193) — fail, ker `api.data_streams` manjka.
+  - `getRecentObservations(sensorId)` → `from('observations').select('..., data_streams!inner(...)')` (vrstice 284–304) — fail, ker `api.data_streams` manjka.
+  - `updateSensor(id, changes)` → `from('sensors').update(...)` (vrstica 171) — fail, ker admin nima GRANT na `api.sensors`.
+
 ### Vzorec (kako deluje pri drugih entitetah)
 Vsak `api.*` view, ki ga frontend piše, ima GRANT na **obeh** nivojih — `data.*` in `api.*`:
 - `api.participants` — `data.participants` GRANT + `api.participants` GRANT ✅
@@ -48,6 +73,8 @@ Vsak `api.*` view, ki ga frontend piše, ima GRANT na **obeh** nivojih — `data
 - `api.ownerships` — `data.ownerships` GRANT + `api.ownerships` GRANT ✅
 - `api.studies` — `data.studies` GRANT + `api.studies` GRANT ✅
 - **`api.sensors`** — `data.sensors` GRANT ✅, **`api.sensors` GRANT ❌ manjka** ✗
+- **`api.data_streams`** — `data.data_streams` GRANT ✅, **`api.data_streams` view ❌ manjka** ✗
+- **`api.users`** — `auth.users` GRANT ✅, **`api.users` view ❌ manjka** ✗
 
 ### Kaj manjka (3 stvari)
 
@@ -58,7 +85,7 @@ GRANT SELECT, INSERT, UPDATE ON TABLE api.sensors TO admin;
 ```
 
 #### 2. Manjkajoč view `api.data_streams`
-Povzroča: `getSensorStreams(sensorId)` fail (Data Streams card v `DeviceDetailsPanel` vedno prazen).
+Povzroča: `getSensorStreams(sensorId)` fail (Data Streams card v `DeviceDetailsPanel` vedno prazen) in `getRecentObservations` fail (Recent Observations card vedno prazen — embed ne deluje).
 `data_streams` obstaja samo kot tabela, brez view-a v `api` shemi. PostgREST ga zato ne najde.
 ```sql
 CREATE OR REPLACE VIEW api.data_streams
@@ -70,7 +97,7 @@ GRANT SELECT, INSERT, UPDATE ON TABLE api.data_streams TO admin;
 ```
 
 #### 3. Manjkajoč view `api.users`
-Povzroča: `getSensorOwnerships(sensorId)` fail (Ownerships card v `DeviceDetailsPanel` nima username/participant_name, ker ne najde `users ( username )` embeda).
+Povzroča: `getSensorOwnerships(sensorId)` fail (Ownerships card v `DeviceDetailsPanel` nima username, ker ne najde `users ( username )` embeda). AtmoTube 22 sicer nima ownership-ov, zato ta napaka trenutno ni vidna v UI — a bo, ko bodo ownership-i dodani.
 `auth.users` obstaja samo kot tabela, brez view-a v `api` shemi. RLS `allow_admin_select_user_data` velja za `admin` na `auth.users`, vendar PostgREST tega ne doseže, ker ne ve za `auth` shemo.
 ```sql
 CREATE OR REPLACE VIEW api.users
@@ -85,3 +112,20 @@ Nova migracija `src/db/migrations/22_views_and_grants.sql` (ali poljubno ime). V
 
 ### Zakaj `WITH (security_invoker=true)`
 Da se RLS politike na osnovnih tabelah (`data.data_streams`, `auth.users`) pravilno uveljavijo za vlogo klicatelja (admin), ne za lastnika view-a (postgres). Enako kot pri vseh drugih `api.*` view-ih v `20_init.sql`.
+
+### Kako verificirati po fixu
+Po dodajanju migracije in `docker-compose restart` poženi naslednje ukaze (z admin JWT):
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:3000/data_streams?sensor_id=eq.22&select=id,name"
+# Pričakovano: 200 (prej 404)
+
+curl -s -o /dev/null -w "%{http_code}\n" -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:3000/users?select=id,username&limit=1"
+# Pričakovano: 200 (prej 404)
+
+curl -s -X PATCH -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"description":"test"}' "http://localhost:3000/sensors?id=eq.22"
+# Pričakovano: 200 ali 204 (prej 403)
+```
+Če se vse tri vrnitve ujemajo s pričakovanimi, je fix pravilen.
