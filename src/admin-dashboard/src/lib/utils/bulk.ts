@@ -50,6 +50,12 @@ export type ValidationStatus = 'valid' | 'rejected' | 'problematic';
 export type ValidationResult = {
 	status: ValidationStatus;
 	row: ParsedRow;
+	/**
+	 * Index of this row in the source CSV (0-based, header excluded).
+	 * Used by the wizard to track dismissals without depending on object
+	 * identity (parsed rows are reconstructed on every render).
+	 */
+	index: number;
 	/** A short, human-readable explanation shown in the preview table. */
 	reason?: string;
 	/** For valid rows: a bullet list of actions the import will perform. */
@@ -241,7 +247,7 @@ export function validateRow(
 ): ValidationResult {
 	// 1. Required: username.
 	if (!row.username || row.username.trim() === '') {
-		return { status: 'rejected', row, reason: 'Missing username' };
+		return { status: 'rejected', row, index: -1, reason: 'Missing username' };
 	}
 
 	// 2. Study dates — if either is present, both must be valid and in order.
@@ -249,6 +255,7 @@ export function validateRow(
 		return {
 			status: 'rejected',
 			row,
+			index: -1,
 			reason: `Invalid study_start_date: "${row.study_start_date}"`
 		};
 	}
@@ -256,6 +263,7 @@ export function validateRow(
 		return {
 			status: 'rejected',
 			row,
+			index: -1,
 			reason: `Invalid study_end_date: "${row.study_end_date}"`
 		};
 	}
@@ -267,6 +275,7 @@ export function validateRow(
 		return {
 			status: 'rejected',
 			row,
+			index: -1,
 			reason: 'study_end_date is before study_start_date'
 		};
 	}
@@ -277,6 +286,7 @@ export function validateRow(
 			return {
 				status: 'rejected',
 				row,
+				index: -1,
 				reason: `Invalid start_date for device "${device.name}": "${device.start}"`
 			};
 		}
@@ -284,6 +294,7 @@ export function validateRow(
 			return {
 				status: 'rejected',
 				row,
+				index: -1,
 				reason: `Invalid end_date for device "${device.name}": "${device.end}"`
 			};
 		}
@@ -291,6 +302,7 @@ export function validateRow(
 			return {
 				status: 'rejected',
 				row,
+				index: -1,
 				reason: `Device "${device.name}": end before start`
 			};
 		}
@@ -300,6 +312,7 @@ export function validateRow(
 			return {
 				status: 'problematic',
 				row,
+				index: -1,
 				reason: `Device "${device.name}" not found in database`
 			};
 		}
@@ -310,6 +323,7 @@ export function validateRow(
 		return {
 			status: 'problematic',
 			row,
+			index: -1,
 			reason: `Study "${row.study_name}" not found in database`
 		};
 	}
@@ -317,6 +331,7 @@ export function validateRow(
 		return {
 			status: 'problematic',
 			row,
+			index: -1,
 			reason: 'No study_name in CSV and no default study selected in step 3'
 		};
 	}
@@ -328,6 +343,7 @@ export function validateRow(
 			return {
 				status: 'rejected',
 				row,
+				index: -1,
 				reason: `Invalid age: "${row.age}"`
 			};
 		}
@@ -336,6 +352,7 @@ export function validateRow(
 	return {
 		status: 'valid',
 		row,
+		index: -1,
 		actions: buildActionsList(row, sensors, studies, selectedStudy)
 	};
 }
@@ -361,6 +378,10 @@ function buildActionsList(
 /**
  * Validate a batch of rows in one go. Returns the three buckets the
  * preview table renders. Order within each bucket matches the input.
+ *
+ * Each `ValidationResult` is stamped with the source index of its row
+ * so the wizard can dismiss rows by index without relying on object
+ * identity (parsed rows are reconstructed on every re-render).
  */
 export function validateAllRows(
 	rows: ParsedRow[],
@@ -371,12 +392,13 @@ export function validateAllRows(
 	const valid: ValidationResult[] = [];
 	const problematic: ValidationResult[] = [];
 	const rejected: ValidationResult[] = [];
-	for (const row of rows) {
+	rows.forEach((row, index) => {
 		const result = validateRow(row, sensors, studies, selectedStudy);
+		result.index = index;
 		if (result.status === 'valid') valid.push(result);
 		else if (result.status === 'problematic') problematic.push(result);
 		else rejected.push(result);
-	}
+	});
 	return { valid, problematic, rejected };
 }
 
