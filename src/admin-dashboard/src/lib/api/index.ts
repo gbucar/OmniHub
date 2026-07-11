@@ -1,5 +1,11 @@
 export { pgClient, user, setAuthToken, clearAuth, login } from './client';
-export { getParticipants, addParticipant, updateParticipant } from './participants';
+export {
+	getParticipants,
+	addParticipant,
+	addParticipantAndReturnId,
+	lookupUserIdByUsername,
+	updateParticipant
+} from './participants';
 export {
 	getStudies,
 	addStudy,

@@ -122,3 +122,54 @@ export const updateParticipant = async (participant: {
 	}
 	return data?.data ?? null;
 };
+
+/**
+ * Resolve the `user_id` (uuid) for a given username.
+ *
+ * The `api.add_participant` RPC returns `void`, so after calling it we
+ * don't have the freshly-inserted user id. We use the `api.list_participants`
+ * view — which is exposed to PostgREST and joins `auth.users` ↔
+ * `data.participants` — to look up the id by username. Returns `null` if
+ * the username does not exist (should never happen right after
+ * `addParticipant` succeeds, but a defensive `null` is friendlier than a
+ * thrown error in a bulk-import loop).
+ *
+ * Implementation note: the view is the same one `getParticipants` reads
+ * from, so the RLS policy chain is identical (`allow_admin_select_user_data`
+ * + `allow_admin_researcher_select_all_participants`).
+ */
+export const lookupUserIdByUsername = async (username: string): Promise<string | null> => {
+	const data = await pgClient
+		?.from('list_participants')
+		.select('user_id')
+		.eq('username', username)
+		.limit(1);
+	if (data?.error) {
+		throw new Error(data.error.message);
+	}
+	const rows = (data?.data ?? []) as Array<{ user_id: string }>;
+	return rows[0]?.user_id ?? null;
+};
+
+/**
+ * Add a participant and return the freshly-created `user_id`. Composed
+ * from `addParticipant` + a single username lookup. Used by the bulk
+ * upload flow which needs the id to attach the user to a study and to
+ * device ownerships.
+ *
+ * The existing `addParticipant` signature is unchanged (other callers
+ * still get `void` / `null` back); bulk upload uses this higher-level
+ * helper instead.
+ */
+export const addParticipantAndReturnId = async (participant: {
+	username: string;
+	password: string;
+	properties: Record<string, unknown>;
+}): Promise<string> => {
+	await addParticipant(participant);
+	const userId = await lookupUserIdByUsername(participant.username);
+	if (!userId) {
+		throw new Error(`User "${participant.username}" was created but could not be looked up`);
+	}
+	return userId;
+};
