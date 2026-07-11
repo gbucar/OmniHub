@@ -23,6 +23,8 @@
 	import AddStudyModal from '$lib/components/modals/AddStudyModal.svelte';
 	import AddToStudyModal from '$lib/components/modals/AddToStudyModal.svelte';
 	import AddDeviceModal from '$lib/components/modals/AddDeviceModal.svelte';
+	import BulkDownloadModal from '$lib/components/modals/BulkDownloadModal.svelte';
+	import BulkUploadModal from '$lib/components/modals/BulkUploadModal.svelte';
 	import ParticipantDetailsPanel from '$lib/components/ParticipantDetailsPanel.svelte';
 	import StudyBadges from '$lib/components/StudyBadges.svelte';
 	import { onMount } from 'svelte';
@@ -101,6 +103,55 @@
 	let showDetailsPanel = $state(false);
 	let participantStudies = $state.raw<ParticipantStudy[]>([]);
 	let userOwnerships = $state<Ownership[]>([]);
+
+	// Bulk-selection state. We use a Set<string> of user_ids. A Set is not
+	// reactive in Svelte 5, so we always reassign a new Set on mutation.
+	let selectedIds = $state(new Set<string>());
+	// Index of the last clicked checkbox — used to compute shift+click ranges
+	// over the currently-rendered (filtered, paginated) participant list.
+	let lastClickedIndex = $state<number | null>(null);
+	// `change` events from checkboxes do not expose the Shift modifier
+	// state, so we track it via window-level key listeners and read it
+	// in the click handler. Plain module-scope variable — not reactive.
+	let shiftHeld = false;
+
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		const onDown = (e: KeyboardEvent) => {
+			if (e.key === 'Shift') shiftHeld = true;
+		};
+		const onUp = (e: KeyboardEvent) => {
+			if (e.key === 'Shift') shiftHeld = false;
+		};
+		window.addEventListener('keydown', onDown);
+		window.addEventListener('keyup', onUp);
+		return () => {
+			window.removeEventListener('keydown', onDown);
+			window.removeEventListener('keyup', onUp);
+		};
+	});
+
+	let showBulkDownloadModal = $state(false);
+	let showBulkUploadModal = $state(false);
+	let bulkDownloadPreselected = $state<string[]>([]);
+	let bulkDownloadPreselectedStudy = $state<number | undefined>(undefined);
+
+	// When the user paginates or filters, anything outside the current view
+	// is still in the Set. We strip those ids out so the selection matches
+	// what the admin sees in the table.
+	$effect(() => {
+		const visible = new Set(participants.map((p) => p.user_id));
+		const filtered = new Set(Array.from(selectedIds).filter((id) => visible.has(id)));
+		if (filtered.size !== selectedIds.size) {
+			selectedIds = filtered;
+		}
+		// Reference `participants` so the effect re-runs on changes.
+		void participants;
+	});
+
+	const allVisibleSelected = $derived(
+		participants.length > 0 && participants.every((p) => selectedIds.has(p.user_id))
+	);
 
 	let newUser = $state({
 		username: '',
@@ -394,6 +445,63 @@
 		total: totalCount,
 		filtered: participants.length
 	});
+
+	// ---- Bulk selection -------------------------------------------------
+
+	function handleRowCheckboxClick(_event: Event, index: number) {
+		// `onchange` fires with a generic Event and does not expose the
+		// Shift modifier, so we use the window-level `shiftHeld` flag
+		// maintained by the keydown/keyup listeners above.
+		const userId = participants[index].user_id;
+		const next = new Set(selectedIds);
+
+		if (shiftHeld && lastClickedIndex !== null && lastClickedIndex !== index) {
+			// Shift+click: add the inclusive range between the last clicked
+			// row and this one. The semantics match Finder / Gmail: every
+			// row in the range is added (we do NOT toggle each one).
+			const [start, end] = [Math.min(lastClickedIndex, index), Math.max(lastClickedIndex, index)];
+			for (let i = start; i <= end; i++) {
+				next.add(participants[i].user_id);
+			}
+		} else if (next.has(userId)) {
+			next.delete(userId);
+		} else {
+			next.add(userId);
+		}
+
+		selectedIds = next;
+		lastClickedIndex = index;
+	}
+
+	function toggleAllVisible() {
+		if (allVisibleSelected) {
+			selectedIds = new Set();
+		} else {
+			selectedIds = new Set(participants.map((p) => p.user_id));
+		}
+		lastClickedIndex = null;
+	}
+
+	function clearSelection() {
+		selectedIds = new Set();
+		lastClickedIndex = null;
+	}
+
+	function openBulkDownload() {
+		// If the admin has selected rows, pre-select them. Otherwise open
+		// the modal in "no preselection" mode and let them pick a study.
+		bulkDownloadPreselected = Array.from(selectedIds);
+		bulkDownloadPreselectedStudy = undefined;
+		showBulkDownloadModal = true;
+	}
+
+	async function handleBulkImported() {
+		// Refresh the participants list after a successful import so the
+		// new users appear in the table without a manual reload.
+		await loadParticipants();
+		await loadStudies();
+		clearSelection();
+	}
 </script>
 
 <svelte:head>
@@ -432,6 +540,67 @@
 					</svg>
 					Add Study
 				</button>
+				<div class="dropdown dropdown-end">
+					<div tabindex="0" role="button" class="btn font-mono btn-ghost" aria-label="Bulk actions">
+						<svg
+							class="h-4 w-4"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+							<polyline points="17 8 12 3 7 8" />
+							<line x1="12" y1="3" x2="12" y2="15" />
+						</svg>
+						Bulk Actions
+						{#if selectedIds.size > 0}
+							<span class="badge font-mono badge-sm badge-primary">{selectedIds.size}</span>
+						{/if}
+					</div>
+					<ul
+						tabindex="-1"
+						class="dropdown-content menu mt-2 w-56 rounded-box border border-neutral/20 bg-base-100 p-2 font-mono shadow-lg"
+					>
+						<li>
+							<button type="button" onclick={openBulkDownload}>
+								<svg
+									class="h-4 w-4"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+								>
+									<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+									<polyline points="7 10 12 15 17 10" />
+									<line x1="12" y1="15" x2="12" y2="3" />
+								</svg>
+								<span>Bulk Download</span>
+								{#if selectedIds.size > 0}
+									<span class="ml-auto badge badge-xs badge-primary">{selectedIds.size}</span>
+								{/if}
+							</button>
+						</li>
+						<li>
+							<button type="button" onclick={() => (showBulkUploadModal = true)}>
+								<svg
+									class="h-4 w-4"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+								>
+									<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+									<polyline points="17 8 12 3 7 8" />
+									<line x1="12" y1="3" x2="12" y2="15" />
+								</svg>
+								<span>Bulk Upload</span>
+							</button>
+						</li>
+					</ul>
+				</div>
 				<button onclick={() => (showAddParticipantModal = true)} class="btn font-mono btn-primary">
 					<svg
 						class="h-4 w-4"
@@ -504,6 +673,19 @@
 			</div>
 		</div>
 
+		{#if selectedIds.size > 0}
+			<div
+				class="flex items-center justify-between rounded-box border border-primary/30 bg-primary/5 px-4 py-2 font-mono text-sm {mounted
+					? 'animate-fade-in-up stagger-2'
+					: 'opacity-0'}"
+			>
+				<span class="text-primary">
+					{selectedIds.size} selected
+				</span>
+				<button class="btn btn-ghost btn-xs" onclick={clearSelection}>Clear</button>
+			</div>
+		{/if}
+
 		<div
 			class="card min-h-0 flex-1 overflow-hidden bg-base-200 {mounted
 				? 'animate-fade-in-up stagger-2'
@@ -513,6 +695,17 @@
 				<table class="table">
 					<thead class="bg-base-300/50">
 						<tr>
+							<th class="w-10">
+								<input
+									type="checkbox"
+									class="checkbox checkbox-sm"
+									aria-label="Select all visible"
+									checked={allVisibleSelected}
+									indeterminate={!allVisibleSelected &&
+										participants.some((p) => selectedIds.has(p.user_id))}
+									onchange={toggleAllVisible}
+								/>
+							</th>
 							<th class="font-mono text-xs tracking-wider text-base-content/40 uppercase"
 								>Username</th
 							>
@@ -523,14 +716,14 @@
 					<tbody>
 						{#if isLoadingParticipants && participants.length === 0}
 							<tr>
-								<td colspan="3" class="py-12 text-center">
+								<td colspan="4" class="py-12 text-center">
 									<span class="loading loading-lg loading-spinner text-primary"></span>
 									<span class="ml-2 font-mono text-base-content/50">Loading participants...</span>
 								</td>
 							</tr>
 						{:else if participants.length === 0}
 							<tr>
-								<td colspan="3" class="py-12 text-center">
+								<td colspan="4" class="py-12 text-center">
 									<div class="flex flex-col items-center gap-2 text-base-content/30">
 										<svg
 											class="h-12 w-12 opacity-30"
@@ -547,13 +740,26 @@
 								</td>
 							</tr>
 						{:else}
-							{#each participants as participant (participant.user_id)}
+							{#each participants as participant, index (participant.user_id)}
+								{@const isSelected = selectedIds.has(participant.user_id)}
 								<tr
-									class="cursor-pointer transition-colors hover:bg-primary/5"
+									class="cursor-pointer transition-colors hover:bg-primary/5 {isSelected
+										? 'bg-primary/10'
+										: ''}"
 									onclick={() => openParticipant(participant)}
 									role="button"
 									tabindex="0"
 								>
+									<td onclick={(e) => e.stopPropagation()}>
+										<input
+											type="checkbox"
+											class="checkbox checkbox-sm"
+											aria-label="Select {participant.username ?? participant.user_id}"
+											checked={isSelected}
+											onclick={(e) => e.stopPropagation()}
+											onchange={(e) => handleRowCheckboxClick(e, index)}
+										/>
+									</td>
 									<td>
 										<div class="flex items-center gap-3">
 											<div
@@ -705,5 +911,24 @@
 		onSelectSensor={selectSensor}
 		{onToggleDropdown}
 		{onFocusSensor}
+	/>
+
+	<BulkDownloadModal
+		show={showBulkDownloadModal}
+		{studies}
+		preselectedUserIds={bulkDownloadPreselected}
+		preselectedStudyId={bulkDownloadPreselectedStudy}
+		onClose={() => {
+			showBulkDownloadModal = false;
+			bulkDownloadPreselected = [];
+			bulkDownloadPreselectedStudy = undefined;
+		}}
+	/>
+
+	<BulkUploadModal
+		show={showBulkUploadModal}
+		{studies}
+		onImported={handleBulkImported}
+		onClose={() => (showBulkUploadModal = false)}
 	/>
 </div>

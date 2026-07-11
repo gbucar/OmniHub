@@ -302,28 +302,14 @@
 		}
 	}
 
-	const previewRows = $derived(
-		indexedRows
-			.filter(({ index }) => !dismissedRowIndexes.has(index))
-			.slice(0, 5)
-			.map(({ parsed }) => parsed)
-	);
+	const previewRows = $derived(parsedRows.slice(0, 5));
 </script>
 
 <dialog bind:this={dialogEl} class="modal" onclose={handleClose}>
-	<div class="modal-box bg-base-200 max-w-4xl">
+	<div class="modal-box max-w-4xl bg-base-200">
 		<form method="dialog">
-			<button
-				class="btn absolute top-2 right-2 btn-circle btn-ghost btn-sm"
-				aria-label="Close"
-			>
-				<svg
-					class="h-5 w-5"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-				>
+			<button class="btn absolute top-2 right-2 btn-circle btn-ghost btn-sm" aria-label="Close">
+				<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 					<path d="M18 6L6 18M6 6l12 12" />
 				</svg>
 			</button>
@@ -347,9 +333,7 @@
 			</div>
 			<div>
 				<h3 class="font-display text-lg font-semibold">Bulk Upload</h3>
-				<p class="font-mono text-xs text-base-content/40">
-					Import participants from a CSV file
-				</p>
+				<p class="font-mono text-xs text-base-content/40">Import participants from a CSV file</p>
 			</div>
 		</div>
 
@@ -363,13 +347,8 @@
 		<!-- Step 1: Load -->
 		{#if step === 1}
 			<div class="space-y-4">
-				<div role="tablist" class="tabs tabs-boxed bg-base-300/40 w-fit">
-					<button
-						role="tab"
-						type="button"
-						class="tab tab-active"
-						aria-label="Use file input"
-					>
+				<div role="tablist" class="tabs-boxed tabs w-fit bg-base-300/40">
+					<button role="tab" type="button" class="tab-active tab" aria-label="Use file input">
 						File
 					</button>
 					<button
@@ -385,8 +364,7 @@
 
 				<div class="form-control">
 					<label class="label" for="bulk-upload-file">
-						<span
-							class="label-text font-mono text-xs tracking-wider text-base-content/40 uppercase"
+						<span class="label-text font-mono text-xs tracking-wider text-base-content/40 uppercase"
 							>CSV file</span
 						>
 					</label>
@@ -394,7 +372,7 @@
 						id="bulk-upload-file"
 						type="file"
 						accept=".csv,text/csv"
-						class="file-input file-input-bordered w-full"
+						class="file-input-bordered file-input w-full"
 						onchange={onFileSelected}
 					/>
 				</div>
@@ -403,14 +381,13 @@
 
 				<div class="form-control">
 					<label class="label" for="bulk-upload-paste">
-						<span
-							class="label-text font-mono text-xs tracking-wider text-base-content/40 uppercase"
+						<span class="label-text font-mono text-xs tracking-wider text-base-content/40 uppercase"
 							>CSV content</span
 						>
 					</label>
 					<textarea
 						id="bulk-upload-paste"
-						class="textarea textarea-bordered min-h-32 font-mono text-xs"
+						class="textarea-bordered textarea min-h-32 font-mono text-xs"
 						rows="8"
 						placeholder={'username,name,age,study_name\njanez,Janez Novak,35,Study A'}
 						value={rawCsv}
@@ -470,11 +447,10 @@
 			<div class="space-y-4">
 				<div class="flex items-center justify-between">
 					<p class="font-mono text-xs text-base-content/40">
-						Map each CSV column to a system field. Required: <span class="text-error"
-							>username</span
+						Map each CSV column to a system field. Required: <span class="text-error">username</span
 						>.
 					</p>
-					<button type="button" class="btn btn-sm btn-ghost" onclick={runAutoDetect}>
+					<button type="button" class="btn btn-ghost btn-sm" onclick={runAutoDetect}>
 						Auto-detect
 					</button>
 				</div>
@@ -490,10 +466,9 @@
 							</label>
 							<select
 								id="map-{field.key}"
-								class="select-bordered select select-sm w-full"
+								class="select-bordered select w-full select-sm"
 								value={mapping[field.key] ?? NO_MAPPING}
-								onchange={(e) =>
-									setMapping(field.key, (e.target as HTMLSelectElement).value)}
+								onchange={(e) => setMapping(field.key, (e.target as HTMLSelectElement).value)}
 							>
 								<option value={NO_MAPPING}>(skip)</option>
 								{#each parsedHeaders as h}
@@ -513,10 +488,9 @@
 							</label>
 							<select
 								id="map-{field.key}"
-								class="select-bordered select select-sm w-full"
+								class="select-bordered select w-full select-sm"
 								value={mapping[field.key] ?? NO_MAPPING}
-								onchange={(e) =>
-									setMapping(field.key, (e.target as HTMLSelectElement).value)}
+								onchange={(e) => setMapping(field.key, (e.target as HTMLSelectElement).value)}
 							>
 								<option value={NO_MAPPING}>(skip)</option>
 								{#each parsedHeaders as h}
@@ -581,7 +555,7 @@
 				<!-- Valid -->
 				<div class="rounded-box border border-success/30 bg-base-100 p-3">
 					<div class="mb-2 flex items-center gap-2">
-						<span class="badge badge-success font-mono">✓</span>
+						<span class="badge font-mono badge-success">✓</span>
 						<span class="font-mono text-sm"
 							>Valid ({validation.valid.length}) — will be imported</span
 						>
@@ -619,7 +593,7 @@
 				<!-- Problematic -->
 				<div class="rounded-box border border-warning/30 bg-base-100 p-3">
 					<div class="mb-2 flex items-center gap-2">
-						<span class="badge badge-warning font-mono">!</span>
+						<span class="badge font-mono badge-warning">!</span>
 						<span class="font-mono text-sm"
 							>Problematic ({validation.problematic.length}) — will not be imported</span
 						>
@@ -662,7 +636,7 @@
 				<!-- Rejected -->
 				<div class="rounded-box border border-error/30 bg-base-100 p-3">
 					<div class="mb-2 flex items-center gap-2">
-						<span class="badge badge-error font-mono">✗</span>
+						<span class="badge font-mono badge-error">✗</span>
 						<span class="font-mono text-sm"
 							>Rejected ({validation.rejected.length}) — will not be imported</span
 						>

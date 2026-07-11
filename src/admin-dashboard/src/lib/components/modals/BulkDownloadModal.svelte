@@ -30,13 +30,7 @@
 		onClose: () => void;
 	}
 
-	let {
-		show,
-		studies,
-		preselectedUserIds = [],
-		preselectedStudyId,
-		onClose
-	}: Props = $props();
+	let { show, studies, preselectedUserIds = [], preselectedStudyId, onClose }: Props = $props();
 
 	let dialogEl = $state<HTMLDialogElement | null>(null);
 	let studyId = $state('');
@@ -95,9 +89,7 @@
 			// Pre-select any preselected users that belong to this study.
 			if (preselectedUserIds.length > 0) {
 				const valid = new Set(result.data.map((p) => p.user_id));
-				selectedForDownload = new Set(
-					preselectedUserIds.filter((uid) => valid.has(uid))
-				);
+				selectedForDownload = new Set(preselectedUserIds.filter((uid) => valid.has(uid)));
 			} else {
 				selectedForDownload = new Set();
 			}
@@ -134,9 +126,7 @@
 			participantsInStudy.every((p) => selectedForDownload.has(p.user_id))
 	);
 
-	const studyName = $derived(
-		studies.find((s) => String(s.id) === studyId)?.name ?? 'unknown'
-	);
+	const studyName = $derived(studies.find((s) => String(s.id) === studyId)?.name ?? 'unknown');
 
 	async function handleDownload() {
 		if (selectedForDownload.size === 0) {
@@ -254,19 +244,10 @@
 </script>
 
 <dialog bind:this={dialogEl} class="modal" onclose={handleClose}>
-	<div class="modal-box bg-base-200 max-w-3xl">
+	<div class="modal-box max-w-3xl bg-base-200">
 		<form method="dialog">
-			<button
-				class="btn absolute top-2 right-2 btn-circle btn-ghost btn-sm"
-				aria-label="Close"
-			>
-				<svg
-					class="h-5 w-5"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-				>
+			<button class="btn absolute top-2 right-2 btn-circle btn-ghost btn-sm" aria-label="Close">
+				<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 					<path d="M18 6L6 18M6 6l12 12" />
 				</svg>
 			</button>
@@ -300,8 +281,7 @@
 			{#if showStudyPicker}
 				<div class="form-control">
 					<label class="label" for="bulk-download-study">
-						<span
-							class="label-text font-mono text-xs tracking-wider text-base-content/40 uppercase"
+						<span class="label-text font-mono text-xs tracking-wider text-base-content/40 uppercase"
 							>Study</span
 						>
 					</label>
@@ -322,7 +302,7 @@
 					</p>
 				</div>
 			{:else}
-				<div class="alert alert-info bg-primary/10">
+				<div class="alert bg-primary/10 alert-info">
 					<svg
 						class="h-5 w-5"
 						viewBox="0 0 24 24"
@@ -335,7 +315,8 @@
 						<line x1="12" y1="16" x2="12.01" y2="16" />
 					</svg>
 					<span class="font-mono text-sm">
-						Exporting {preselectedUserIds.length} selected participant{preselectedUserIds.length === 1
+						Exporting {preselectedUserIds.length} selected participant{preselectedUserIds.length ===
+						1
 							? ''
 							: 's'}.
 					</span>
@@ -345,14 +326,13 @@
 			{#if studyId}
 				<div class="form-control">
 					<div class="mb-2 flex items-center justify-between">
-						<span
-							class="label-text font-mono text-xs tracking-wider text-base-content/40 uppercase"
+						<span class="label-text font-mono text-xs tracking-wider text-base-content/40 uppercase"
 							>Participants in study</span
 						>
 						<div class="flex gap-2">
 							<button
 								type="button"
-								class="btn btn-xs btn-ghost"
+								class="btn btn-ghost btn-xs"
 								onclick={selectAllVisible}
 								disabled={allVisibleSelected || participantsInStudy.length === 0}
 							>
@@ -360,7 +340,7 @@
 							</button>
 							<button
 								type="button"
-								class="btn btn-xs btn-ghost"
+								class="btn btn-ghost btn-xs"
 								onclick={clearSelection}
 								disabled={selectedForDownload.size === 0}
 							>
@@ -369,9 +349,7 @@
 						</div>
 					</div>
 
-					<div
-						class="max-h-96 overflow-y-auto rounded-box border border-neutral/20 bg-base-100"
-					>
+					<div class="max-h-96 overflow-y-auto rounded-box border border-neutral/20 bg-base-100">
 						{#if isLoadingParticipants}
 							<div class="flex items-center justify-center gap-2 p-6 text-base-content/50">
 								<span class="loading loading-sm loading-spinner"></span>
@@ -404,12 +382,13 @@
 													{participant.username ?? '—'}
 												</div>
 												<div class="truncate text-xs text-base-content/40">
-													{((participant.properties as Record<string, unknown> | null)
-														?.name as string | undefined) ?? '—'}
+													{((participant.properties as Record<string, unknown> | null)?.name as
+														| string
+														| undefined) ?? '—'}
 												</div>
 											</div>
 											{#if participant.type}
-												<span class="badge badge-sm badge-ghost font-mono">
+												<span class="badge badge-ghost font-mono badge-sm">
 													{participant.type}
 												</span>
 											{/if}
@@ -432,13 +411,7 @@
 				onclick={handleDownload}
 				disabled={!studyId || selectedForDownload.size === 0}
 			>
-				<svg
-					class="h-4 w-4"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-				>
+				<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 					<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
 					<polyline points="7 10 12 15 17 10" />
 					<line x1="12" y1="15" x2="12" y2="3" />

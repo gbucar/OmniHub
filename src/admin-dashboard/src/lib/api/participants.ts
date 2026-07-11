@@ -8,6 +8,10 @@ type RawParticipantRow = {
 	properties: Record<string, unknown> | null;
 	study_name: string | null;
 	study_id: number | null;
+	// Sourced from `data.participants.sys_created_at` via the
+	// `list_participants` view. May be null in legacy rows that predate
+	// the column being NOT NULL.
+	sys_created_at?: string | null;
 };
 
 /**
@@ -51,6 +55,7 @@ export const getParticipants = async (filters?: {
 		username: u.username,
 		role: u.role,
 		properties: u.properties,
+		sys_created_at: u.sys_created_at ?? null,
 		// Derive the free-text `type` classification from properties->>'type'.
 		// The DB doesn't have a dedicated column — we read/write it via
 		// the `properties` jsonb so no migration is required.

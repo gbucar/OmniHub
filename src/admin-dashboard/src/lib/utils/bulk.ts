@@ -172,10 +172,20 @@ function pickHeader(headers: string[], candidates: string[]): string {
 // ---------------------------------------------------------------------------
 
 /**
+ * A raw CSV row augmented with a lookup table from header name → column
+ * index. Built by `attachHeaderIndex` so `parseRowFromMapping` can
+ * resolve cells by header name in O(1).
+ */
+export type IndexedRow = string[] & { __headerIndex?: Record<string, number> };
+
+/**
  * Convert a raw CSV row (array of cells) into a `ParsedRow` using the
  * mapping from step 2. Unmapped system fields default to `''`.
  */
-export function parseRowFromMapping(rawRow: string[], mapping: Record<string, string>): ParsedRow {
+export function parseRowFromMapping(
+	rawRow: IndexedRow,
+	mapping: Record<string, string>
+): ParsedRow {
 	const cellFor = (key: string): string => {
 		const header = mapping[key];
 		if (header === NO_MAPPING || !header) return '';
@@ -267,11 +277,7 @@ export function validateRow(
 			reason: `Invalid study_end_date: "${row.study_end_date}"`
 		};
 	}
-	if (
-		row.study_start_date &&
-		row.study_end_date &&
-		row.study_end_date < row.study_start_date
-	) {
+	if (row.study_start_date && row.study_end_date && row.study_end_date < row.study_start_date) {
 		return {
 			status: 'rejected',
 			row,
@@ -420,14 +426,14 @@ export function indexHeaders(headers: string[]): Record<string, number> {
 }
 
 /**
- * Type augmentation: a raw row is just a `string[]`, but `parseRowFromMapping`
- * treats it as a `string[] & { __headerIndex?: Record<string, number> }`.
+ * Type augmentation: a raw row is just a `string[]`, but
+ * `parseRowFromMapping` treats it as an `IndexedRow` (`string[] & { __headerIndex }`).
  * This helper performs the cast cleanly.
  */
 export function attachHeaderIndex(
 	rows: string[][],
 	headerIndex: Record<string, number>
-): Array<string[] & { __headerIndex?: Record<string, number> }> {
+): IndexedRow[] {
 	return rows.map((r) => Object.assign([...r], { __headerIndex: headerIndex }));
 }
 
