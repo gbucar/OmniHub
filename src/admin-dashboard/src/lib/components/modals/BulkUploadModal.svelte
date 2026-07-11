@@ -50,6 +50,7 @@
 	let defaultStudyId = $state('');
 	let defaultPassword = $state('changeme');
 	let sensors = $state.raw<Sensor[]>([]);
+	let sensorsLoaded = $state(false);
 	let isImporting = $state(false);
 	// Tracks the indices the user has removed from the preview. The keys
 	// are the row indexes from the original `parsedRows` array; we keep
@@ -59,10 +60,6 @@
 	$effect(() => {
 		if (show && dialogEl) {
 			dialogEl.showModal();
-			// Lazy-load sensors only when the modal is first opened.
-			if (sensors.length === 0) {
-				void loadSensors();
-			}
 		} else if (!show && dialogEl) {
 			dialogEl.close();
 		}
@@ -80,6 +77,12 @@
 			defaultStudyId = '';
 			defaultPassword = 'changeme';
 			dismissedRowIndexes = new Set();
+			// Re-load sensors each time the modal opens so the catalog is
+			// fresh — but only if it's empty (e.g. on first open). On
+			// subsequent opens within the same session we keep the cache.
+			if (!sensorsLoaded) {
+				void loadSensors();
+			}
 		}
 	});
 
@@ -89,6 +92,8 @@
 		} catch (error) {
 			console.error('Failed to load sensors:', error);
 			showToast('Failed to load sensors', 'error');
+		} finally {
+			sensorsLoaded = true;
 		}
 	}
 
@@ -506,6 +511,14 @@
 		<!-- Step 3: Preview & Confirm -->
 		{#if step === 3}
 			<div class="space-y-4">
+				{#if !sensorsLoaded}
+					<div class="alert alert-warning">
+						<span class="loading loading-xs loading-spinner"></span>
+						<span class="font-mono text-sm"
+							>Loading sensor catalog… device validation may be incomplete until ready.</span
+						>
+					</div>
+				{/if}
 				<div class="grid grid-cols-1 gap-3 md:grid-cols-2">
 					<div class="form-control">
 						<label class="label" for="bulk-default-study">
