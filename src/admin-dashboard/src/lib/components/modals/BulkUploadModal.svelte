@@ -4,6 +4,7 @@
 		addParticipantAndReturnId,
 		addParticipantToStudy,
 		addOwnership,
+		lookupUserIdByUsername,
 		type Study,
 		type Sensor
 	} from '$lib/api';
@@ -89,11 +90,13 @@
 	async function loadSensors() {
 		try {
 			sensors = await getSensors();
+			sensorsLoaded = true;
 		} catch (error) {
+			// Leave `sensorsLoaded = false` so the step-3 warning stays
+			// visible — the admin should know the catalog may be stale
+			// or incomplete.
 			console.error('Failed to load sensors:', error);
 			showToast('Failed to load sensors', 'error');
-		} finally {
-			sensorsLoaded = true;
 		}
 	}
 
@@ -136,8 +139,17 @@
 			return;
 		}
 		parsedHeaders = result.headers;
-		const headerIndex = indexHeaders(result.headers);
-		parsedRows = attachHeaderIndex(result.rows, headerIndex);
+		try {
+			const headerIndex = indexHeaders(result.headers);
+			parsedRows = attachHeaderIndex(result.rows, headerIndex);
+		} catch (err) {
+			// `indexHeaders` throws on duplicate or empty headers —
+			// surface that to the admin as a clear error message
+			// instead of letting it crash the wizard.
+			loadError = err instanceof Error ? err.message : 'Invalid CSV header row';
+			parsedRows = [];
+			return;
+		}
 		// Pre-populate mapping with auto-detected values so the user can
 		// move to step 2 with one click if the CSV is well-formed.
 		mapping = autoDetectMapping(result.headers);
@@ -254,7 +266,15 @@
 						skipped++;
 						continue;
 					}
-					// 2. Create user (with id lookup).
+					// 2. Pre-check: does the user already exist? If so, skip
+					// cleanly instead of creating an orphan when a later
+					// step in the loop fails.
+					const existingId = await lookupUserIdByUsername(row.username);
+					if (existingId) {
+						skipped++;
+						continue;
+					}
+					// 3. Create user (with id lookup).
 					const userId = await addParticipantAndReturnId({
 						username: row.username,
 						password: row.password || defaultPassword,
@@ -265,13 +285,13 @@
 							type: row.type || null
 						}
 					});
-					// 3. Attach to study.
+					// 4. Attach to study.
 					const period =
 						row.study_start_date && row.study_end_date
 							? `[${row.study_start_date} 00:00:00, ${row.study_end_date} 23:59:59.99999999)`
 							: null;
 					await addParticipantToStudy(userId, study.id, period);
-					// 4. Attach device ownerships.
+					// 5. Attach device ownerships.
 					for (const device of row.devices) {
 						const sensor = sensors.find((s) => s.name === device.name);
 						if (!sensor) continue; // safety; validate already filtered
@@ -297,10 +317,15 @@
 			}
 			await onImported();
 			const parts: string[] = [];
-			parts.push(`${created} created`);
+			if (created > 0) parts.push(`${created} created`);
 			if (skipped > 0) parts.push(`${skipped} skipped`);
 			if (errors > 0) parts.push(`${errors} errors`);
-			showToast(`Import complete: ${parts.join(', ')}`, errors === 0 ? 'success' : 'error');
+			const summary = parts.length > 0 ? parts.join(', ') : 'no rows processed';
+			// Use success only when at least one row was actually created.
+			// A pure-skip import (e.g. all rows were duplicates) is a
+			// warning — nothing was imported.
+			const tone = errors > 0 ? 'error' : created > 0 ? 'success' : 'error';
+			showToast(`Import complete: ${summary}`, tone);
 			handleClose();
 		} finally {
 			isImporting = false;

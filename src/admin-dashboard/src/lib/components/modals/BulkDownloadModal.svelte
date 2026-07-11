@@ -42,7 +42,11 @@
 
 	$effect(() => {
 		if (show && dialogEl) {
-			dialogEl.showModal();
+			// Guard: `showModal()` on an already-open dialog throws
+			// `InvalidStateError`. Cheap to check and avoids the red error
+			// in the console when the parent re-renders while the dialog
+			// is open.
+			if (!dialogEl.open) dialogEl.showModal();
 		} else if (!show && dialogEl) {
 			dialogEl.close();
 		}
@@ -73,7 +77,15 @@
 		void loadParticipantsForStudy(studyId);
 	});
 
+	// Monotonic request id — every call to `loadParticipantsForStudy`
+	// bumps it, and stale responses (older than the current id) are
+	// discarded before they can overwrite fresher state. Avoids the
+	// race where the user switches studies quickly and the first
+	// response resolves last, clobbering the second.
+	let studyRequestSeq = 0;
+
 	async function loadParticipantsForStudy(id: string) {
+		const reqId = ++studyRequestSeq;
 		isLoadingParticipants = true;
 		try {
 			// `getParticipants` paginates and dedupes per-user. We pass a
@@ -85,6 +97,8 @@
 				limit: 1000,
 				offset: 0
 			});
+			// Drop stale responses.
+			if (reqId !== studyRequestSeq) return;
 			participantsInStudy = result.data;
 			// Pre-select any preselected users that belong to this study.
 			if (preselectedUserIds.length > 0) {
@@ -93,16 +107,15 @@
 			} else {
 				selectedForDownload = new Set();
 			}
-			// Fetch per-user study dates and ownerships lazily — only when
-			// the user clicks "Download". The modal stays responsive while
-			// the user picks rows.
 		} catch (error) {
+			// Don't overwrite newer data with an error from an older request.
+			if (reqId !== studyRequestSeq) return;
 			console.error('Failed to load participants for study:', error);
 			showToast('Failed to load participants for study', 'error');
 			participantsInStudy = [];
 			selectedForDownload = new Set();
 		} finally {
-			isLoadingParticipants = false;
+			if (reqId === studyRequestSeq) isLoadingParticipants = false;
 		}
 	}
 

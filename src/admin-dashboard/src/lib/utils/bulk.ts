@@ -416,11 +416,25 @@ export function validateAllRows(
  * Augment a raw row array with a `__headerIndex` lookup so
  * `parseRowFromMapping` can find cells by header name in O(1). Created
  * once per CSV in the wizard, then attached to every row.
+ *
+ * Throws if any two headers collide after trimming — silently accepting
+ * duplicates would let the later column's data overwrite the earlier one
+ * and the user would have no way to know. The wizard surfaces the error
+ * in step 1 before the user can map anything.
  */
 export function indexHeaders(headers: string[]): Record<string, number> {
 	const out: Record<string, number> = {};
+	const seen = new Set<string>();
 	headers.forEach((h, i) => {
-		out[h] = i;
+		const key = h.trim();
+		if (key === '') {
+			throw new Error(`Header at column ${i + 1} is empty`);
+		}
+		if (seen.has(key)) {
+			throw new Error(`Duplicate header: "${key}" appears more than once`);
+		}
+		seen.add(key);
+		out[key] = i;
 	});
 	return out;
 }
@@ -445,13 +459,14 @@ export function attachHeaderIndex(
  * Postgres returns daterange/tstzrange as strings like:
  *   `[2024-01-01 00:00:00, 2024-12-31 23:59:59.99999999)`
  *   `[2024-01-01,2024-12-31)`
- *   `(2024-01-01,)` (open upper bound — uncommon here)
- *   `` (empty)
+ *   `(2024-01-01,)` (open upper bound)
+ *   `(,2024-12-31)` (open lower bound)
+ *   `empty` (the literal string for the empty range)
+ *   `` (NULL)
  *   `["2024-01-01 00:00:00+00","2024-12-31 23:59:59.99999999+00")`
  *
- * We extract the start date (YYYY-MM-DD) for the download CSV. End is
- * intentionally not used in the export schema (only start is included),
- * but the function returns both in case future versions need them.
+ * We extract the start/end dates (YYYY-MM-DD) for the download CSV.
+ * Missing bounds (open ranges) come back as empty strings.
  */
 export function parseRangeBounds(rangeStr: string | null | undefined): {
 	start: string;
@@ -459,20 +474,26 @@ export function parseRangeBounds(rangeStr: string | null | undefined): {
 } {
 	if (!rangeStr || rangeStr.trim() === '') return { start: '', end: '' };
 
-	// Strip leading `["` / `[` / `("`, the bound, then parse the date.
-	// The format is: `[(|<`, date-time-or-date, `,`, date-time-or-date, `)|>]`.
 	const trimmed = rangeStr.trim();
-	const m = trimmed.match(/^[\[\(]\s*"?([^",)\]]+)"?\s*,\s*"?([^",)\]]+)"?\s*[\)\]]$/);
+	if (trimmed === 'empty') return { start: '', end: '' };
+
+	// The format is: `[(|<`, optional date, `,`, optional date, `)|>]`.
+	// Each date is optional — Postgres uses `(,)` for an empty range, and
+	// `(2024-01-01,)` for an open upper bound. We use `[^",)\]]*` to
+	// capture an empty string between the leading bracket and the comma.
+	const m = trimmed.match(/^[\[\(]\s*"?([^",)\]]*)"?\s*,\s*"?([^",)\]]*)"?\s*[\)\]]$/);
 	if (!m) return { start: '', end: '' };
-	const start = toDateOnly(m[1]);
-	const end = toDateOnly(m[2]);
+	const start = m[1] ? toDateOnly(m[1]) : '';
+	const end = m[2] ? toDateOnly(m[2]) : '';
 	return { start, end };
 }
 
 function toDateOnly(value: string): string {
-	// Postgres datestyle can be 'ISO' (YYYY-MM-DD) or 'Postgres' (Mon DD YYYY).
-	// Try ISO first.
-	if (/^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+	// Always go through `new Date()` for the conversion — Postgres can
+	// return dates in ISO (`2024-01-15`), ISO with time (`2024-01-15 00:00:00+00`),
+	// or the legacy 'Postgres' datestyle (`Mon Jan 15 00:00:00 2024`).
+	// `new Date` accepts all three. We then return the UTC date portion.
+	if (!value) return '';
 	const d = new Date(value);
 	if (Number.isNaN(d.getTime())) return '';
 	return d.toISOString().slice(0, 10);

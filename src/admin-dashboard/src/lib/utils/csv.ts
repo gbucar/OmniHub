@@ -30,11 +30,14 @@ const DELIM = ',';
  *   - Quoted fields containing newlines (`"line1\nline2"`).
  *   - Escaped quotes inside quoted fields (`"a""b"` → `a"b`).
  *   - Mixed CRLF and LF line endings.
+ *   - A leading UTF-8 BOM (`\ufeff`) — Excel always emits one. Without
+ *     stripping, the first header would be `\ufeffusername` and would
+ *     fail any alias-based auto-detection.
  */
 export function parseCSV(text: string, _delimiter: string = DELIM): CsvParseResult {
-	// Normalize line endings. We still emit CRLF on output but accept both
-	// CRLF and LF on input.
-	const normalized = text.replace(/\r\n?/g, '\n');
+	// Strip a leading UTF-8 BOM (Excel) and normalize line endings. We
+	// emit CRLF on output but accept both CRLF and LF on input.
+	const normalized = text.replace(/^\ufeff/, '').replace(/\r\n?/g, '\n');
 
 	const rows: string[][] = [];
 	let row: string[] = [];

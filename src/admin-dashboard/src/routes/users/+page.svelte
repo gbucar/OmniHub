@@ -84,12 +84,24 @@
 		filterSearch;
 		filterStudy;
 		pageSize;
-		currentPage = 1;
+		// Reset to page 1 only if we are not already there. Svelte 5
+		// detects the no-op write and does not re-run downstream effects
+		// when the value is unchanged, but the explicit guard is clearer
+		// and avoids any spurious pagination resets.
+		if (currentPage !== 1) currentPage = 1;
+		// Reset shift+click anchor — after a filter change the row
+		// indices no longer refer to the same rows the user was looking
+		// at, so any range select would be meaningless and could index
+		// out of range.
+		lastClickedIndex = null;
 	});
 
 	$effect(() => {
 		currentPage;
 		loadParticipants();
+		// Same rationale as above — `lastClickedIndex` is meaningless
+		// after a page change.
+		lastClickedIndex = null;
 	});
 
 	$effect(() => {
@@ -452,16 +464,28 @@
 		// `onchange` fires with a generic Event and does not expose the
 		// Shift modifier, so we use the window-level `shiftHeld` flag
 		// maintained by the keydown/keyup listeners above.
-		const userId = participants[index].user_id;
+		const target = participants[index];
+		if (!target) {
+			// Defensive: stale index (e.g. lastClickedIndex was set on a
+			// previous page) — silently bail.
+			return;
+		}
+		const userId = target.user_id;
 		const next = new Set(selectedIds);
 
 		if (shiftHeld && lastClickedIndex !== null && lastClickedIndex !== index) {
-			// Shift+click: add the inclusive range between the last clicked
-			// row and this one. The semantics match Finder / Gmail: every
-			// row in the range is added (we do NOT toggle each one).
-			const [start, end] = [Math.min(lastClickedIndex, index), Math.max(lastClickedIndex, index)];
-			for (let i = start; i <= end; i++) {
-				next.add(participants[i].user_id);
+			// Clamp the range to the visible window — if lastClickedIndex
+			// is from a previous page (defense-in-depth against stale
+			// state), we fall back to a single-row select.
+			const safeStart = Math.max(0, Math.min(lastClickedIndex, index));
+			const safeEnd = Math.min(participants.length - 1, Math.max(lastClickedIndex, index));
+			if (safeStart > safeEnd) {
+				next.add(userId);
+			} else {
+				for (let i = safeStart; i <= safeEnd; i++) {
+					const row = participants[i];
+					if (row) next.add(row.user_id);
+				}
 			}
 		} else if (next.has(userId)) {
 			next.delete(userId);
