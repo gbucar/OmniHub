@@ -400,20 +400,50 @@
 							>Upload CSV</span
 						>
 					</label>
+					<!--
+						Native file inputs show browser-locale text alongside
+						the "Choose File" button (e.g. "Datoteka ni izbrana" in
+						Slovenian, "No file chosen" in English). That locale-
+						specific placeholder is inconsistent with the rest
+						of the UI and cannot be styled. We hide the native
+						input and render an explicit "Choose file" button +
+						"File not selected" / file name label so the wording
+						is always english and matches the rest of the app.
+					-->
 					<input
 						id="bulk-upload-file"
 						type="file"
 						accept=".csv,text/csv"
-						class="file-input-bordered file-input w-full"
+						class="hidden"
 						onchange={onFileSelected}
 					/>
-					{#if loadedFileName}
-						<p class="label py-1">
-							<span class="label-text-alt font-mono text-xs text-primary">
-								Loaded: <span class="font-semibold">{loadedFileName}</span>
-							</span>
-						</p>
-					{/if}
+					<div class="flex items-center gap-2">
+						<button
+							type="button"
+							class="btn-bordered btn font-mono btn-sm"
+							onclick={() => document.getElementById('bulk-upload-file')?.click()}
+						>
+							<svg
+								class="h-4 w-4"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+								<polyline points="17 8 12 3 7 8" />
+								<line x1="12" y1="3" x2="12" y2="15" />
+							</svg>
+							Choose file
+						</button>
+						<span
+							class="font-mono text-sm {loadedFileName ? 'text-primary' : 'text-base-content/40'}"
+						>
+							{loadedFileName ?? 'File not selected'}
+						</span>
+					</div>
 				</div>
 
 				<div class="divider font-mono text-xs text-base-content/40">or</div>
@@ -491,19 +521,6 @@
 						>.
 					</p>
 					<button type="button" class="btn btn-sm btn-primary" onclick={runAutoDetect}>
-						<svg
-							class="h-3.5 w-3.5"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<path
-								d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"
-							/>
-						</svg>
 						Auto-detect
 					</button>
 				</div>
