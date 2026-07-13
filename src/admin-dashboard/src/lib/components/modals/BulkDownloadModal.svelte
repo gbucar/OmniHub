@@ -1,15 +1,11 @@
 <script lang="ts">
 	import {
+		pgClient,
 		getParticipants,
-		getParticipantStudies,
-		getUserOwnerships,
 		type Participant,
-		type Study,
-		type Ownership,
-		type ParticipantStudy
+		type Study
 	} from '$lib/api';
 	import { serializeCSV, downloadCSV } from '$lib/utils/csv';
-	import { parseRangeBounds } from '$lib/utils/bulk';
 	import { showToast } from '$lib/stores/toast';
 
 	interface Props {
@@ -37,8 +33,6 @@
 	let participantsInStudy = $state.raw<Participant[]>([]);
 	let selectedForDownload = $state(new Set<string>());
 	let isLoadingParticipants = $state(false);
-	let studyParticipantStudies = $state.raw<Record<string, ParticipantStudy[]>>({});
-	let studyUserOwnerships = $state.raw<Record<string, Ownership[]>>({});
 
 	$effect(() => {
 		if (show && dialogEl) {
@@ -70,8 +64,6 @@
 		if (!show || !studyId) {
 			participantsInStudy = [];
 			selectedForDownload = new Set();
-			studyParticipantStudies = {};
-			studyUserOwnerships = {};
 			return;
 		}
 		void loadParticipantsForStudy(studyId);
@@ -139,8 +131,6 @@
 			participantsInStudy.every((p) => selectedForDownload.has(p.user_id))
 	);
 
-	const studyName = $derived(studies.find((s) => String(s.id) === studyId)?.name ?? 'unknown');
-
 	async function handleDownload() {
 		if (selectedForDownload.size === 0) {
 			showToast('Select at least one participant', 'error');
@@ -149,39 +139,44 @@
 		const selected = participantsInStudy.filter((p) => selectedForDownload.has(p.user_id));
 		if (selected.length === 0) return;
 
-		// Fetch per-user study periods and device ownerships in parallel.
-		// We do this just-in-time so the modal can stay snappy while the
-		// user browses the participant list.
 		const userIds = selected.map((p) => p.user_id);
+		const studyIdNum = Number(studyId);
+
+		let data: {
+			study_name: string;
+			max_devices: number;
+			rows: Array<{
+				user_id: string;
+				username: string;
+				role: string;
+				type: string | null;
+				name: string | null;
+				age: string | null;
+				sex: string | null;
+				sys_created_at: string | null;
+				study_name: string;
+				study_start_date: string | null;
+				study_end_date: string | null;
+				devices: Array<{ name: string; start: string; end: string }>;
+			}>;
+		};
+
 		try {
-			const [periods, ownerships] = await Promise.all([
-				Promise.all(userIds.map((uid) => getParticipantStudies(uid))),
-				Promise.all(userIds.map((uid) => getUserOwnerships(uid)))
-			]);
-			const periodsByUser: Record<string, ParticipantStudy[]> = {};
-			userIds.forEach((uid, i) => {
-				periodsByUser[uid] = periods[i];
-			});
-			const ownershipsByUser: Record<string, Ownership[]> = {};
-			userIds.forEach((uid, i) => {
-				ownershipsByUser[uid] = ownerships[i];
-			});
-			studyParticipantStudies = periodsByUser;
-			studyUserOwnerships = ownershipsByUser;
+			const result = await pgClient
+				?.schema('api')
+				.rpc('bulk_download_participants', { study_id: studyIdNum, user_ids: userIds });
+
+			if (result?.error) throw new Error(result.error.message);
+			if (!result?.data) throw new Error('No data returned');
+
+			data = result.data as typeof data;
 		} catch (error) {
-			console.error('Failed to fetch study periods / devices:', error);
-			showToast('Failed to fetch study periods or device assignments', 'error');
+			console.error('Failed to fetch download data:', error);
+			showToast('Failed to fetch participant data', 'error');
 			return;
 		}
 
-		// Compute the maximum number of devices any selected user has, capped
-		// to keep the CSV sane. Devices are sorted by start_date so the
-		// ordering is stable.
-		const maxDevices = Math.max(
-			0,
-			...selected.map((p) => (studyUserOwnerships[p.user_id] ?? []).length)
-		);
-
+		const maxDevices = data.max_devices;
 		const deviceHeaders: string[] = [];
 		for (let i = 0; i < maxDevices; i++) {
 			const n = i + 1;
@@ -203,57 +198,36 @@
 		];
 		const allHeaders = [...baseHeaders, ...deviceHeaders];
 
-		const rows: string[][] = selected.map((p) => {
-			const props = (p.properties ?? {}) as Record<string, unknown>;
-			const nameVal = typeof props.name === 'string' ? props.name : '';
-			const ageVal = props.age != null ? String(props.age) : '';
-			const sexVal = typeof props.sex === 'string' ? props.sex : '';
-			const typeVal = typeof props.type === 'string' ? props.type : '';
-			const createdVal = p.sys_created_at ?? '';
+		const toDate = (val: string | null | undefined): string =>
+			val ? val.slice(0, 10) : '';
 
-			// Use the period of THIS study if the user is a member of it;
-			// otherwise empty (multi-study users would otherwise be wrong).
-			const studyPeriod = (studyParticipantStudies[p.user_id] ?? []).find(
-				(s) => s.study_id === Number(studyId)
-			);
-			const periodBounds = parseRangeBounds(studyPeriod?.membership_period ?? null);
-
-			const devices = (studyUserOwnerships[p.user_id] ?? []).slice();
-			devices.sort((a, b) => (a.start_date < b.start_date ? -1 : 1));
+		const rows: string[][] = data.rows.map((r) => {
 			const deviceCells: string[] = [];
 			for (let i = 0; i < maxDevices; i++) {
-				const d = devices[i];
-				const sensor = d?.list_sensors;
-				deviceCells.push(sensor?.name ?? '');
-				deviceCells.push(d?.start_date?.slice(0, 10) ?? '');
-				deviceCells.push(d?.end_date?.slice(0, 10) ?? '');
+				const d = r.devices[i];
+				deviceCells.push(d?.name ?? '');
+				deviceCells.push(toDate(d?.start));
+				deviceCells.push(toDate(d?.end));
 			}
-
 			return [
-				p.user_id,
-				p.username ?? '',
-				p.role ?? '',
-				typeVal,
-				nameVal,
-				ageVal,
-				sexVal,
-				createdVal,
-				studyName,
-				periodBounds.start,
-				periodBounds.end,
+				r.user_id,
+				r.username ?? '',
+				r.role ?? '',
+				r.type ?? '',
+				r.name ?? '',
+				r.age ?? '',
+				r.sex ?? '',
+				toDate(r.sys_created_at),
+				data.study_name,
+				toDate(r.study_start_date),
+				toDate(r.study_end_date),
 				...deviceCells
 			];
 		});
 
 		const csv = serializeCSV(allHeaders, rows);
 		const today = new Date().toISOString().slice(0, 10);
-		// Sanitize the study name for use as a filename. We keep all
-		// Unicode letters (so slovenian šumniki survive: Študija kakovosti
-		// zraka Ljubljana stays as-is) and only strip the characters
-		// that are actually unsafe on Windows/macOS/Linux filesystems
-		// (path separators, control chars, quotes, etc.). Whitespace is
-		// replaced with '_' so we get a single contiguous filename.
-		const safeStudyName = studyName.replace(/[\/\\<>:"|?*\x00-\x1f]/g, '').replace(/\s+/g, '_');
+		const safeStudyName = data.study_name.replace(/[\/\\<>:"|?*\x00-\x1f]/g, '').replace(/\s+/g, '_');
 		downloadCSV(`participants-study-${safeStudyName}-${today}.csv`, csv);
 		showToast(`Downloaded ${selected.length} participants`, 'success');
 		handleClose();
