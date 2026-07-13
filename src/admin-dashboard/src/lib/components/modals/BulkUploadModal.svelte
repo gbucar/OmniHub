@@ -295,7 +295,11 @@
 							name: row.name || null,
 							age: row.age ? parseInt(row.age, 10) : null,
 							sex: row.sex || null,
-							type: row.type || null
+							type: row.type || null,
+							// Carry the CSV-supplied (or today) creation date
+							// into the participant's properties JSON so the
+							// bulk download can round-trip it.
+							sys_created_at: row.sys_created_at
 						}
 					});
 					// 4. Attach to study.
@@ -412,7 +416,7 @@
 					{/if}
 				</div>
 
-				<div class="divider font-mono text-xs text-base-content/40">-- or --</div>
+				<div class="divider font-mono text-xs text-base-content/40">or</div>
 
 				<div class="form-control">
 					<div class="label py-1">
@@ -482,10 +486,24 @@
 			<div class="space-y-4">
 				<div class="flex items-center justify-between">
 					<p class="font-mono text-xs text-base-content/40">
-						Map each CSV column to a system field. Required: <span class="text-error">username</span
+						Map each CSV column to a system field. Required: <span
+							class="font-semibold text-primary">username</span
 						>.
 					</p>
-					<button type="button" class="btn btn-ghost btn-sm" onclick={runAutoDetect}>
+					<button type="button" class="btn btn-sm btn-primary" onclick={runAutoDetect}>
+						<svg
+							class="h-3.5 w-3.5"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<path
+								d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"
+							/>
+						</svg>
 						Auto-detect
 					</button>
 				</div>

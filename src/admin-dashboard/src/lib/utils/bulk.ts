@@ -73,7 +73,6 @@ export const SYSTEM_FIELDS: Array<{ key: keyof Omit<ParsedRow, 'devices'>; requi
 	{ key: 'age', required: false },
 	{ key: 'sex', required: false },
 	{ key: 'type', required: false },
-	{ key: 'sys_created_at', required: false },
 	{ key: 'study_name', required: false },
 	{ key: 'study_start_date', required: false },
 	{ key: 'study_end_date', required: false }
@@ -94,7 +93,6 @@ const ALIASES: Record<string, string[]> = {
 	age: ['age', 'starost', 'years'],
 	sex: ['sex', 'spol', 'gender'],
 	type: ['type', 'tip', 'role', 'category'],
-	sys_created_at: ['sys_created_at', 'created', 'created_at', 'created at'],
 	study_name: ['study', 'study_name', 'raziskava', 'study name'],
 	study_start_date: [
 		'study_start',
@@ -216,7 +214,11 @@ export function parseRowFromMapping(
 		age: cellFor('age'),
 		sex: cellFor('sex'),
 		type: cellFor('type'),
-		sys_created_at: cellFor('sys_created_at'),
+		// `sys_created_at` is no longer exposed in the wizard (step 2 has
+		// no mapping row for it). To keep the import flow self-contained
+		// and ensure downstream consumers always see a value, fall back
+		// to today when nothing is set.
+		sys_created_at: cellFor('sys_created_at') || new Date().toISOString().slice(0, 10),
 		study_name: cellFor('study_name'),
 		study_start_date: cellFor('study_start_date'),
 		study_end_date: cellFor('study_end_date'),
