@@ -564,7 +564,7 @@
 					</svg>
 					Add Study
 				</button>
-				<div class="dropdown dropdown-end">
+				<div class="dropdown relative dropdown-end z-50">
 					<div tabindex="0" role="button" class="btn font-mono btn-ghost" aria-label="Bulk actions">
 						<svg
 							class="h-4 w-4"
