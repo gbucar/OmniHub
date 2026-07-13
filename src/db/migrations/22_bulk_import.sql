@@ -178,8 +178,8 @@ begin
 	),
 	periods as (
 		select user_id, membership_period
-		from data.many_participants_studies
-		where study_id = bulk_download_participants.study_id
+		from data.many_participants_studies mps
+		where mps.study_id = bulk_download_participants.study_id
 	),
 	ownerships as (
 		select o.user_id, s.name as sensor_name, o.start_date, o.end_date
@@ -238,7 +238,5 @@ begin
 	return _result;
 end;
 $function$;
-
-ALTER FUNCTION api.bulk_download_participants(int, uuid[]) OWNER TO postgres;
 
 GRANT EXECUTE ON FUNCTION api.bulk_download_participants(int, uuid[]) TO admin;
