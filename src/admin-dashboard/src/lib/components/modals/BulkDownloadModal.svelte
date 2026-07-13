@@ -247,7 +247,13 @@
 
 		const csv = serializeCSV(allHeaders, rows);
 		const today = new Date().toISOString().slice(0, 10);
-		const safeStudyName = studyName.replace(/[^a-zA-Z0-9_-]/g, '_');
+		// Sanitize the study name for use as a filename. We keep all
+		// Unicode letters (so slovenian šumniki survive: Študija kakovosti
+		// zraka Ljubljana stays as-is) and only strip the characters
+		// that are actually unsafe on Windows/macOS/Linux filesystems
+		// (path separators, control chars, quotes, etc.). Whitespace is
+		// replaced with '_' so we get a single contiguous filename.
+		const safeStudyName = studyName.replace(/[\/\\<>:"|?*\x00-\x1f]/g, '').replace(/\s+/g, '_');
 		downloadCSV(`participants-study-${safeStudyName}-${today}.csv`, csv);
 		showToast(`Downloaded ${selected.length} participants`, 'success');
 		handleClose();
