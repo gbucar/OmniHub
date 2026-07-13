@@ -141,96 +141,146 @@
 
 		const userIds = selected.map((p) => p.user_id);
 		const studyIdNum = Number(studyId);
-
-		let data: {
-			study_name: string;
-			max_devices: number;
-			rows: Array<{
-				user_id: string;
-				username: string;
-				role: string;
-				type: string | null;
-				name: string | null;
-				age: string | null;
-				sex: string | null;
-				sys_created_at: string | null;
-				study_name: string;
-				study_start_date: string | null;
-				study_end_date: string | null;
-				devices: Array<{ name: string; start: string; end: string }>;
-			}>;
-		};
+		const studyInfo = studies.find((s) => s.id === studyIdNum);
+		const studyName = studyInfo?.name ?? '';
 
 		try {
-			const result = await pgClient
-				?.schema('api')
-				.rpc('bulk_download_participants', { study_id: studyIdNum, user_ids: userIds });
+			// Fetch ownerships for all selected users (1 call via in() filter)
+			const [ownershipsRes, sensorsRes, mpsRes] = await Promise.all([
+				pgClient?.from('ownerships').select('user_id, sensor_id, start_date, end_date').in('user_id', userIds),
+				pgClient?.from('list_sensors').select('id, name'),
+				pgClient
+					?.from('many_participants_studies')
+					.select('user_id, membership_period')
+					.eq('study_id', studyIdNum)
+					.in('user_id', userIds)
+			]);
 
-			if (result?.error) throw new Error(result.error.message);
-			if (!result?.data) throw new Error('No data returned');
+			if (ownershipsRes?.error) throw new Error(ownershipsRes.error.message);
+			if (sensorsRes?.error) throw new Error(sensorsRes.error.message);
+			if (mpsRes?.error) throw new Error(mpsRes.error.message);
 
-			data = result.data as typeof data;
+			// Sensor name lookup
+			const sensors = (sensorsRes?.data ?? []) as Array<{ id: number; name: string }>;
+			const sensorsById = new Map(sensors.map((s) => [s.id, s.name]));
+
+			// Ownerships grouped by user
+			const rawOwnerships = (ownershipsRes?.data ?? []) as Array<{
+				user_id: string;
+				sensor_id: number;
+				start_date: string;
+				end_date: string;
+			}>;
+			const ownershipsByUser = new Map<string, Array<{ name: string; start: string; end: string }>>();
+			for (const o of rawOwnerships) {
+				if (!ownershipsByUser.has(o.user_id)) ownershipsByUser.set(o.user_id, []);
+				ownershipsByUser.get(o.user_id)!.push({
+					name: sensorsById.get(o.sensor_id) ?? 'Unknown',
+					start: o.start_date,
+					end: o.end_date
+				});
+			}
+
+			// Study memberships grouped by user
+			const rawMps = (mpsRes?.data ?? []) as Array<{
+				user_id: string;
+				membership_period: string;
+			}>;
+			const mpsByUser = new Map<string, string>();
+			for (const m of rawMps) {
+				if (!mpsByUser.has(m.user_id)) mpsByUser.set(m.user_id, m.membership_period);
+			}
+
+			// Parse tstzrange like `["2024-01-01 00:00:00+00","2025-12-31 23:59:59+00"]`
+			const parsePeriod = (period: string | null): [string | null, string | null] => {
+				if (!period) return [null, null];
+				const match = period.match(/[\[\(]"?([^",]+)"?,\s*"?([^"]+)"?[\]\)]/);
+				return match ? [match[1], match[2]] : [null, null];
+			};
+
+			// Build rows with joined data
+			const rows = selected.map((p) => {
+				const devices = ownershipsByUser.get(p.user_id) ?? [];
+				const membershipPeriod = mpsByUser.get(p.user_id) ?? null;
+				const [studyStartDate, studyEndDate] = parsePeriod(membershipPeriod);
+				const props = (p.properties ?? {}) as Record<string, unknown>;
+
+				return {
+					user_id: p.user_id,
+					username: p.username ?? '',
+					role: p.role ?? '',
+					type: (props.type as string) ?? null,
+					name: (props.name as string) ?? null,
+					age: (props.age as string) ?? null,
+					sex: (props.sex as string) ?? null,
+					sys_created_at: p.sys_created_at ?? null,
+					study_name: studyName,
+					study_start_date: studyStartDate,
+					study_end_date: studyEndDate,
+					devices
+				};
+			});
+			rows.sort((a, b) => a.username.localeCompare(b.username));
+
+			const maxDevices = Math.max(0, ...rows.map((r) => r.devices.length));
+			const deviceHeaders: string[] = [];
+			for (let i = 0; i < maxDevices; i++) {
+				const n = i + 1;
+				deviceHeaders.push(`device_${n}_name`, `device_${n}_start_date`, `device_${n}_end_date`);
+			}
+
+			const baseHeaders = [
+				'user_id',
+				'username',
+				'role',
+				'type',
+				'name',
+				'age',
+				'sex',
+				'sys_created_at',
+				'study_name',
+				'study_start_date',
+				'study_end_date'
+			];
+			const allHeaders = [...baseHeaders, ...deviceHeaders];
+
+			const toDate = (val: string | null | undefined): string =>
+				val ? val.slice(0, 10) : '';
+
+			const csvRows: string[][] = rows.map((r) => {
+				const deviceCells: string[] = [];
+				for (let i = 0; i < maxDevices; i++) {
+					const d = r.devices[i];
+					deviceCells.push(d?.name ?? '');
+					deviceCells.push(toDate(d?.start));
+					deviceCells.push(toDate(d?.end));
+				}
+				return [
+					r.user_id,
+					r.username,
+					r.role,
+					r.type ?? '',
+					r.name ?? '',
+					r.age ?? '',
+					r.sex ?? '',
+					toDate(r.sys_created_at),
+					studyName,
+					toDate(r.study_start_date),
+					toDate(r.study_end_date),
+					...deviceCells
+				];
+			});
+
+			const csv = serializeCSV(allHeaders, csvRows);
+			const today = new Date().toISOString().slice(0, 10);
+			const safeStudyName = studyName.replace(/[\/\\<>:"|?*\x00-\x1f]/g, '').replace(/\s+/g, '_');
+			downloadCSV(`participants-study-${safeStudyName}-${today}.csv`, csv);
+			showToast(`Downloaded ${selected.length} participants`, 'success');
+			handleClose();
 		} catch (error) {
 			console.error('Failed to fetch download data:', error);
 			showToast('Failed to fetch participant data', 'error');
-			return;
 		}
-
-		const maxDevices = data.max_devices;
-		const deviceHeaders: string[] = [];
-		for (let i = 0; i < maxDevices; i++) {
-			const n = i + 1;
-			deviceHeaders.push(`device_${n}_name`, `device_${n}_start_date`, `device_${n}_end_date`);
-		}
-
-		const baseHeaders = [
-			'user_id',
-			'username',
-			'role',
-			'type',
-			'name',
-			'age',
-			'sex',
-			'sys_created_at',
-			'study_name',
-			'study_start_date',
-			'study_end_date'
-		];
-		const allHeaders = [...baseHeaders, ...deviceHeaders];
-
-		const toDate = (val: string | null | undefined): string =>
-			val ? val.slice(0, 10) : '';
-
-		const rows: string[][] = data.rows.map((r) => {
-			const deviceCells: string[] = [];
-			for (let i = 0; i < maxDevices; i++) {
-				const d = r.devices[i];
-				deviceCells.push(d?.name ?? '');
-				deviceCells.push(toDate(d?.start));
-				deviceCells.push(toDate(d?.end));
-			}
-			return [
-				r.user_id,
-				r.username ?? '',
-				r.role ?? '',
-				r.type ?? '',
-				r.name ?? '',
-				r.age ?? '',
-				r.sex ?? '',
-				toDate(r.sys_created_at),
-				data.study_name,
-				toDate(r.study_start_date),
-				toDate(r.study_end_date),
-				...deviceCells
-			];
-		});
-
-		const csv = serializeCSV(allHeaders, rows);
-		const today = new Date().toISOString().slice(0, 10);
-		const safeStudyName = data.study_name.replace(/[\/\\<>:"|?*\x00-\x1f]/g, '').replace(/\s+/g, '_');
-		downloadCSV(`participants-study-${safeStudyName}-${today}.csv`, csv);
-		showToast(`Downloaded ${selected.length} participants`, 'success');
-		handleClose();
 	}
 
 	const showStudyPicker = $derived(preselectedStudyId == null);
