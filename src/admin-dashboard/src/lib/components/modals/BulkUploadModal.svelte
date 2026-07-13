@@ -420,7 +420,7 @@
 					<div class="flex items-center gap-2">
 						<button
 							type="button"
-							class="btn-bordered btn font-mono btn-sm"
+							class="btn font-mono btn-sm btn-primary"
 							onclick={() => document.getElementById('bulk-upload-file')?.click()}
 						>
 							<svg
@@ -448,15 +448,13 @@
 
 				<div class="divider font-mono text-xs text-base-content/40">or</div>
 
-				<div class="form-control">
-					<div class="label py-1">
-						<span class="label-text font-mono text-xs tracking-wider text-base-content/40 uppercase"
-							>Paste CSV</span
-						>
+				<div>
+					<div class="mb-1 font-mono text-xs tracking-wider text-base-content/40 uppercase">
+						Paste CSV
 					</div>
 					<textarea
 						id="bulk-upload-paste"
-						class="textarea-bordered textarea min-h-32 font-mono text-xs"
+						class="textarea-bordered textarea min-h-32 w-full font-mono text-xs"
 						rows="8"
 						placeholder={'username,name,age,study_name\njanez,Janez Novak,35,Study A'}
 						value={rawCsv}
