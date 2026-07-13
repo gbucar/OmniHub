@@ -517,6 +517,22 @@
 		bulkDownloadPreselected = Array.from(selectedIds);
 		bulkDownloadPreselectedStudy = undefined;
 		showBulkDownloadModal = true;
+		closeBulkActionsMenu();
+	}
+
+	function openBulkUpload() {
+		showBulkUploadModal = true;
+		closeBulkActionsMenu();
+	}
+
+	/**
+	 * Programmatically close the Bulk Actions popover. The native popover
+	 * only auto-closes on outside clicks, but our menu items open a modal
+	 * (not an outside click), so we hide the popover explicitly.
+	 */
+	function closeBulkActionsMenu() {
+		if (typeof document === 'undefined') return;
+		document.getElementById('bulk-actions-menu')?.hidePopover?.();
 	}
 
 	async function handleBulkImported() {
@@ -564,67 +580,72 @@
 					</svg>
 					Add Study
 				</button>
-				<div class="dropdown relative dropdown-end z-50">
-					<div tabindex="0" role="button" class="btn font-mono btn-ghost" aria-label="Bulk actions">
-						<svg
-							class="h-4 w-4"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-							<polyline points="17 8 12 3 7 8" />
-							<line x1="12" y1="3" x2="12" y2="15" />
-						</svg>
-						Bulk Actions
-						{#if selectedIds.size > 0}
-							<span class="badge font-mono badge-sm badge-primary">{selectedIds.size}</span>
-						{/if}
-					</div>
-					<ul
-						tabindex="-1"
-						class="dropdown-content menu mt-2 w-56 rounded-box border border-neutral/20 bg-base-100 p-2 font-mono shadow-lg"
+				<button
+					class="btn font-mono btn-ghost"
+					popovertarget="bulk-actions-menu"
+					style="anchor-name:--bulk-anchor"
+					aria-label="Bulk actions"
+				>
+					<svg
+						class="h-4 w-4"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
 					>
-						<li>
-							<button type="button" onclick={openBulkDownload}>
-								<svg
-									class="h-4 w-4"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-								>
-									<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-									<polyline points="7 10 12 15 17 10" />
-									<line x1="12" y1="15" x2="12" y2="3" />
-								</svg>
-								<span>Bulk Download</span>
-								{#if selectedIds.size > 0}
-									<span class="ml-auto badge badge-xs badge-primary">{selectedIds.size}</span>
-								{/if}
-							</button>
-						</li>
-						<li>
-							<button type="button" onclick={() => (showBulkUploadModal = true)}>
-								<svg
-									class="h-4 w-4"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-								>
-									<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-									<polyline points="17 8 12 3 7 8" />
-									<line x1="12" y1="3" x2="12" y2="15" />
-								</svg>
-								<span>Bulk Upload</span>
-							</button>
-						</li>
-					</ul>
-				</div>
+						<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+						<polyline points="17 8 12 3 7 8" />
+						<line x1="12" y1="3" x2="12" y2="15" />
+					</svg>
+					Bulk Actions
+					{#if selectedIds.size > 0}
+						<span class="badge font-mono badge-sm badge-primary">{selectedIds.size}</span>
+					{/if}
+				</button>
+				<ul
+					popover
+					id="bulk-actions-menu"
+					class="menu dropdown dropdown-end w-56 rounded-box border border-neutral/20 bg-base-100 p-2 font-mono shadow-lg"
+					style="position-anchor:--bulk-anchor"
+				>
+					<li>
+						<button type="button" onclick={openBulkDownload}>
+							<svg
+								class="h-4 w-4"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+								<polyline points="7 10 12 15 17 10" />
+								<line x1="12" y1="15" x2="12" y2="3" />
+							</svg>
+							<span>Bulk Download</span>
+							{#if selectedIds.size > 0}
+								<span class="ml-auto badge badge-xs badge-primary">{selectedIds.size}</span>
+							{/if}
+						</button>
+					</li>
+					<li>
+						<button type="button" onclick={openBulkUpload}>
+							<svg
+								class="h-4 w-4"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+								<polyline points="17 8 12 3 7 8" />
+								<line x1="12" y1="3" x2="12" y2="15" />
+							</svg>
+							<span>Bulk Upload</span>
+						</button>
+					</li>
+				</ul>
 				<button onclick={() => (showAddParticipantModal = true)} class="btn font-mono btn-primary">
 					<svg
 						class="h-4 w-4"
