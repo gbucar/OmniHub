@@ -40,6 +40,7 @@
 
 	// Step 1 state — raw CSV text + parsed result.
 	let rawCsv = $state('');
+	let loadedFileName = $state<string | null>(null);
 	let parsedHeaders = $state.raw<string[]>([]);
 	let parsedRows = $state.raw<Array<string[] & { __headerIndex?: Record<string, number> }>>([]);
 	let loadError = $state('');
@@ -71,6 +72,7 @@
 		if (show) {
 			step = 1;
 			rawCsv = '';
+			loadedFileName = null;
 			parsedHeaders = [];
 			parsedRows = [];
 			mapping = {};
@@ -85,6 +87,15 @@
 				void loadSensors();
 			}
 		}
+	});
+
+	// Re-parse whenever `rawCsv` changes — covers both file uploads
+	// (which set `rawCsv` from the file text) AND live typing in the
+	// paste textarea. Without this effect the preview only refreshed
+	// when the user clicked "Next".
+	$effect(() => {
+		void rawCsv;
+		parseAndPreview();
 	});
 
 	async function loadSensors() {
@@ -113,7 +124,9 @@
 		if (!file) return;
 		const text = await file.text();
 		rawCsv = text;
-		parseAndPreview();
+		loadedFileName = file.name;
+		// Note: `parseAndPreview` is now invoked by the `$effect` that
+		// watches `rawCsv` (declared above), so we don't call it here.
 		// Reset the input so the same file can be re-picked.
 		input.value = '';
 	}
@@ -332,7 +345,7 @@
 		}
 	}
 
-	const previewRows = $derived(parsedRows.slice(0, 5));
+	const previewRows = $derived(parsedRows.slice(0, 3));
 </script>
 
 <dialog bind:this={dialogEl} class="modal" onclose={handleClose}>
@@ -377,25 +390,10 @@
 		<!-- Step 1: Load -->
 		{#if step === 1}
 			<div class="space-y-4">
-				<div role="tablist" class="tabs-boxed tabs w-fit bg-base-300/40">
-					<button role="tab" type="button" class="tab-active tab" aria-label="Use file input">
-						File
-					</button>
-					<button
-						role="tab"
-						type="button"
-						class="tab"
-						disabled
-						aria-label="Use paste (use the textarea below)"
-					>
-						Paste
-					</button>
-				</div>
-
 				<div class="form-control">
-					<label class="label" for="bulk-upload-file">
+					<label class="label py-1" for="bulk-upload-file">
 						<span class="label-text font-mono text-xs tracking-wider text-base-content/40 uppercase"
-							>CSV file</span
+							>Upload CSV</span
 						>
 					</label>
 					<input
@@ -405,16 +403,23 @@
 						class="file-input-bordered file-input w-full"
 						onchange={onFileSelected}
 					/>
+					{#if loadedFileName}
+						<p class="label py-1">
+							<span class="label-text-alt font-mono text-xs text-primary">
+								Loaded: <span class="font-semibold">{loadedFileName}</span>
+							</span>
+						</p>
+					{/if}
 				</div>
 
-				<div class="divider font-mono text-xs text-base-content/40">or paste</div>
+				<div class="divider font-mono text-xs text-base-content/40">-- or --</div>
 
 				<div class="form-control">
-					<label class="label" for="bulk-upload-paste">
+					<div class="label py-1">
 						<span class="label-text font-mono text-xs tracking-wider text-base-content/40 uppercase"
-							>CSV content</span
+							>Paste CSV</span
 						>
-					</label>
+					</div>
 					<textarea
 						id="bulk-upload-paste"
 						class="textarea-bordered textarea min-h-32 font-mono text-xs"
@@ -445,7 +450,7 @@
 				{#if parsedHeaders.length > 0}
 					<div class="rounded-box border border-neutral/20 bg-base-100 p-3">
 						<div class="mb-2 font-mono text-xs text-base-content/40 uppercase">
-							Preview (first {Math.min(5, parsedRows.length)} of {parsedRows.length} rows)
+							Preview (first 3 rows)
 						</div>
 						<div class="overflow-x-auto">
 							<table class="table table-sm">
