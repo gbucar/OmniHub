@@ -87,7 +87,7 @@ export const SYSTEM_FIELDS: Array<{ key: keyof Omit<ParsedRow, 'devices'>; requi
  * lower-cased, trimmed CSV headers after stripping whitespace.
  */
 const ALIASES: Record<string, string[]> = {
-	username: ['username', 'user', 'uporabnik', 'login', 'email'],
+	username: ['username', 'user', 'uporabnik', 'uporabnisko_ime', 'login', 'email'],
 	password: ['password', 'pass', 'geslo', 'pwd'],
 	name: ['name', 'ime', 'full_name', 'fullname', 'full name'],
 	age: ['age', 'starost', 'years'],
@@ -101,7 +101,11 @@ const ALIASES: Record<string, string[]> = {
 		'study start date',
 		'start',
 		'start_date',
-		'start date'
+		'start date',
+		'zacetek_studije',
+		'začetek_študije',
+		'zacetek',
+		'začetek'
 	],
 	study_end_date: [
 		'study_end',
@@ -110,7 +114,9 @@ const ALIASES: Record<string, string[]> = {
 		'study end date',
 		'end',
 		'end_date',
-		'end date'
+		'end date',
+		'konec_studije',
+		'konec'
 	]
 };
 
@@ -141,16 +147,31 @@ export function autoDetectMapping(headers: string[]): Record<string, string> {
 	}
 
 	// Device columns have a structured name (`device_1_name` etc.) and are
-	// picked up by a separate pass below — not via aliases.
+	// picked up by a separate pass below — not via aliases. We accept the
+	// english stem (`device_1`, `device_1_start`, `device_1_end`) and
+	// the slovenian equivalent (`naprava_1`, `naprava_1_zacetek`,
+	// `naprava_1_konec`) so a hand-rolled sheet in either language maps
+	// cleanly.
 	for (let n = 1; n <= MAX_DEVICES; n++) {
 		const nameKey = `device_${n}_name`;
 		const startKey = `device_${n}_start_date`;
 		const endKey = `device_${n}_end_date`;
 		mapping[nameKey] = pickHeader(headers, [nameKey, `device_${n}`, `sensor_${n}`, `naprava_${n}`]);
 		if (mapping[nameKey] !== NO_MAPPING) used.add(mapping[nameKey].trim().toLowerCase());
-		mapping[startKey] = pickHeader(headers, [startKey, `device_${n}_start`]);
+		mapping[startKey] = pickHeader(headers, [
+			startKey,
+			`device_${n}_start`,
+			`naprava_${n}_zacetek`,
+			`naprava_${n}_začetek`,
+			`naprava_${n}_start`
+		]);
 		if (mapping[startKey] !== NO_MAPPING) used.add(mapping[startKey].trim().toLowerCase());
-		mapping[endKey] = pickHeader(headers, [endKey, `device_${n}_end`]);
+		mapping[endKey] = pickHeader(headers, [
+			endKey,
+			`device_${n}_end`,
+			`naprava_${n}_konec`,
+			`naprava_${n}_end`
+		]);
 		if (mapping[endKey] !== NO_MAPPING) used.add(mapping[endKey].trim().toLowerCase());
 	}
 
