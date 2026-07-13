@@ -21,7 +21,7 @@
 		type ParsedRow,
 		type ValidationResult
 	} from '$lib/utils/bulk';
-	import { showToast } from '$lib/stores/toast';
+	import { showToast, showLongToast } from '$lib/stores/toast';
 
 	interface Props {
 		show: boolean;
@@ -265,8 +265,14 @@
 		}
 		isImporting = true;
 		let created = 0;
-		let skipped = 0;
-		let errors = 0;
+		// Track which usernames we skipped, plus the per-row error
+		// messages, so the end-of-import toast can tell the admin
+		// *which* users already existed (or failed) rather than just a
+		// raw count. The previous "X created, Y skipped" summary left
+		// the admin guessing which row was the duplicate.
+		const skippedExisting: string[] = [];
+		const skippedMissingStudy: string[] = [];
+		const errorRows: Array<{ username: string; message: string }> = [];
 		try {
 			for (const v of validation.valid) {
 				try {
@@ -276,7 +282,7 @@
 						? (studies.find((s) => s.name === row.study_name) ?? null)
 						: selectedStudy;
 					if (!study) {
-						skipped++;
+						skippedMissingStudy.push(row.username || '<no username>');
 						continue;
 					}
 					// 2. Pre-check: does the user already exist? If so, skip
@@ -284,7 +290,7 @@
 					// step in the loop fails.
 					const existingId = await lookupUserIdByUsername(row.username);
 					if (existingId) {
-						skipped++;
+						skippedExisting.push(row.username);
 						continue;
 					}
 					// 3. Create user (with id lookup).
@@ -325,28 +331,115 @@
 				} catch (err) {
 					const msg = err instanceof Error ? err.message : String(err);
 					if (msg.includes('unique') || msg.includes('duplicate') || msg.includes('23505')) {
-						skipped++;
+						// Race: pre-check passed (the user did not exist a
+						// moment ago) but the insert lost the race. Treat
+						// it as an existing-user skip and surface the
+						// username so the admin knows which row collided.
+						skippedExisting.push(v.row.username);
 					} else {
 						console.error('Row import failed:', err);
-						errors++;
+						// Keep a short, human-readable message — the raw
+						// PostgREST error often includes a 50+ char stack
+						// trace that drowns the toast.
+						errorRows.push({
+							username: v.row.username || '<no username>',
+							message: msg.slice(0, 80)
+						});
 					}
 				}
 			}
 			await onImported();
-			const parts: string[] = [];
-			if (created > 0) parts.push(`${created} created`);
-			if (skipped > 0) parts.push(`${skipped} skipped`);
-			if (errors > 0) parts.push(`${errors} errors`);
-			const summary = parts.length > 0 ? parts.join(', ') : 'no rows processed';
-			// Use success only when at least one row was actually created.
-			// A pure-skip import (e.g. all rows were duplicates) is a
-			// warning — nothing was imported.
-			const tone = errors > 0 ? 'error' : created > 0 ? 'success' : 'error';
-			showToast(`Import complete: ${summary}`, tone);
+			emitImportSummaryToast({
+				created,
+				skippedExisting,
+				skippedMissingStudy,
+				errorRows
+			});
 			handleClose();
 		} finally {
 			isImporting = false;
 		}
+	}
+
+	/**
+	 * Show a detailed end-of-import toast. We want the admin to know
+	 * exactly which rows were skipped and why, not just a raw count,
+	 * so the message names usernames explicitly. If there are more
+	 * than a handful we collapse the rest into "… and N more" so the
+	 * toast does not grow without bound.
+	 */
+	function emitImportSummaryToast(summary: {
+		created: number;
+		skippedExisting: string[];
+		skippedMissingStudy: string[];
+		errorRows: Array<{ username: string; message: string }>;
+	}) {
+		const { created, skippedExisting, skippedMissingStudy, errorRows } = summary;
+		const total = created + skippedExisting.length + skippedMissingStudy.length + errorRows.length;
+
+		if (total === 0) {
+			showToast('No rows processed', 'error');
+			return;
+		}
+
+		// Truncate the username list to keep the toast readable. The
+		// admin can always re-export the participants list to see
+		// exactly which users were created.
+		const MAX_NAMES = 5;
+		const listNames = (names: string[]) =>
+			names.length <= MAX_NAMES
+				? names.join(', ')
+				: `${names.slice(0, MAX_NAMES).join(', ')} and ${names.length - MAX_NAMES} more`;
+
+		if (created > 0 && skippedExisting.length === 0 && errorRows.length === 0) {
+			// Pure success.
+			showToast(`Imported ${created} user${created === 1 ? '' : 's'}.`, 'success');
+			return;
+		}
+
+		if (created === 0 && skippedExisting.length > 0 && errorRows.length === 0) {
+			// All rows were duplicates — nothing was imported, so we
+			// want the admin to know the exact list.
+			showToast(
+				`No new users imported. ${skippedExisting.length} already exist${skippedExisting.length === 1 ? 's' : ''}: ${listNames(skippedExisting)}.`,
+				'error'
+			);
+			return;
+		}
+
+		// Mixed result — build a multi-line summary.
+		const lines: string[] = [];
+		if (created > 0) lines.push(`✓ ${created} user${created === 1 ? '' : 's'} created`);
+		if (skippedExisting.length > 0)
+			lines.push(
+				`⊘ ${skippedExisting.length} already exist${skippedExisting.length === 1 ? 's' : ''}: ${listNames(skippedExisting)}`
+			);
+		if (skippedMissingStudy.length > 0)
+			lines.push(
+				`⊘ ${skippedMissingStudy.length} missing study: ${listNames(skippedMissingStudy)}`
+			);
+		if (errorRows.length > 0) {
+			const first = errorRows[0];
+			const more = errorRows.length > 1 ? ` (+${errorRows.length - 1} more)` : '';
+			lines.push(
+				`✗ ${errorRows.length} error${errorRows.length === 1 ? '' : 's'}: ${first.username} — ${first.message}${more}`
+			);
+		}
+		// Anything that was just skipped without a category we can
+		// still show.
+		const accounted =
+			created + skippedExisting.length + skippedMissingStudy.length + errorRows.length;
+		if (accounted < total) {
+			lines.push(`… and ${total - accounted} more`);
+		}
+
+		// Color the toast by severity: pure success is success,
+		// anything skipped/erroring is at least a warning.
+		const tone = created > 0 && errorRows.length === 0 ? 'success' : 'error';
+		// Use the long-duration variant so the admin has time to read
+		// the full list of skipped usernames / error messages before
+		// the toast disappears.
+		showLongToast(`Import finished:\n${lines.join('\n')}`, tone);
 	}
 
 	const previewRows = $derived(parsedRows.slice(0, 3));
