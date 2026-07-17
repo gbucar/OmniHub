@@ -23,6 +23,8 @@
 	import AddStudyModal from '$lib/components/modals/AddStudyModal.svelte';
 	import AddToStudyModal from '$lib/components/modals/AddToStudyModal.svelte';
 	import AddDeviceModal from '$lib/components/modals/AddDeviceModal.svelte';
+	import BulkDownloadModal from '$lib/components/modals/BulkDownloadModal.svelte';
+	import BulkUploadModal from '$lib/components/modals/BulkUploadModal.svelte';
 	import ParticipantDetailsPanel from '$lib/components/ParticipantDetailsPanel.svelte';
 	import StudyBadges from '$lib/components/StudyBadges.svelte';
 	import { onMount } from 'svelte';
@@ -82,7 +84,11 @@
 		filterSearch;
 		filterStudy;
 		pageSize;
-		currentPage = 1;
+		// Reset to page 1 only if we are not already there. Svelte 5
+		// detects the no-op write and does not re-run downstream effects
+		// when the value is unchanged, but the explicit guard is clearer
+		// and avoids any spurious pagination resets.
+		if (currentPage !== 1) currentPage = 1;
 	});
 
 	$effect(() => {
@@ -101,6 +107,12 @@
 	let showDetailsPanel = $state(false);
 	let participantStudies = $state.raw<ParticipantStudy[]>([]);
 	let userOwnerships = $state<Ownership[]>([]);
+
+	// Bulk-download / bulk-upload modal state. The modals carry their
+	// own participant multi-select, so we don't need any selection
+	// state in the main table.
+	let showBulkDownloadModal = $state(false);
+	let showBulkUploadModal = $state(false);
 
 	let newUser = $state({
 		username: '',
@@ -394,6 +406,37 @@
 		total: totalCount,
 		filtered: participants.length
 	});
+
+	// ---- Bulk actions ---------------------------------------------------
+
+	function openBulkDownload() {
+		// Open the modal in "no preselection" mode — the admin picks a
+		// study and participants from inside the modal.
+		showBulkDownloadModal = true;
+		closeBulkActionsMenu();
+	}
+
+	function openBulkUpload() {
+		showBulkUploadModal = true;
+		closeBulkActionsMenu();
+	}
+
+	/**
+	 * Programmatically close the Bulk Actions popover. The native popover
+	 * only auto-closes on outside clicks, but our menu items open a modal
+	 * (not an outside click), so we hide the popover explicitly.
+	 */
+	function closeBulkActionsMenu() {
+		if (typeof document === 'undefined') return;
+		document.getElementById('bulk-actions-menu')?.hidePopover?.();
+	}
+
+	async function handleBulkImported() {
+		// Refresh the participants list after a successful import so the
+		// new users appear in the table without a manual reload.
+		await loadParticipants();
+		await loadStudies();
+	}
 </script>
 
 <svelte:head>
@@ -432,6 +475,66 @@
 					</svg>
 					Add Study
 				</button>
+				<button
+					class="btn font-mono btn-ghost"
+					popovertarget="bulk-actions-menu"
+					style="anchor-name:--bulk-anchor"
+					aria-label="Bulk actions"
+				>
+					<svg
+						class="h-4 w-4"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+						<polyline points="17 8 12 3 7 8" />
+						<line x1="12" y1="3" x2="12" y2="15" />
+					</svg>
+					Bulk Actions
+				</button>
+				<ul
+					popover
+					id="bulk-actions-menu"
+					class="menu dropdown dropdown-end w-56 rounded-box border border-neutral/20 bg-base-100 p-2 font-mono shadow-lg"
+					style="position-anchor:--bulk-anchor"
+				>
+					<li>
+						<button type="button" onclick={openBulkDownload}>
+							<svg
+								class="h-4 w-4"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+								<polyline points="7 10 12 15 17 10" />
+								<line x1="12" y1="15" x2="12" y2="3" />
+							</svg>
+							<span>Bulk Download</span>
+						</button>
+					</li>
+					<li>
+						<button type="button" onclick={openBulkUpload}>
+							<svg
+								class="h-4 w-4"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+								<polyline points="17 8 12 3 7 8" />
+								<line x1="12" y1="3" x2="12" y2="15" />
+							</svg>
+							<span>Bulk Upload</span>
+						</button>
+					</li>
+				</ul>
 				<button onclick={() => (showAddParticipantModal = true)} class="btn font-mono btn-primary">
 					<svg
 						class="h-4 w-4"
@@ -705,5 +808,20 @@
 		onSelectSensor={selectSensor}
 		{onToggleDropdown}
 		{onFocusSensor}
+	/>
+
+	<BulkDownloadModal
+		show={showBulkDownloadModal}
+		{studies}
+		onClose={() => {
+			showBulkDownloadModal = false;
+		}}
+	/>
+
+	<BulkUploadModal
+		show={showBulkUploadModal}
+		{studies}
+		onImported={handleBulkImported}
+		onClose={() => (showBulkUploadModal = false)}
 	/>
 </div>

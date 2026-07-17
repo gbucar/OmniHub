@@ -53,6 +53,14 @@ export type Participant = {
 	role: string | null;
 	properties: Record<string, unknown> | null;
 	/**
+	 * When the participant row was created. Sourced from
+	 * `data.participants.sys_created_at` via the `list_participants` view.
+	 * Optional because not all consumers of `Participant` care about it
+	 * (e.g. the AddParticipant modal), and we don't want to break those
+	 * callers if the field is absent in some code paths.
+	 */
+	sys_created_at?: string | null;
+	/**
 	 * Free-text participant classification. Stored as `properties->>'type'`
 	 * in `data.participants`. Derived on read for convenience.
 	 */

@@ -1,11 +1,5 @@
 import { pgClient } from './client';
-import type {
-	Sensor,
-	Ownership,
-	DataStream,
-	SensorOwnership,
-	RecentObservation
-} from './types';
+import type { Sensor, Ownership, DataStream, SensorOwnership, RecentObservation } from './types';
 
 export const getSensors = async (): Promise<Sensor[]> => {
 	const data = await pgClient?.from('list_sensors').select('*');
