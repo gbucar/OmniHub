@@ -1,0 +1,14 @@
+{
+	"name": "omnihub-e2e-tests",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"test": "playwright test --config playwright.config.ts",
+		"test:ui": "playwright test --ui --config playwright.config.ts",
+		"test:headed": "playwright test --headed --config playwright.config.ts",
+		"report": "playwright show-report"
+	},
+	"devDependencies": {
+		"@playwright/test": "^1.52.0"
+	}
+}
