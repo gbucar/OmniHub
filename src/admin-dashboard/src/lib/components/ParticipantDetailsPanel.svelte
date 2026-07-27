@@ -58,7 +58,9 @@
 
 	$effect(() => {
 		if (show) {
-			panelVisible = true;
+			// Defer to the next microtask so the browser paints the initial
+			// translate-x-full position first, then animates the slide-in.
+			queueMicrotask(() => (panelVisible = true));
 		} else {
 			panelVisible = false;
 			editingStudyId = null;
@@ -68,7 +70,8 @@
 
 	$effect(() => {
 		if (selectedParticipant) {
-			panelVisible = true;
+			// Same pattern: let the panel render first, then slide in.
+			queueMicrotask(() => (panelVisible = true));
 			isEditing = false;
 			editedProperties = {
 				name: (selectedParticipant.properties?.name as string) || '',

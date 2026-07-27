@@ -37,7 +37,7 @@
 		class="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent"
 	></div>
 
-	<div class="animate-fade-in-up card w-full max-w-sm bg-base-200 shadow-2xl">
+	<div class="card w-full max-w-sm bg-base-200 shadow-2xl">
 		<div class="card-body p-8">
 			<div class="mb-6 flex flex-col items-center">
 				<div
