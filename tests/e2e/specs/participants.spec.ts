@@ -183,7 +183,7 @@ test.describe('Participants', () => {
 		await page.waitForTimeout(300);
 
 		// Enter edit mode — wait for Edit button to be visible in the sidebar
-		const editButton = page.getByRole('button', { name: 'Edit' });
+		const editButton = page.getByRole('button', { name: 'Edit' }).first();
 		await editButton.waitFor({ state: 'visible' });
 		await editButton.click();
 
@@ -192,7 +192,7 @@ test.describe('Participants', () => {
 		await page.locator('#edit-name').fill('Ana Modified');
 		await page.locator('#edit-age').waitFor({ state: 'visible' });
 		await page.locator('#edit-age').fill('26');
-		await page.getByRole('button', { name: 'Save' }).click();
+		await page.getByRole('button', { name: 'Save' }).first().click();
 
 		await expectSuccessToast(page, 'updated');
 
@@ -209,14 +209,14 @@ test.describe('Participants', () => {
 		await openParticipantDetails(page, 'test_participant_2');
 		await page.waitForTimeout(300);
 
-		const editButton = page.getByRole('button', { name: 'Edit' });
+		const editButton = page.getByRole('button', { name: 'Edit' }).first();
 		await editButton.waitFor({ state: 'visible' });
 		await editButton.click();
 
 		// Wait for the form fields to be visible in edit mode
 		await page.locator('#edit-name').waitFor({ state: 'visible' });
 		await page.locator('#edit-name').fill('Bojan123');
-		await page.getByRole('button', { name: 'Save' }).click();
+		await page.getByRole('button', { name: 'Save' }).first().click();
 
 		// Name validation rejects digits: "Name can only contain letters"
 		await expectErrorToast(page);
@@ -226,17 +226,17 @@ test.describe('Participants', () => {
 		await openParticipantDetails(page, 'test_participant_2');
 		await page.waitForTimeout(300);
 
-		const editButton = page.getByRole('button', { name: 'Edit' });
+		const editButton = page.getByRole('button', { name: 'Edit' }).first();
 		await editButton.waitFor({ state: 'visible' });
 		await editButton.click();
 
 		// Wait for the form fields to be visible in edit mode
 		await page.locator('#edit-name').waitFor({ state: 'visible' });
 		await page.locator('#edit-name').fill('Temp Name');
-		await page.getByRole('button', { name: 'Cancel' }).click();
+		await page.getByRole('button', { name: 'Cancel' }).first().click();
 
 		// After cancel, we are back in display mode (Edit button visible)
-		await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Edit' }).first()).toBeVisible();
 		// The temp name should NOT be visible anywhere
 		await expect(page.getByText('Temp Name')).not.toBeVisible();
 		// The original name should still show
@@ -252,7 +252,7 @@ test.describe('Participants', () => {
 		await openParticipantDetails(page, 'test_participant_4');
 		await page.waitForTimeout(300);
 
-		await page.getByRole('button', { name: 'Add' }).click();
+		await page.getByRole('button', { name: 'Add', exact: true }).click();
 
 		// Wait for the Add to Study dialog to open
 		await expect(page.getByRole('heading', { name: 'Add to Study' })).toBeVisible();
@@ -302,7 +302,7 @@ test.describe('Participants', () => {
 		// test_participant_4 has NO device assigned (good candidate for assignment)
 		await openParticipantDetails(page, 'test_participant_4');
 
-		await page.getByRole('button', { name: 'Assign' }).click();
+		await page.getByRole('button', { name: 'Assign' }).first().click();
 		await page.waitForTimeout(500);
 
 		// Wait for Assign Device modal (custom dialog, not HTML <dialog>)
@@ -383,14 +383,14 @@ test.describe('Participants', () => {
 		await openParticipantDetails(page, 'test_participant_3');
 		await page.waitForTimeout(300);
 
-		const editButton = page.getByRole('button', { name: 'Edit' });
+		const editButton = page.getByRole('button', { name: 'Edit' }).first();
 		await editButton.waitFor({ state: 'visible' });
 		await editButton.click();
 
 		// Wait for the form field to appear in edit mode
 		await page.locator('#edit-name').waitFor({ state: 'visible' });
 		await page.locator('#edit-name').fill('Cvetka123');
-		await page.getByRole('button', { name: 'Save' }).click();
+		await page.getByRole('button', { name: 'Save' }).first().click();
 
 		// Name validation rejects digits: "Name can only contain letters"
 		await expectErrorToast(page);
