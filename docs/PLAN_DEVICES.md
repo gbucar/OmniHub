@@ -2,7 +2,7 @@
 
 ## 1. Povzetek
 
-Nova stran `/devices` v admin dashboardu za celovito upravljanje senzorjev. Dizajn je paralelen `/users`: glavna tabela z iskanjem/filtriranjem/paginacijo, detajli v desnem slide-in sidebaru (identično `ParticipantDetailsPanel`). **Brez sprememb na API/bazi** — vse počnemo s PostgREST direktno (RLS že dovoljuje admin SELECT/INSERT/UPDATE na `data.sensors`, `data.ownerships`, `data.data_streams`, `data.observations`).
+Nova stran `/devices` v admin dashboardu za pregled senzorjev. Dizajn je paralelen `/users`: glavna tabela z iskanjem/filtriranjem/paginacijo, detajli v desnem slide-in sidebaru (identično `ParticipantDetailsPanel`). **Read-only** — brez urejanja senzorjev, samo prikaz informacij. **Brez sprememb na API/bazi** — vse počnemo s PostgREST direktno (RLS že dovoljuje admin SELECT na `data.sensors`, `data.ownerships`, `data.data_streams`, `data.observations`, `data.locations`).
 
 **Barvna shema:** primarna cyan (identično `/users`) — ohranjamo doslednost z OmniHub dizajnom. Warning/amber barvo obdržimo le na **gumbu za dodeljevanje naprave znotraj sidebara** (paralela z obstoječim `AddDeviceModal`), kjer je vizualno smiselno poudariti "dodeli napravo".
 
@@ -11,10 +11,10 @@ Nova stran `/devices` v admin dashboardu za celovito upravljanje senzorjev. Diza
 | TODO | 1. faza | Opombe |
 |---|---|---|
 | Celovit pregled vseh senzorjev z iskanjem in filtriranjem | ✅ | Search + filter po `sensor_type` + filter po `status` (iz `properties.status`) + paginacija |
-| Dodajanje novih senzorjev | ✅ | Modal: ime, tip, opis, status, credential_id (opcijsko), metadata key/value |
+| Dodajanje novih senzorjev | ❌ | Izven scope-a (prihodnja faza) |
 | Razvrščanje po tipu/lokaciji | ⚠️ Delno | Sort po stolpcih v tabeli. "Lokacija" ni atribut senzorja (senzor nima koordinat) — zato samo sort po tipu in zadnji aktivnosti. |
-| Urejanje nastavitev (ime, status, metapodatki) | ✅ | Sidebar z inline edit (PostgREST UPDATE na `data.sensors`) |
-| Spremljanje stanja in aktivnosti | ⚠️ Delno | `last_activity` iz `list_sensors` prikazan kot relativni čas. Uptime izpustimo (manjka sistemska telemetrija). |
+| Urejanje nastavitev (ime, status, metapodatki) | ❌ | Izven scope-a — sidebar je read-only |
+| Spremljanje stanja in aktivnosti | ✅ | `last_activity` iz `list_sensors` prikazan kot relativni čas. Uptime izpustimo (manjka sistemska telemetrija). |
 | Vizualizacija surovih in agregiranih podatkov | ❌ | Preseženo po dogovoru (prihodnja faza) |
 | Nastavitve obvestil in pragov | ❌ | Ni v bazi, zahteva večji feature |
 | Skupinske operacije (bulk) | ❌ | Preseženo po dogovoru (prihodnja faza) |
@@ -36,17 +36,22 @@ Nova stran `/devices` v admin dashboardu za celovito upravljanje senzorjev. Diza
 | `addOwnership()` / `updateOwnership()` / `removeOwnership()` | `src/lib/api/sensors.ts:43,68,104` | ✅ Za dodeljevanje senzorjev participantom |
 
 ### 3.2. Manjka v frontendu (treba dodati)
-- Stran `/devices` in `/devices/[id]` (slednja bo zamenjana s sidebar — glej 4.2)
-- Navigacija v `+layout.svelte`
-- Komponenti `DeviceDetailsPanel.svelte` in `AddSensorModal.svelte`
-- API helperji: `addSensor`, `updateSensor`, `getSensorStreams`, `getSensorOwnerships`, `getRecentObservations`
+- ✅ Stran `/devices` — implementirano
+- ✅ Navigacija v `+layout.svelte` — implementirano
+- ✅ Komponenta `DeviceDetailsPanel.svelte` — implementirano (read-only, 4 karte)
+- ✅ Komponenta `SensorStatusBadge.svelte` — implementirano
+- ✅ API helperji: `getSensorStreams`, `getSensorOwnerships`, `getRecentObservations` — implementirano
+- ❌ API helper `addSensor` — izven scope-a te faze
+- ❌ `AddSensorModal.svelte` — izven scope-a te faze
 
-### 3.3. Zakaj brez API sprememb
-- `data.sensors` že ima RLS `allow_admin_insert_all_sensors` (20_init.sql:599) in `allow_admin_update_all_sensors` (20_init.sql:590).
-- `data.data_streams` že ima RLS za admin SELECT/INSERT/UPDATE.
-- `data.ownerships` že ima RLS za admin SELECT/INSERT/UPDATE.
-- `list_sensors` view že vrača `last_activity` (aggregate iz observations preko data_streams).
+### 3.3. Zakaj potrebujemo samo 2 view-a
+- `data.sensors` že ima RLS za admin SELECT.
+- `data.data_streams` že ima RLS za admin/researcher SELECT.
+- `data.ownerships` že ima RLS za admin SELECT.
+- `list_sensors` view že vrača `last_activity`.
+- **Manjkata samo** `api.data_streams` in `api.locations` view-a — brez njih PostgREST ne more streči data_streams querijev in observation embedov.
 - Za frontend ne potrebujemo enrichment view-a — lastnik, število streamov in observationov prikažemo samo v detajlnem sidebaru z dodatnimi query-ji.
+- **Urejanje senzorjev je izven scope-a** — `GRANT UPDATE ON api.sensors` ni potreben.
 
 ## 4. Nove in spremenjene datoteke
 
@@ -54,15 +59,13 @@ Nova stran `/devices` v admin dashboardu za celovito upravljanje senzorjev. Diza
 ```
 src/admin-dashboard/src/routes/devices/
   +page.svelte                              # glavna tabela
+  +page.ts                                  # SSR-safe page loader
 
 src/admin-dashboard/src/lib/components/
-  DeviceDetailsPanel.svelte                 # desni slide-in sidebar (paralelen ParticipantDetailsPanel)
+  DeviceDetailsPanel.svelte                 # desni slide-in sidebar (read-only, 4 karte)
   SensorStatusBadge.svelte                  # badge za status
-  DeviceMetadataEditor.svelte               # key/value editor za properties JSONB
-
-src/admin-dashboard/src/lib/components/modals/
-  AddSensorModal.svelte                     # modal za dodajanje novega senzorja
 ```
+> **Opomba**: `DeviceMetadataEditor.svelte` in `AddSensorModal.svelte` sta bila odstranjena — urejanje senzorjev in dodajanje novih je izven scope-a te faze.
 
 ### 4.2. Spremenjene datoteke
 - `src/admin-dashboard/src/routes/+layout.svelte` — dodati `/devices` v `navItems` in dropdown menu.
@@ -118,55 +121,33 @@ src/admin-dashboard/src/lib/components/modals/
 
 **Vsebina (scrollable):**
 
-**Card: Information** (inline editable)
-- Name (input, shrani na blur ali gumb "Save")
-- Sensor type (kombinacija select + free input)
-- Description (textarea)
-- Status (select: active/inactive/maintenance)
-- Credential ID (input number, opcijsko)
-- Metadata (`<DeviceMetadataEditor>` — ključ/vrednost seznami, brez ključa `status` ki je že zgoraj)
-- Gumbi: "Edit" / "Save" / "Cancel" (paralelno s Personal Information kartico v ParticipantDetailsPanel)
+**Card: Information** (read-only)
+- Name
+- Sensor type (badge)
+- Status (`<SensorStatusBadge>`)
+- Last activity (relativni čas)
+- Credential ID
+- Description (če obstaja)
+- Metadata (key/value pari, brez ključa `status`)
 
-**Card: Data Streams** (list)
-- Vsaka vrstica: ime, opis, unit_of_measurement, št. observationov (pridobljeno iz getSensorStreams + count)
-- V 1. fazi: read-only (brez dodajanja/brisanja streamov)
-
-**Card: Ownerships** (list)
-- Vsaka vrstica: username, participant name, period badge (paralelno s Devices kartico v ParticipantDetailsPanel)
-- Gumb "Edit period" (inline date inputi)
-- Gumb "Remove" (soft delete preko `removeOwnership` iz obstoječega API)
-- Gumb "Assign to Participant" (btn-warning) — odpre obstoječi `AddDeviceModal` z `sensor_id` = trenutni id (ali razširjen AddSensorModal v načinu dodeljevanja)
-
-**Card: Recent Observations** (mini-tabela)
-- Zadnjih 20 observationov: phenomenon_time, stream ime, result, lokacija (kraj/long string iz `locations.properties.city`)
+**Card: Data Streams** (read-only list)
+- Vsaka vrstica: ime, opis, unit_of_measurement
 - Read-only v 1. fazi
 
-**Barvna shema znotraj sidebara:**
+**Card: Ownerships** (read-only list)
+- Vsaka vrstica: username, participant name, period badge
+- Read-only v 1. fazi — dodeljevanje se upravlja na `/users` strani
+
+**Card: Recent Observations** (mini-tabela)
+- Zadnjih 20 observationov: phenomenon_time, stream ime, result, lokacija (city iz `locations.properties`)
+- Read-only v 1. fazi
+
+**Barvna shema:**
 - Header ikona: primary/10 background
 - Card-i: bg-base-300
-- Edit gumbi: btn-primary
-- Assign Device gumb: btn-warning (paralela z obstoječim "Assign" gumbom v ParticipantDetailsPanel)
-- Add Stream gumb (če dodamo): btn-primary
+- Ownership avatarji: primary/10 background
 
-### 5.3. Modal `AddSensorModal.svelte`
-
-**Struktura** (paralelna `AddStudyModal`):
-- Header: ⚙️ ikona + "Add Device" + podnaslov
-- Polja:
-  - Name (input, required)
-  - Sensor type (select + free input combo, required)
-  - Description (textarea, opcijsko)
-  - Status (select: active/inactive/maintenance, default "active")
-  - Credential ID (input number, opcijsko)
-  - Metadata (DeviceMetadataEditor, opcijsko)
-- Gumbi: "Cancel" / "Add Device" (btn-primary)
-
-**Validacija:**
-- Name in sensor_type sta obvezna
-- Credential ID mora biti celo število (če podan)
-- Metadata shranimo v `properties` JSONB, skupaj s `status` ključem
-
-### 5.4. Navigacija (`+layout.svelte`)
+### 5.3. Navigacija (`+layout.svelte`)
 
 Dodati v `navItems` array:
 ```ts
@@ -180,46 +161,28 @@ Dodati tudi v dropdown menu (vrstica pod "Users" v obstoječem meniju):
 <li><a href="/devices" class="font-mono"><span class="opacity-50">◐</span> Devices</a></li>
 ```
 
-## 6. API funkcije (TypeScript)
+## 6. API funkcije (TypeScript) — vse implementirane
 
-V `src/lib/api/sensors.ts` dodati:
+V `src/lib/api/sensors.ts`:
 
 ```ts
-/**
- * Insert a new sensor.
- * Uses existing RLS policy allow_admin_insert_all_sensors on data.sensors.
- */
-export const addSensor = async (sensor: NewSensor): Promise<{ id: number }>
+/** Fetch all sensors with last_activity. Uses api.list_sensors. */
+export const getSensors = async (): Promise<Sensor[]>
 
-/**
- * Update sensor fields.
- * Uses existing RLS policy allow_admin_update_all_sensors on data.sensors.
- */
-export const updateSensor = async (id: number, changes: Partial<Sensor>): Promise<void>
-
-/**
- * Fetch all data streams belonging to a sensor.
- * Uses RLS allow_admin_researcher_pipeline_select_all_datastream.
- */
+/** Fetch data streams for a sensor. Uses api.data_streams (⚠️ potrebuje view). */
 export const getSensorStreams = async (sensorId: number): Promise<DataStream[]>
 
-/**
- * Fetch all ownerships of a sensor, joined with user and participant name.
- * Uses RLS allow_admin_researcher_select_all_ownerships.
- * Joins: ownerships -> auth.users (username) -> data.participants (properties->>'name')
- */
+/** Fetch ownerships, joined client-side with list_participants. */
 export const getSensorOwnerships = async (sensorId: number): Promise<SensorOwnership[]>
 
-/**
- * Fetch the most recent N observations for a sensor (across all its data streams).
- * Uses RLS allow_admin_researcher_pipeline_select_all_observations.
- * Joins: observations -> data_streams -> locations
- */
+/** Fetch recent observations with embedded data_streams + locations (⚠️ potrebuje view-a). */
 export const getRecentObservations = async (
   sensorId: number,
   limit?: number
 ): Promise<RecentObservation[]>
 ```
+
+> **⚠️ `getSensorStreams` in `getRecentObservations` ne delujeta** brez `api.data_streams` in `api.locations` view-ov. Glej §10.1.
 
 V `src/lib/api/types.ts` dodati:
 
@@ -372,53 +335,45 @@ State:
 - Upravljanje credentials (posebna stran)
 - Sort po lokaciji (lokacija je na observation, ne na senzor)
 
-## 10.1. 🔴 TODO pred produkcijskim zagonom
+## 10.1. 🔴 Manjkajoča `api.*` view-a (blokira Data Streams in Recent Observations)
 
-Frontend in API helperji za `/devices` so implementirani, a v praksi ne delujejo, ker `20_init.sql` nima vseh potrebnih `api.*` view-ev in GRANT-ov. PostgREST bere samo iz `api` sheme, zato brez teh objektov frontend dobi 403/404.
+Frontend in API helperji za `/devices` so implementirani, vendar Data Streams in Recent Observations kartici v sidebaru ne delujeta, ker `20_init.sql` nima 2 potrebnih `api.*` view-ev. PostgREST bere samo iz `api` sheme (`PGRST_DB_SCHEMAS=api`), zato brez teh objektov frontend dobi 404/400.
 
-**Vzorec (kako deluje pri drugih entitetah):** vsak `api.*` view, ki ga frontend piše, ima GRANT na obeh nivojih — `data.*` in `api.*`. Pri `api.sensors` manjka `api.*` GRANT, `api.data_streams` in `api.users` view-a pa sploh ne obstajata.
-
-**Manjkajoči SQL** (nova migracija `22_views_and_grants.sql`):
+**Manjkajoči SQL** (migracija `23_views_and_grants.sql`):
 
 ```sql
--- 1. Manjkajoči GRANT na api.sensors (povzroča 403 pri PATCH /sensors)
-GRANT SELECT, INSERT, UPDATE ON TABLE api.sensors TO admin;
-
--- 2. Manjkajoč view api.data_streams (getSensorStreams fail)
+-- 1. api.data_streams — popravi GET /data_streams (404 → 200)
 CREATE OR REPLACE VIEW api.data_streams
 WITH (security_invoker=true)
 AS SELECT id, sensor_id, name, description, unit_of_measurement, properties
    FROM data.data_streams;
-GRANT SELECT, INSERT, UPDATE ON TABLE api.data_streams TO admin;
+GRANT SELECT ON api.data_streams TO admin;
 
--- 3. Manjkajoč view api.users (getSensorOwnerships fail — embed users (username))
-CREATE OR REPLACE VIEW api.users
+-- 2. api.locations — popravi embed locations(properties) v observations (400 → 200)
+CREATE OR REPLACE VIEW api.locations
 WITH (security_invoker=true)
-AS SELECT id, username, role FROM auth.users;
-GRANT SELECT ON TABLE api.users TO admin;
+AS SELECT id, properties, geog FROM data.locations;
+GRANT SELECT ON api.locations TO admin;
 ```
 
-**Dodatni TODO (dogovorjeno s produktom):**
-
-- **Add Device UI je izven scope-a** te faze — `AddSensorModal.svelte`, `addSensor` API helper in `NewSensor` tip so bili odstranjeni. Ko se bo Add Device implementiral v prihodnji fazi, glej zgodovino commitov za izhodišče.
-- **Dinamični sensor types** v `DeviceDetailsPanel` — trenutno statični seznam `['ATMOTUBE_PRO', 'ATMOAIR_PRO', 'ATMODOT_PRO', 'ATMOAIR_V2']`. Zamenjaj s `existingSensorTypes` prop, ki ga parent posreduje iz baze (npr. `sensorTypes` iz `+page.svelte`).
-- **Sidebar Information card — prikaži metadata v display mode**: trenutno metadata urejamo, ampak v display mode ni vidna. Dodaj prikaz ključ/vrednost parov v display mode (pod Description).
+> **Opomba**: `api.users` view in `GRANT UPDATE ON api.sensors` **nista potrebna** — `getSensorOwnerships` že dela prek client-side joina na `list_participants`, urejanje senzorjev pa je izven scope-a te faze.
 
 ## 11. Kriteriji sprejetja
 
-- [ ] Stran `/devices` prikazuje vse senzorje iz baze v tabeli s 4 stolpci
-- [ ] Iskanje deluje po imenu, description in JSONB vrednostih
-- [ ] Filter po `sensor_type` in `status` deluje
-- [ ] Paginacija deluje s 4 velikostmi (10/25/50/100/500)
-- [x] ~~Gumb "Add Device" odpre modal, ki uspešno doda nov senzor~~ (izven scope-a te faze)
-- [ ] Klik na vrstico odpre desni sidebar z detajli
-- [ ] V sidebaru je mogoče urediti ime, tip, opis, status, credential_id, metadata
-- [ ] V sidebaru so prikazani vsi data_streams, ownerships in zadnjih 20 observationov
-- [ ] Gumb "Assign to Participant" v sidebaru odpre modal za dodeljevanje (z uporabo obstoječega AddDeviceModal ali razširjenega)
-- [ ] Status badge prikazuje pravilno barvo glede na vrednost
-- [ ] Navigacija v `+layout.svelte` vsebuje "Devices" povezavo
-- [ ] `npm run check` in `npm run lint` brez napak
-- [ ] `npm run build` uspešno zaključi
-- [ ] Vse akcije imajo toast obvestila (success/error)
-- [ ] Responsive dizajn (tabela, filter, sidebar delujejo na manjših zaslonih)
-- [ ] Light/dark tema deluje (omnihub in omnihub-dark)
+- [x] Stran `/devices` prikazuje vse senzorje iz baze v tabeli s 4 stolpci
+- [x] Iskanje deluje po imenu, description in JSONB vrednostih
+- [x] Filter po `sensor_type` in `status` deluje
+- [x] Paginacija deluje s 5 velikostmi (10/25/50/100/500)
+- [ ] ~~Gumb "Add Device" odpre modal, ki uspešno doda nov senzor~~ (izven scope-a)
+- [x] Klik na vrstico odpre desni sidebar z detajli
+- [ ] ~~V sidebaru je mogoče urediti ime, tip, opis, status, credential_id, metadata~~ (izven scope-a — sidebar je read-only)
+- [x] V sidebaru so prikazani vsi metadata key/value pari (brez `status` ključa)
+- [ ] V sidebaru so prikazani vsi data_streams (⚠️ potrebuje `api.data_streams` view)
+- [x] V sidebaru so prikazani vsi ownerships (deluje prek client-side joina)
+- [ ] V sidebaru je prikazanih zadnjih 20 observationov (⚠️ potrebuje `api.data_streams` + `api.locations` view-a)
+- [x] Status badge prikazuje pravilno barvo glede na vrednost
+- [x] Navigacija v `+layout.svelte` vsebuje "Devices" povezavo
+- [x] `npm run check` in `npm run lint` brez napak
+- [x] `npm run build` uspešno zaključi
+- [x] Responsive dizajn (tabela, filter, sidebar delujejo na manjših zaslonih)
+- [x] Light/dark tema deluje (omnihub in omnihub-dark)
