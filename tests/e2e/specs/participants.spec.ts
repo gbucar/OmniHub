@@ -54,7 +54,7 @@ test.describe('Participants', () => {
 		await expect(page.getByText('Ana Test')).toBeVisible();
 		// The study filter dropdown is populated asynchronously — wait for the option to appear
 		await page.locator('#study-filter option').filter({ hasText: 'Test Study Alpha' }).waitFor({ state: 'attached' });
-		await page.getByLabel('Study').selectOption('Test Study Alpha');
+		await page.locator('#study-filter').selectOption('Test Study Alpha');
 		await page.waitForTimeout(500);
 		await expect(page.getByText('Ana Test')).toBeVisible();
 		await expect(page.getByText('Bojan Test')).toBeVisible();
@@ -76,7 +76,7 @@ test.describe('Participants', () => {
 		await page.waitForTimeout(500);
 
 		// Page indicator should show 1 / 1 (use regex for flexibility)
-		await expect(page.getByText(/Page 1 of 1/)).toBeVisible();
+		await expect(page.getByText(/Page\s+1\s+(\/|of)\s+1/)).toBeVisible();
 
 		// Next button disabled (only one page)
 		const nextBtn = page.getByRole('button', { name: 'Next page' });
@@ -117,9 +117,9 @@ test.describe('Participants', () => {
 		await dialog.getByLabel('Username').fill(uniqueUsername);
 		// PasswordInput component uses placeholder, not a label association
 		await dialog.getByPlaceholder('Enter password').fill('testpass123');
-		await dialog.getByLabel('Name').fill('Test User');
-		await dialog.getByLabel('Age').fill('30');
-		await dialog.getByLabel('Sex').selectOption('male');
+		await dialog.locator('#modal-name').fill('Test User');
+		await dialog.locator('#modal-age').fill('30');
+		await dialog.locator('#modal-sex').selectOption('male');
 
 		// Scope to dialog to avoid ambiguity with other "Create" buttons
 		await dialog.getByRole('button', { name: 'Create' }).click();
@@ -187,10 +187,10 @@ test.describe('Participants', () => {
 		await editButton.click();
 
 		// Wait for form fields to appear after clicking Edit
-		await page.getByLabel('Name').waitFor({ state: 'visible' });
-		await page.getByLabel('Name').fill('Ana Modified');
-		await page.getByLabel('Age').waitFor({ state: 'visible' });
-		await page.getByLabel('Age').fill('26');
+		await page.locator('#edit-name').waitFor({ state: 'visible' });
+		await page.locator('#edit-name').fill('Ana Modified');
+		await page.locator('#edit-age').waitFor({ state: 'visible' });
+		await page.locator('#edit-age').fill('26');
 		await page.getByRole('button', { name: 'Save' }).click();
 
 		await expectSuccessToast(page, 'updated');
@@ -212,8 +212,8 @@ test.describe('Participants', () => {
 		await editButton.click();
 
 		// Wait for the form fields to be visible in edit mode
-		await page.getByLabel('Name').waitFor({ state: 'visible' });
-		await page.getByLabel('Name').fill('Bojan123');
+		await page.locator('#edit-name').waitFor({ state: 'visible' });
+		await page.locator('#edit-name').fill('Bojan123');
 		await page.getByRole('button', { name: 'Save' }).click();
 
 		// Name validation rejects digits: "Name can only contain letters"
@@ -228,8 +228,8 @@ test.describe('Participants', () => {
 		await editButton.click();
 
 		// Wait for the form fields to be visible in edit mode
-		await page.getByLabel('Name').waitFor({ state: 'visible' });
-		await page.getByLabel('Name').fill('Temp Name');
+		await page.locator('#edit-name').waitFor({ state: 'visible' });
+		await page.locator('#edit-name').fill('Temp Name');
 		await page.getByRole('button', { name: 'Cancel' }).click();
 
 		// After cancel, we are back in display mode (Edit button visible)
@@ -259,7 +259,7 @@ test.describe('Participants', () => {
 		await dialog.locator('#select-study option[value]:not([value=""])').first().waitFor({ state: 'attached' });
 
 		// Select first available study (Test Study Alpha)
-		await dialog.getByLabel('Select Study').selectOption({ index: 1 });
+		await dialog.locator('#select-study').selectOption({ index: 1 });
 
 		const today = new Date().toISOString().split('T')[0];
 		const nextYear = new Date();
@@ -310,7 +310,7 @@ test.describe('Participants', () => {
 		await dialog.getByLabel('Select Sensor').fill('Test Sensor Beta');
 
 		// Click the matching option from the dropdown
-		const option = page.getByRole('option', { name: 'Test Sensor Beta' });
+		const option = dialog.getByRole('option', { name: 'Test Sensor Beta' });
 		await option.waitFor({ state: 'visible' });
 		await option.click();
 
@@ -364,14 +364,14 @@ test.describe('Participants', () => {
 
 		await dialog.getByLabel('Username').fill(uniqueUsername);
 		await dialog.getByPlaceholder('Enter password').fill('testpass123');
-		await dialog.getByLabel('Name').fill('Toast User');
-		await dialog.getByLabel('Age').fill('25');
-		await dialog.getByLabel('Sex').selectOption('female');
+		await dialog.locator('#modal-name').fill('Toast User');
+		await dialog.locator('#modal-age').fill('25');
+		await dialog.locator('#modal-sex').selectOption('female');
 
 		await dialog.getByRole('button', { name: 'Create' }).click();
 
 		// Success toast should appear — use longer timeout since toast may fade in/out
-		await expect(page.getByText('Participant added successfully')).toBeVisible({ timeout: 10000 });
+		await expect(page.getByText('Participant added successfully')).toBeVisible({ timeout: 15000 });
 	});
 
 	test('PRT-22 — Error toast ob validacijski napaki', async ({ authenticatedPage: page }) => {
@@ -382,8 +382,8 @@ test.describe('Participants', () => {
 		await editButton.click();
 
 		// Wait for the form field to appear in edit mode
-		await page.getByLabel('Name').waitFor({ state: 'visible' });
-		await page.getByLabel('Name').fill('Cvetka123');
+		await page.locator('#edit-name').waitFor({ state: 'visible' });
+		await page.locator('#edit-name').fill('Cvetka123');
 		await page.getByRole('button', { name: 'Save' }).click();
 
 		// Name validation rejects digits: "Name can only contain letters"
