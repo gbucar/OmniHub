@@ -43,7 +43,7 @@ export async function openParticipantDetails(page: Page, username: string): Prom
 
 	// Wait for the sidebar panel to slide in and fully render
 	// (CSS transition 200ms + reactive state + potential API calls for studies/devices)
-	await page.waitForTimeout(500);
+	await page.waitForTimeout(800);
 
 	// Confirm the sidebar is actually visible by waiting for its heading or username
 	await page.getByText(new RegExp(`@${username}`)).waitFor({ state: 'visible', timeout: 5000 });

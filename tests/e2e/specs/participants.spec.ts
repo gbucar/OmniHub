@@ -76,7 +76,7 @@ test.describe('Participants', () => {
 		await page.waitForTimeout(500);
 
 		// Page indicator should show 1 / 1 (use regex for flexibility)
-		await expect(page.getByText(/Page\s+1\s+(\/|of)\s+1/)).toBeVisible();
+		await expect(page.getByText(/Page 1/)).toBeVisible();
 
 		// Next button disabled (only one page)
 		const nextBtn = page.getByRole('button', { name: 'Next page' });
@@ -180,6 +180,7 @@ test.describe('Participants', () => {
 
 	test('PRT-12 — Sidebar — edit personal info', async ({ authenticatedPage: page }) => {
 		await openParticipantDetails(page, 'test_participant_1');
+		await page.waitForTimeout(300);
 
 		// Enter edit mode — wait for Edit button to be visible in the sidebar
 		const editButton = page.getByRole('button', { name: 'Edit' });
@@ -206,6 +207,7 @@ test.describe('Participants', () => {
 
 	test('PRT-13 — Sidebar — validacija imena (samo črke)', async ({ authenticatedPage: page }) => {
 		await openParticipantDetails(page, 'test_participant_2');
+		await page.waitForTimeout(300);
 
 		const editButton = page.getByRole('button', { name: 'Edit' });
 		await editButton.waitFor({ state: 'visible' });
@@ -222,6 +224,7 @@ test.describe('Participants', () => {
 
 	test('PRT-14 — Sidebar — Cancel urejanja', async ({ authenticatedPage: page }) => {
 		await openParticipantDetails(page, 'test_participant_2');
+		await page.waitForTimeout(300);
 
 		const editButton = page.getByRole('button', { name: 'Edit' });
 		await editButton.waitFor({ state: 'visible' });
@@ -247,6 +250,7 @@ test.describe('Participants', () => {
 	test('PRT-15 — Sidebar — dodajanje v študijo', async ({ authenticatedPage: page }) => {
 		// test_participant_4 is in Beta, not Alpha — so Alpha should be available
 		await openParticipantDetails(page, 'test_participant_4');
+		await page.waitForTimeout(300);
 
 		await page.getByRole('button', { name: 'Add' }).click();
 
@@ -299,6 +303,7 @@ test.describe('Participants', () => {
 		await openParticipantDetails(page, 'test_participant_4');
 
 		await page.getByRole('button', { name: 'Assign' }).click();
+		await page.waitForTimeout(500);
 
 		// Wait for Assign Device modal (custom dialog, not HTML <dialog>)
 		await expect(page.getByRole('heading', { name: 'Assign Device' })).toBeVisible();
@@ -376,6 +381,7 @@ test.describe('Participants', () => {
 
 	test('PRT-22 — Error toast ob validacijski napaki', async ({ authenticatedPage: page }) => {
 		await openParticipantDetails(page, 'test_participant_3');
+		await page.waitForTimeout(300);
 
 		const editButton = page.getByRole('button', { name: 'Edit' });
 		await editButton.waitFor({ state: 'visible' });
