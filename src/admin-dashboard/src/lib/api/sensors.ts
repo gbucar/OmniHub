@@ -1,9 +1,81 @@
 import { pgClient } from './client';
 import type { Sensor, Ownership, DataStream, SensorOwnership, RecentObservation } from './types';
 
-export const getSensors = async (): Promise<Sensor[]> => {
-	const data = await pgClient?.from('list_sensors').select('*');
-	return (data?.data ?? []) as Sensor[];
+export interface SensorFilters {
+	search?: string;
+	sensorType?: string;
+	status?: string;
+	limit?: number;
+	offset?: number;
+}
+
+export interface PaginatedResult<T> {
+	data: T[];
+	count: number;
+}
+
+/**
+ * Fetch sensors with server-side filtering, search, and pagination.
+ *
+ * All filtering is pushed to the database via PostgREST query parameters:
+ *   - search: uses `or` with `ilike` across name, description, and known
+ *     JSONB property keys (atmotube_id, internal_id).
+ *   - sensorType: exact match on `sensor_type` column.
+ *   - status: `properties->>status` eq/is.null for "unknown".
+ *
+ * Pagination is handled via PostgREST's Range header, with `count=exact`
+ * so the caller can compute total pages without a separate query.
+ */
+export const getSensors = async (filters?: SensorFilters): Promise<PaginatedResult<Sensor>> => {
+	let query = pgClient?.from('list_sensors').select('*', { count: 'exact' });
+
+	// ── Search (OR across multiple columns) ──────────────────────────
+	if (filters?.search) {
+		const s = filters.search;
+		query = query?.or(
+			[
+				`name.ilike.*${s}*`,
+				`description.ilike.*${s}*`,
+				`properties->>atmotube_id.ilike.*${s}*`,
+				`properties->>internal_id.ilike.*${s}*`
+			].join(',')
+		);
+	}
+
+	// ── Sensor type filter ────────────────────────────────────────────
+	if (filters?.sensorType && filters.sensorType !== 'all') {
+		query = query?.eq('sensor_type', filters.sensorType);
+	}
+
+	// ── Status filter ─────────────────────────────────────────────────
+	if (filters?.status && filters.status !== 'all') {
+		if (filters.status === 'unknown') {
+			query = query?.is('properties->>status', null);
+		} else {
+			query = query?.eq('properties->>status', filters.status);
+		}
+	}
+
+	// ── Pagination ────────────────────────────────────────────────────
+	if (filters?.limit !== undefined && filters?.offset !== undefined) {
+		query = query?.range(filters.offset, filters.offset + filters.limit - 1);
+	}
+
+	const data = await query;
+	return {
+		data: (data?.data ?? []) as Sensor[],
+		count: data?.count ?? 0
+	};
+};
+
+/**
+ * Fetch all distinct sensor types from the database.
+ * Used to populate the sensor type filter dropdown.
+ */
+export const getSensorTypes = async (): Promise<string[]> => {
+	const data = await pgClient?.from('list_sensors').select('sensor_type');
+	const rows = (data?.data ?? []) as { sensor_type: string }[];
+	return Array.from(new Set(rows.map((r) => r.sensor_type).filter(Boolean)));
 };
 
 /**
