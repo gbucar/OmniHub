@@ -1,6 +1,6 @@
 import { browser } from '$app/environment';
 import type { PageLoad } from './$types';
-import { getSensors } from '$lib/api';
+import { getSensors, getSensorTypes } from '$lib/api';
 import type { Sensor } from '$lib/api';
 
 export const load: PageLoad = async () => {
@@ -9,14 +9,19 @@ export const load: PageLoad = async () => {
 	if (!browser) {
 		return {
 			sensors: [] as Sensor[],
-			totalCount: 0
+			totalCount: 0,
+			sensorTypes: [] as string[]
 		};
 	}
 
-	const sensors = await getSensors();
+	const [sensorsResult, sensorTypes] = await Promise.all([
+		getSensors({ limit: 100, offset: 0 }),
+		getSensorTypes()
+	]);
 
 	return {
-		sensors,
-		totalCount: sensors.length
+		sensors: sensorsResult.data,
+		totalCount: sensorsResult.count,
+		sensorTypes
 	};
 };
