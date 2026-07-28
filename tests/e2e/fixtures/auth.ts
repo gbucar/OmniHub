@@ -27,7 +27,7 @@ export const test = base.extend<AuthFixtures>({
 	authenticatedPage: async ({ page }, use) => {
 		await page.goto('/auth/login');
 		await page.getByLabel('Username').fill(ADMIN_USERNAME);
-		await page.getByLabel('Password').fill(ADMIN_PASSWORD);
+		await page.getByPlaceholder('Enter your password').fill(ADMIN_PASSWORD);
 		await page.getByRole('button', { name: 'Sign In' }).click();
 		await page.waitForURL('/');
 		await use(page);

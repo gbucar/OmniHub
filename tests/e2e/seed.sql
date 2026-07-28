@@ -5,7 +5,10 @@
 -- ALL VALUES ARE DETERMINISTIC — no NOW(), no random(), fixed IDs throughout.
 -- ============================================================================
 
-SET search_path TO auth, data, public;
+SET search_path TO auth, data, public, postgis;
+
+-- Ensure PostGIS is available for ST_GeogFromText()
+CREATE EXTENSION IF NOT EXISTS postgis;
 
 -- ============================================================================
 -- 1. USERS (auth.users)
@@ -19,7 +22,8 @@ INSERT INTO auth.users (id, username, password, role) VALUES
     ('00000000-0000-4000-a000-000000000003', 'test_participant_2', 'test123',         'webuser'),
     ('00000000-0000-4000-a000-000000000004', 'test_participant_3', 'test123',         'webuser'),
     ('00000000-0000-4000-a000-000000000005', 'test_participant_4', 'test123',         'webuser'),
-    ('00000000-0000-4000-a000-000000000006', 'test_participant_5', 'test123',         'webuser');
+    ('00000000-0000-4000-a000-000000000006', 'test_participant_5', 'test123',         'webuser')
+ON CONFLICT (username) DO NOTHING;
 
 -- ============================================================================
 -- 2. PARTICIPANTS (data.participants)

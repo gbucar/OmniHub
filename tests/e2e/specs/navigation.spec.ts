@@ -10,7 +10,7 @@ test.describe('Navigation', () => {
 		// Login manually
 		await page.goto('/auth/login');
 		await page.getByLabel('Username').fill('admin_user');
-		await page.getByLabel('Password').fill('admin_geslo_123');
+		await page.getByPlaceholder('Enter your password').fill('admin_geslo_123');
 		await page.getByRole('button', { name: 'Sign In' }).click();
 		await page.waitForURL('/');
 
@@ -22,7 +22,7 @@ test.describe('Navigation', () => {
 		// Click Devices link
 		await page.getByRole('link', { name: /Devices/ }).first().click();
 		await expect(page).toHaveURL('/devices');
-		await expect(page.getByRole('heading', { name: 'Devices' })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Devices', level: 1 })).toBeVisible();
 
 		// Click Dashboard link
 		await page.getByRole('link', { name: /Dashboard/ }).first().click();
@@ -33,7 +33,7 @@ test.describe('Navigation', () => {
 	test('NAV-02 — hamburger dropdown contains Users, Devices, Logout', async ({ page }) => {
 		await page.goto('/auth/login');
 		await page.getByLabel('Username').fill('admin_user');
-		await page.getByLabel('Password').fill('admin_geslo_123');
+		await page.getByPlaceholder('Enter your password').fill('admin_geslo_123');
 		await page.getByRole('button', { name: 'Sign In' }).click();
 		await page.waitForURL('/');
 
@@ -51,7 +51,7 @@ test.describe('Navigation', () => {
 	test('NAV-03 — theme toggle changes theme', async ({ page }) => {
 		await page.goto('/auth/login');
 		await page.getByLabel('Username').fill('admin_user');
-		await page.getByLabel('Password').fill('admin_geslo_123');
+		await page.getByPlaceholder('Enter your password').fill('admin_geslo_123');
 		await page.getByRole('button', { name: 'Sign In' }).click();
 		await page.waitForURL('/');
 
@@ -73,7 +73,7 @@ test.describe('Navigation', () => {
 	test('NAV-04 — theme persists after page reload', async ({ page }) => {
 		await page.goto('/auth/login');
 		await page.getByLabel('Username').fill('admin_user');
-		await page.getByLabel('Password').fill('admin_geslo_123');
+		await page.getByPlaceholder('Enter your password').fill('admin_geslo_123');
 		await page.getByRole('button', { name: 'Sign In' }).click();
 		await page.waitForURL('/');
 

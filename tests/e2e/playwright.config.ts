@@ -23,12 +23,6 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
 
-  webServer: {
-    command: 'echo "Using existing docker stack"',
-    url: 'http://localhost:3001',
-    reuseExistingServer: !process.env.CI,
-  },
-
   projects: [
     {
       name: 'chromium',

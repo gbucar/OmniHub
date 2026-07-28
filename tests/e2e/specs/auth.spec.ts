@@ -11,7 +11,7 @@ import { expectErrorToast, expectSuccessToast } from '../helpers/selectors';
 async function login(page: import('@playwright/test').Page, username: string, password: string) {
 	await page.goto('/auth/login');
 	await page.getByLabel('Username').fill(username);
-	await page.getByLabel('Password').fill(password);
+	await page.getByPlaceholder('Enter your password').fill(password);
 	await page.getByRole('button', { name: 'Sign In' }).click();
 }
 

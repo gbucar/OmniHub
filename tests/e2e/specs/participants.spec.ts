@@ -103,7 +103,7 @@ test.describe('Participants', () => {
 		const dialog = page.locator('dialog[open]');
 
 		await dialog.getByLabel('Username').fill(uniqueUsername);
-		await dialog.getByLabel('Password').fill('testpass123');
+		await dialog.getByPlaceholder('Enter password').fill('testpass123');
 		await dialog.getByLabel('Name').fill('Test User');
 		await dialog.getByLabel('Age').fill('30');
 		await dialog.getByLabel('Sex').selectOption('male');
@@ -320,7 +320,7 @@ test.describe('Participants', () => {
 		const dialog = page.locator('dialog[open]');
 
 		await dialog.getByLabel('Username').fill(uniqueUsername);
-		await dialog.getByLabel('Password').fill('testpass123');
+		await dialog.getByPlaceholder('Enter password').fill('testpass123');
 		await dialog.getByLabel('Name').fill('Toast User');
 		await dialog.getByLabel('Age').fill('25');
 		await dialog.getByLabel('Sex').selectOption('female');
