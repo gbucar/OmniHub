@@ -2,9 +2,21 @@
 	import '../app.css';
 	import favicon from '$lib/assets/favicon.svg';
 	import { clearAuth, user } from '$lib/api';
-	import { goto } from '$app/navigation';
+	import { goto, onNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import Toast from '$lib/components/Toast.svelte';
+
+	// Enables browser-native crossfade transitions between all client-side navigations.
+	// Falls back gracefully in browsers that don't support the View Transitions API.
+	onNavigate((navigation) => {
+		if (!document.startViewTransition) return;
+		return new Promise((resolve) => {
+			document.startViewTransition(async () => {
+				resolve();
+				await navigation.complete;
+			});
+		});
+	});
 
 	const logout = () => {
 		clearAuth();

@@ -58,7 +58,9 @@
 
 	$effect(() => {
 		if (show) {
-			panelVisible = true;
+			// Defer to the next task so the browser paints the initial
+			// translate-x-full position first, then animates the slide-in.
+			setTimeout(() => (panelVisible = true), 0);
 		} else {
 			panelVisible = false;
 			editingStudyId = null;
@@ -68,7 +70,8 @@
 
 	$effect(() => {
 		if (selectedParticipant) {
-			panelVisible = true;
+			// Same pattern: let the panel render first, then slide in.
+			setTimeout(() => (panelVisible = true), 0);
 			isEditing = false;
 			editedProperties = {
 				name: (selectedParticipant.properties?.name as string) || '',

@@ -27,14 +27,13 @@
 	import BulkUploadModal from '$lib/components/modals/BulkUploadModal.svelte';
 	import ParticipantDetailsPanel from '$lib/components/ParticipantDetailsPanel.svelte';
 	import StudyBadges from '$lib/components/StudyBadges.svelte';
-	import { onMount } from 'svelte';
+	let { data } = $props();
 
-	let mounted = $state(false);
-	onMount(() => setTimeout(() => (mounted = true), 50));
+	let isInitialLoad = $state(true);
 
-	let participants = $state.raw<Participant[]>([]);
-	let studies = $state.raw<Study[]>([]);
-	let totalCount = $state(0);
+	let participants = $state.raw<Participant[]>(data.participants);
+	let studies = $state.raw<Study[]>(data.studies);
+	let totalCount = $state(data.totalCount);
 	let isLoadingParticipants = $state(false);
 	let isLoadingStudies = $state(false);
 	let currentPage = $state(1);
@@ -93,12 +92,11 @@
 
 	$effect(() => {
 		currentPage;
-		loadParticipants();
-	});
-
-	$effect(() => {
-		loadStudies();
-		loadSensors();
+		if (!isInitialLoad) {
+			loadParticipants();
+		} else {
+			isInitialLoad = false;
+		}
 	});
 
 	let showLoading = $derived(isLoadingParticipants && participants.length === 0);
@@ -133,7 +131,7 @@
 	let studyStart = $state('');
 	let studyEnd = $state('');
 
-	let sensors = $state.raw<Sensor[]>([]);
+	let sensors = $state.raw<Sensor[]>(data.sensors);
 	let showAddDeviceModal = $state(false);
 	let newOwnership = $state({
 		sensor_id: '',
@@ -449,7 +447,7 @@
 	></div>
 
 	<div class="relative z-10 flex h-full flex-col gap-4 p-4 lg:p-6">
-		<div class="flex items-center justify-between {mounted ? 'animate-fade-in-up' : 'opacity-0'}">
+		<div class="flex items-center justify-between">
 			<div>
 				<h1 class="font-display text-2xl font-bold">Participants</h1>
 				<p class="mt-1 font-mono text-sm text-base-content/50">
@@ -550,7 +548,7 @@
 			</div>
 		</div>
 
-		<div class="card bg-base-200 {mounted ? 'animate-fade-in-up stagger-1' : 'opacity-0'}">
+		<div class="card bg-base-200">
 			<div class="card-body p-4 lg:p-6">
 				<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
 					<div class="form-control">
@@ -608,9 +606,7 @@
 		</div>
 
 		<div
-			class="card min-h-0 flex-1 overflow-hidden bg-base-200 {mounted
-				? 'animate-fade-in-up stagger-2'
-				: 'opacity-0'}"
+			class="card min-h-0 flex-1 overflow-hidden bg-base-200"
 		>
 			<div class="h-full overflow-x-auto">
 				<table class="table">

@@ -1,12 +1,5 @@
 <script lang="ts">
 	import { user } from '$lib/api';
-	import { onMount } from 'svelte';
-
-	let mounted = $state(false);
-
-	onMount(() => {
-		setTimeout(() => (mounted = true), 50);
-	});
 </script>
 
 <svelte:head>
@@ -21,7 +14,7 @@
 	{#if $user.isLoggedIn}
 		<div class="relative z-10 flex h-full flex-col items-center justify-center p-8">
 			<div
-				class="card max-w-lg bg-base-200 shadow-2xl {mounted ? 'animate-fade-in-up' : 'opacity-0'}"
+				class="card max-w-lg bg-base-200 shadow-2xl"
 			>
 				<div class="card-body items-center p-8 text-center">
 					<div class="relative mb-6">
@@ -69,7 +62,7 @@
 		</div>
 	{:else}
 		<div class="flex h-full items-center justify-center">
-			<div class="card bg-base-200 shadow-xl {mounted ? 'animate-fade-in-up' : 'opacity-0'}">
+			<div class="card bg-base-200 shadow-xl">
 				<div class="card-body items-center p-8 text-center">
 					<div
 						class="mb-4 flex h-14 w-14 items-center justify-center rounded-xl border border-neutral/20 bg-base-300"

@@ -11,16 +11,14 @@
 		type RecentObservation
 	} from '$lib/api';
 	import { showToast } from '$lib/stores/toast';
-	import { onMount } from 'svelte';
 	import DeviceDetailsPanel from '$lib/components/DeviceDetailsPanel.svelte';
 	import SensorStatusBadge from '$lib/components/SensorStatusBadge.svelte';
 
-	let mounted = $state(false);
-	onMount(() => setTimeout(() => (mounted = true), 50));
+	let { data } = $props();
 
 	// --- sensor list state ---
-	let sensors = $state.raw<Sensor[]>([]);
-	let totalCount = $state(0);
+	let sensors = $state.raw<Sensor[]>(data.sensors);
+	let totalCount = $state(data.totalCount);
 	let isLoadingSensors = $state(false);
 	let currentPage = $state(1);
 	let pageSize = $state(100);
@@ -136,8 +134,14 @@
 		currentPage = 1;
 	});
 
+	let isInitialLoad = $state(true);
+
 	$effect(() => {
-		loadSensors();
+		if (!isInitialLoad) {
+			loadSensors();
+		} else {
+			isInitialLoad = false;
+		}
 	});
 
 	// --- sensor CRUD handlers ---
@@ -242,7 +246,7 @@
 			</div>
 		</div>
 
-		<div class="flex items-center justify-between {mounted ? 'animate-fade-in-up' : 'opacity-0'}">
+		<div class="flex items-center justify-between">
 			<div>
 				<h1 class="font-display text-2xl font-bold">Devices</h1>
 				<p class="mt-1 font-mono text-sm text-base-content/50">
@@ -256,7 +260,7 @@
 			</div>
 		</div>
 
-		<div class="card bg-base-200 {mounted ? 'animate-fade-in-up stagger-1' : 'opacity-0'}">
+		<div class="card bg-base-200">
 			<div class="card-body p-4 lg:p-6">
 				<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
 					<div class="form-control">
@@ -330,9 +334,7 @@
 		</div>
 
 		<div
-			class="card min-h-0 flex-1 overflow-hidden bg-base-200 {mounted
-				? 'animate-fade-in-up stagger-2'
-				: 'opacity-0'}"
+			class="card min-h-0 flex-1 overflow-hidden bg-base-200"
 		>
 			<div class="h-full overflow-x-auto">
 				<table class="table">
