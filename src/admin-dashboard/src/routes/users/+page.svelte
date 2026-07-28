@@ -158,7 +158,7 @@
 
 	async function loadSensors() {
 		try {
-			sensors = await getSensors();
+			sensors = (await getSensors()).data;
 		} catch (error) {
 			console.error('Failed to load sensors:', error);
 		}

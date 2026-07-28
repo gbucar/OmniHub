@@ -97,7 +97,7 @@
 
 	async function loadSensors() {
 		try {
-			sensors = await getSensors();
+			sensors = (await getSensors()).data;
 			sensorsLoaded = true;
 		} catch (error) {
 			// Leave `sensorsLoaded = false` so the step-3 warning stays
