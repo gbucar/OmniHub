@@ -4,7 +4,7 @@
 
 import { test } from '../fixtures/auth';
 import { expect } from '@playwright/test';
-import { expectSuccessToast, expectErrorToast } from '../helpers/selectors';
+import { expectSuccessToast } from '../helpers/selectors';
 
 test.describe('Studies', () => {
 	test.beforeEach(async ({ authenticatedPage: page }) => {
@@ -37,7 +37,7 @@ test.describe('Studies', () => {
 		await expectSuccessToast(page, 'Study');
 	});
 
-	test('STD-02 — empty study name shows validation error', async ({ authenticatedPage: page }) => {
+	test('STD-02 — empty study name disables create button', async ({ authenticatedPage: page }) => {
 		await page.getByRole('button', { name: 'Add Study' }).click();
 		await page.waitForSelector('dialog[open]');
 		const dialog = page.locator('dialog[open]');
@@ -47,14 +47,12 @@ test.describe('Studies', () => {
 		await dialog.getByLabel('Start Date').fill(today);
 		await dialog.getByLabel('End Date').fill(today);
 
-		// Submit (button text is "Create")
-		await dialog.getByRole('button', { name: 'Create' }).click();
-
-		// Should show error toast (from handleAddStudy validation)
-		await expectErrorToast(page);
+		// Create button should be disabled when name is empty
+		const createBtn = dialog.getByRole('button', { name: 'Create' });
+		await expect(createBtn).toBeDisabled();
 	});
 
-	test('STD-03 — end date before start date shows validation error', async ({ authenticatedPage: page }) => {
+	test('STD-03 — end date before start date shows inline error', async ({ authenticatedPage: page }) => {
 		await page.getByRole('button', { name: 'Add Study' }).click();
 		await page.waitForSelector('dialog[open]');
 		const dialog = page.locator('dialog[open]');
@@ -66,9 +64,12 @@ test.describe('Studies', () => {
 		await dialog.getByLabel('Start Date').fill(today);
 		await dialog.getByLabel('End Date').fill(yesterday);
 
-		await dialog.getByRole('button', { name: 'Create' }).click();
+		// Inline error alert should be visible inside the dialog
+		await expect(dialog.locator('.alert-error')).toBeVisible();
+		await expect(dialog.locator('.alert-error')).toContainText('End date must be on or after start date');
 
-		// Should show error about dates
-		await expectErrorToast(page);
+		// Create button should be disabled
+		const createBtn = dialog.getByRole('button', { name: 'Create' });
+		await expect(createBtn).toBeDisabled();
 	});
 });

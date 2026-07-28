@@ -35,6 +35,7 @@ test.describe('Participants', () => {
 	});
 
 	test('PRT-02 — Iskanje po imenu', async ({ authenticatedPage: page }) => {
+		await expect(page.getByText('Ana Test')).toBeVisible();
 		await page.getByLabel('Search').fill('Ana');
 		await page.waitForTimeout(400);
 		await expect(page.getByText('Ana Test')).toBeVisible();
@@ -42,6 +43,7 @@ test.describe('Participants', () => {
 	});
 
 	test('PRT-03 — Iskanje po uporabniškem imenu', async ({ authenticatedPage: page }) => {
+		await expect(page.getByText('Ana Test')).toBeVisible();
 		await page.getByLabel('Search').fill('test_participant_4');
 		await page.waitForTimeout(400);
 		await expect(page.getByText('test_participant_4')).toBeVisible();
@@ -49,6 +51,7 @@ test.describe('Participants', () => {
 	});
 
 	test('PRT-04 — Filter po študiji', async ({ authenticatedPage: page }) => {
+		await expect(page.getByText('Ana Test')).toBeVisible();
 		await page.getByLabel('Study').selectOption('Test Study Alpha');
 		await page.waitForTimeout(500);
 		await expect(page.getByText('Ana Test')).toBeVisible();
@@ -58,13 +61,15 @@ test.describe('Participants', () => {
 	});
 
 	test('PRT-05 — Paginacija — spreminjanje page size', async ({ authenticatedPage: page }) => {
+		await expect(page.getByText('Ana Test')).toBeVisible();
 		await page.getByLabel('Records per page').selectOption('10');
 		await page.waitForTimeout(300);
 		await expect(page.getByText('Ana Test')).toBeVisible();
 	});
 
 	test('PRT-06 — Paginacija — prev/next gumba', async ({ authenticatedPage: page }) => {
-		// Select smallest page size (10). With 5 seeded participants all fit on one page.
+		// With 10 participants and pageSize=10, all fit on one page
+		await expect(page.getByText('Ana Test')).toBeVisible();
 		await page.getByLabel('Records per page').selectOption('10');
 		await page.waitForTimeout(300);
 
@@ -82,10 +87,12 @@ test.describe('Participants', () => {
 
 	test('PRT-07 — "X of Y records" prikazuje pravilno', async ({ authenticatedPage: page }) => {
 		await waitForParticipantsTable(page);
+		await expect(page.getByText('Ana Test')).toBeVisible();
 		await expect(page.getByText(/\d+ of \d+ records/)).toBeVisible();
 	});
 
 	test('PRT-08 — "No participants found" ob neobstoječem iskanju', async ({ authenticatedPage: page }) => {
+		await expect(page.getByText('Ana Test')).toBeVisible();
 		await page.getByLabel('Search').fill('ZZZ_NONEXISTENT_ZZZ');
 		await page.waitForTimeout(500);
 		await expect(page.getByText('No participants found')).toBeVisible();
@@ -98,6 +105,7 @@ test.describe('Participants', () => {
 	test('PRT-09 — Dodajanje novega participanta', async ({ authenticatedPage: page }) => {
 		const uniqueUsername = `e2e_new_user_${Date.now()}`;
 
+		await expect(page.getByText('Ana Test')).toBeVisible();
 		await page.getByRole('button', { name: 'Add Participant' }).click();
 		await page.waitForSelector('dialog[open]');
 		const dialog = page.locator('dialog[open]');
@@ -113,7 +121,6 @@ test.describe('Participants', () => {
 
 		// Search for the new user to verify it appears in table
 		await page.getByLabel('Search').fill(uniqueUsername);
-		await page.waitForTimeout(400);
 		await expect(page.getByText(uniqueUsername)).toBeVisible();
 	});
 
@@ -168,8 +175,13 @@ test.describe('Participants', () => {
 	test('PRT-12 — Sidebar — edit personal info', async ({ authenticatedPage: page }) => {
 		await openParticipantDetails(page, 'test_participant_1');
 
-		// Enter edit mode
-		await page.getByRole('button', { name: 'Edit' }).click();
+		// Enter edit mode — wait for Edit button to be visible in the sidebar
+		const editButton = page.getByRole('button', { name: 'Edit' });
+		await editButton.waitFor({ state: 'visible' });
+		await editButton.click();
+
+		// Wait for form fields to appear after clicking Edit
+		await page.getByRole('textbox', { name: 'Name' }).waitFor({ state: 'visible' });
 		await page.getByRole('textbox', { name: 'Name' }).fill('Ana Modified');
 		await page.getByRole('spinbutton', { name: 'Age' }).fill('26');
 		await page.getByRole('button', { name: 'Save' }).click();
@@ -188,7 +200,12 @@ test.describe('Participants', () => {
 	test('PRT-13 — Sidebar — validacija imena (samo črke)', async ({ authenticatedPage: page }) => {
 		await openParticipantDetails(page, 'test_participant_2');
 
-		await page.getByRole('button', { name: 'Edit' }).click();
+		const editButton = page.getByRole('button', { name: 'Edit' });
+		await editButton.waitFor({ state: 'visible' });
+		await editButton.click();
+
+		// Wait for the form fields to be visible in edit mode
+		await page.getByRole('textbox', { name: 'Name' }).waitFor({ state: 'visible' });
 		await page.getByRole('textbox', { name: 'Name' }).fill('Bojan123');
 		await page.getByRole('button', { name: 'Save' }).click();
 
@@ -199,7 +216,12 @@ test.describe('Participants', () => {
 	test('PRT-14 — Sidebar — Cancel urejanja', async ({ authenticatedPage: page }) => {
 		await openParticipantDetails(page, 'test_participant_2');
 
-		await page.getByRole('button', { name: 'Edit' }).click();
+		const editButton = page.getByRole('button', { name: 'Edit' });
+		await editButton.waitFor({ state: 'visible' });
+		await editButton.click();
+
+		// Wait for the form fields to be visible in edit mode
+		await page.getByRole('textbox', { name: 'Name' }).waitFor({ state: 'visible' });
 		await page.getByRole('textbox', { name: 'Name' }).fill('Temp Name');
 		await page.getByRole('button', { name: 'Cancel' }).click();
 
@@ -220,8 +242,10 @@ test.describe('Participants', () => {
 		await openParticipantDetails(page, 'test_participant_4');
 
 		await page.getByRole('button', { name: 'Add' }).click();
-		await page.waitForSelector('dialog[open]');
-		const dialog = page.locator('dialog[open]');
+
+		// Wait for the Add to Study dialog to open
+		await expect(page.getByRole('heading', { name: 'Add to Study' })).toBeVisible();
+		const dialog = page.getByRole('dialog');
 
 		// Select first available study (Test Study Alpha)
 		await dialog.getByLabel('Select Study').selectOption({ index: 1 });
@@ -244,6 +268,9 @@ test.describe('Participants', () => {
 
 		await page.getByLabel('Edit study').click();
 
+		// Wait for edit mode date inputs to appear
+		await page.getByLabel('Edit start date').waitFor({ state: 'visible' });
+
 		const today = new Date().toISOString().split('T')[0];
 		const nextYear = new Date();
 		nextYear.setFullYear(nextYear.getFullYear() + 1);
@@ -265,8 +292,11 @@ test.describe('Participants', () => {
 		// Wait for Assign Device modal (custom dialog, not HTML <dialog>)
 		await expect(page.getByRole('heading', { name: 'Assign Device' })).toBeVisible();
 
+		// Scope to the dialog for all subsequent interactions
+		const dialog = page.getByRole('dialog', { name: 'Assign Device' });
+
 		// Type sensor name to filter the dropdown
-		await page.getByLabel('Select Sensor').fill('Test Sensor Beta');
+		await dialog.getByLabel('Select Sensor').fill('Test Sensor Beta');
 
 		// Click the matching option from the dropdown
 		const option = page.getByRole('option', { name: 'Test Sensor Beta' });
@@ -278,14 +308,11 @@ test.describe('Participants', () => {
 		nextYear.setFullYear(nextYear.getFullYear() + 1);
 		const endDate = nextYear.toISOString().split('T')[0];
 
-		await page.getByLabel('Start Date').fill(today);
-		await page.getByLabel('End Date').fill(endDate);
+		await dialog.getByLabel('Start Date').fill(today);
+		await dialog.getByLabel('End Date').fill(endDate);
 
 		// Submit via the dialog's Assign button
-		await page
-			.getByRole('dialog', { name: 'Assign Device' })
-			.getByRole('button', { name: 'Assign' })
-			.click();
+		await dialog.getByRole('button', { name: 'Assign' }).click();
 
 		await expectSuccessToast(page, 'Device');
 	});
@@ -295,6 +322,9 @@ test.describe('Participants', () => {
 		await openParticipantDetails(page, 'test_participant_1');
 
 		await page.getByLabel('Edit device').click();
+
+		// Wait for edit mode date inputs to appear
+		await page.getByLabel('Edit start date').waitFor({ state: 'visible' });
 
 		const today = new Date().toISOString().split('T')[0];
 		const nextYear = new Date();
@@ -316,8 +346,10 @@ test.describe('Participants', () => {
 		const uniqueUsername = `e2e_toast_${Date.now()}`;
 
 		await page.getByRole('button', { name: 'Add Participant' }).click();
-		await page.waitForSelector('dialog[open]');
-		const dialog = page.locator('dialog[open]');
+
+		// Wait for the dialog to open and scope all interactions
+		await expect(page.getByRole('heading', { name: 'Add Participant' })).toBeVisible();
+		const dialog = page.getByRole('dialog');
 
 		await dialog.getByLabel('Username').fill(uniqueUsername);
 		await dialog.getByPlaceholder('Enter password').fill('testpass123');
@@ -335,7 +367,12 @@ test.describe('Participants', () => {
 	test('PRT-22 — Error toast ob validacijski napaki', async ({ authenticatedPage: page }) => {
 		await openParticipantDetails(page, 'test_participant_3');
 
-		await page.getByRole('button', { name: 'Edit' }).click();
+		const editButton = page.getByRole('button', { name: 'Edit' });
+		await editButton.waitFor({ state: 'visible' });
+		await editButton.click();
+
+		// Wait for the form field to appear in edit mode
+		await page.getByRole('textbox', { name: 'Name' }).waitFor({ state: 'visible' });
 		await page.getByRole('textbox', { name: 'Name' }).fill('Cvetka123');
 		await page.getByRole('button', { name: 'Save' }).click();
 

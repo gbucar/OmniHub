@@ -35,10 +35,18 @@ export async function waitForDevicesTable(page: Page): Promise<void> {
  * @param username - The participant's username to find in the table
  */
 export async function openParticipantDetails(page: Page, username: string): Promise<void> {
-	const row = page.getByRole('row', { name: new RegExp(username) });
+	// Table rows use role="button" (explicit) which overrides implicit row role,
+	// so we must target them as buttons. Each <tr role="button"> has an accessible
+	// name built from all of its cell contents (username, studies, name).
+	const row = page.getByRole('button', { name: new RegExp(username) });
 	await row.click();
-	// Wait for the slide-in panel to be visible
-	await page.waitForTimeout(300); // CSS transition is 200ms
+
+	// Wait for the sidebar panel to slide in and fully render
+	// (CSS transition 200ms + reactive state + potential API calls for studies/devices)
+	await page.waitForTimeout(500);
+
+	// Confirm the sidebar is actually visible by waiting for its heading or username
+	await page.getByText(new RegExp(`@${username}`)).waitFor({ state: 'visible', timeout: 5000 });
 }
 
 /**
