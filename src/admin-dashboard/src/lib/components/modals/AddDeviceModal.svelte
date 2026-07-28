@@ -56,8 +56,9 @@
 
 	$effect(() => {
 		if (show) {
-			// trigger next tick so the transition can animate from translate-y-4 to translate-y-0
-			queueMicrotask(() => (panelVisible = true));
+			// Defer to the next task so the browser paints the initial
+			// translate-y-4 position first, then animates to translate-y-0.
+			setTimeout(() => (panelVisible = true), 0);
 		} else {
 			panelVisible = false;
 		}

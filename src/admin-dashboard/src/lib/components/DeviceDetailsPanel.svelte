@@ -78,9 +78,9 @@
 	// --- slide-in animation, mirrors ParticipantDetailsPanel ---
 	$effect(() => {
 		if (show) {
-			// Defer to the next microtask so the browser paints the initial
+			// Defer to the next task so the browser paints the initial
 			// translate-x-full position first, then animates the slide-in.
-			queueMicrotask(() => (panelVisible = true));
+			setTimeout(() => (panelVisible = true), 0);
 		} else {
 			panelVisible = false;
 		}
@@ -90,7 +90,7 @@
 	$effect(() => {
 		if (selectedSensor) {
 			// Same pattern: let the panel render first, then slide in.
-			queueMicrotask(() => (panelVisible = true));
+			setTimeout(() => (panelVisible = true), 0);
 			isEditing = false;
 			seedFromSensor(selectedSensor);
 		}
