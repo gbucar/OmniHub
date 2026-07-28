@@ -1,13 +1,12 @@
 import { PostgrestClient } from '@supabase/postgrest-js';
-import { env } from '$env/dynamic/public';
 import { browser } from '$app/environment';
 import { writable, type Writable } from 'svelte/store';
 import { createUser, type User } from './types';
 
-const pgUrl = env.PUBLIC_POSTGREST_URL;
+const pgUrl: string | undefined = import.meta.env.POSTGREST_URL;
 if (browser && !pgUrl) {
 	console.warn(
-		'PUBLIC_POSTGREST_URL is not set. API calls will fail. Set it in the container environment or .env file.'
+		'POSTGREST_URL is not set. API calls will fail. Set it in the container environment or .env file.'
 	);
 }
 

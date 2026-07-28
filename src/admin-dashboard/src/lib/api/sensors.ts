@@ -332,7 +332,8 @@ export const getRecentObservations = async (
 				data_streams!inner (
 					id,
 					sensor_id,
-					name
+					name,
+					unit_of_measurement
 				),
 				locations (
 					properties
@@ -345,7 +346,7 @@ export const getRecentObservations = async (
 
 	const raw = (data?.data ?? []) as Record<string, unknown>[];
 	return raw.map((item) => {
-		const ds = item.data_streams as { id: number; name: string } | null;
+		const ds = item.data_streams as { id: number; name: string; unit_of_measurement: string | null } | null;
 		const loc = item.locations as
 			| { properties: Record<string, unknown> | null }
 			| { properties: Record<string, unknown> | null }[]
@@ -357,6 +358,7 @@ export const getRecentObservations = async (
 			id: item.id as number,
 			data_stream_id: item.data_stream_id as number,
 			data_stream_name: ds?.name ?? '—',
+			unit_of_measurement: ds?.unit_of_measurement ?? null,
 			phenomenon_time: String(item.phenomenon_time ?? ''),
 			result: Number(item.result ?? 0),
 			location: city

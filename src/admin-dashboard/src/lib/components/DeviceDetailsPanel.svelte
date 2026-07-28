@@ -89,13 +89,16 @@
 	}
 
 	/**
-	 * Compact ISO -> "YYYY-MM-DD HH:MM" formatter for the observations
-	 * mini-table. Truncates the input to 16 chars (the prefix of any
-	 * ISO-like timestamptz) and replaces the 'T' separator with a space.
+	 * Parses a tstzrange value (serialized as `["2026-07-27 01:53+00","...")`)
+	 * and formats the lower bound as "YYYY-MM-DD HH:MM".
+	 * Falls back to direct slicing for plain ISO timestamps.
 	 */
 	const formatPhenomenonTime = (raw: string): string => {
 		if (!raw) return '—';
-		return raw.slice(0, 16).replace('T', ' ');
+		// tstzrange format: ["lower","upper") or ["lower","upper"]
+		const match = raw.match(/"([^"]+)"/);
+		const iso = match ? match[1] : raw;
+		return iso.slice(0, 16).replace('T', ' ');
 	};
 
 	// user_id: 'user-abc' / '00000000-...' → first letter for the avatar
@@ -423,16 +426,17 @@
 						{:else}
 							<div class="space-y-1">
 								<div
-									class="grid grid-cols-[1.4fr_1fr_0.8fr_0.8fr] gap-2 px-1 pb-1 font-mono text-[10px] tracking-wider text-base-content/30 uppercase"
+									class="grid grid-cols-[1.2fr_0.8fr_0.7fr_0.5fr_0.8fr] gap-2 px-1 pb-1 font-mono text-[10px] tracking-wider text-base-content/30 uppercase"
 								>
 									<span>Time</span>
 									<span>Stream</span>
 									<span class="text-right">Result</span>
+									<span class="text-right">Unit</span>
 									<span class="text-right">Location</span>
 								</div>
 								{#each recentObservations as obs (obs.id)}
 									<div
-										class="grid grid-cols-[1.4fr_1fr_0.8fr_0.8fr] items-center gap-2 rounded-md bg-base-200 px-2 py-1.5"
+										class="grid grid-cols-[1.2fr_0.8fr_0.7fr_0.5fr_0.8fr] items-center gap-2 rounded-md bg-base-200 px-2 py-1.5"
 									>
 										<span class="truncate font-mono text-xs text-base-content/70">
 											{formatPhenomenonTime(obs.phenomenon_time)}
@@ -442,6 +446,9 @@
 										</span>
 										<span class="truncate text-right font-mono text-xs font-medium text-primary">
 											{Number(obs.result).toFixed(2)}
+										</span>
+										<span class="truncate text-right font-mono text-[10px] text-base-content/40 uppercase">
+											{obs.unit_of_measurement ?? '—'}
 										</span>
 										<span class="truncate text-right font-mono text-xs text-base-content/60">
 											{obs.location ?? '—'}
