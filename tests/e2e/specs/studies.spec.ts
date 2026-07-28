@@ -8,7 +8,7 @@ import { expectSuccessToast, expectErrorToast } from '../helpers/selectors';
 
 test.describe('Studies', () => {
 	test.beforeEach(async ({ authenticatedPage: page }) => {
-		await page.goto('/users');
+		// Fixture already navigates to /users via client-side link
 		await page.waitForLoadState('networkidle');
 	});
 

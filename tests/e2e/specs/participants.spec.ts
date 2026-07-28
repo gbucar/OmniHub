@@ -19,7 +19,7 @@ import {
 
 test.describe('Participants', () => {
 	test.beforeEach(async ({ authenticatedPage: page }) => {
-		await page.goto('/users');
+		// Fixture already navigates to /users via client-side link — no need for page.goto
 		await page.waitForLoadState('networkidle');
 	});
 

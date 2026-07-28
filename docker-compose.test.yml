@@ -9,14 +9,18 @@
 # depends_on: condition zaradi omejitev podman-compose.
 
 services:
-  # --- Override: admin-dashboard se builda iz source ---
+  # --- Override: admin-dashboard v dev načinu (Vite) ---
   admin-dashboard:
-    # Odstranimo image — vedno build iz lokalne kode
     build:
       context: ./src/admin-dashboard
+      dockerfile: Dockerfile.dev
+      args:
+        PUBLIC_POSTGREST_URL: http://postgrest:3000
     image: omnihub-admin-dashboard:test
     environment:
       - PUBLIC_POSTGREST_URL=http://postgrest:3000
+      - HOST=0.0.0.0
+      - PORT=5173
     ports:
       - "3001:5173"
     healthcheck:

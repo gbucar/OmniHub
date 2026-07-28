@@ -30,6 +30,11 @@ export const test = base.extend<AuthFixtures>({
 		await page.getByPlaceholder('Enter your password').fill(ADMIN_PASSWORD);
 		await page.getByRole('button', { name: 'Sign In' }).click();
 		await page.waitForURL('/');
+
+		// Navigate to participants via SvelteKit client-side link (preserves auth)
+		await page.getByRole('link', { name: /Participants/ }).first().click();
+		await page.waitForURL('/users');
+		await page.waitForLoadState('networkidle');
 		await use(page);
 	}
 });
