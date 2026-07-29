@@ -27,7 +27,7 @@ Nova stran `/devices` v admin dashboardu za pregled senzorjev. Dizajn je paralel
 |---|---|---|
 | `data.sensors` tabela + RLS | `src/db/migrations/20_init.sql:127` | ✅ Admin: SELECT/INSERT/UPDATE |
 | `api.list_sensors` view z `last_activity` | `src/db/migrations/20_init.sql:823` | ✅ Vrne vse stolpce + `max(upper(phenomenon_time))` |
-| `api.sensors` view | `src/db/migrations/20_init.sql:960` | ✅ SELECT za admin |
+| `api.sensors` view | `src/db/migrations/20_init.sql:960` | ⚠️ Obstaja, a nima grantov — ni v uporabi |
 | `data.data_streams` + RLS | `src/db/migrations/20_init.sql:298` | ✅ Admin: SELECT/INSERT/UPDATE |
 | `data.observations` + `api.observations` view | `src/db/migrations/20_init.sql:390,500` | ✅ SELECT za admin |
 | `data.ownerships` + RLS + `api.ownerships` | `src/db/migrations/20_init.sql:162,950` | ✅ Admin: SELECT/INSERT/UPDATE |
@@ -49,7 +49,7 @@ Nova stran `/devices` v admin dashboardu za pregled senzorjev. Dizajn je paralel
 - `data.data_streams` že ima RLS za admin/researcher SELECT.
 - `data.ownerships` že ima RLS za admin SELECT.
 - `list_sensors` view že vrača `last_activity`.
-- **Manjkata samo** `api.data_streams` in `api.locations` view-a — brez njih PostgREST ne more streči data_streams querijev in observation embedov.
+- ~~**Manjkata samo** `api.data_streams` in `api.locations` view-a~~ — ✅ dodana z migracijo `23_views_and_grants.sql` (skupaj s popravkom grantov in LEFT JOIN v `api.observations`).
 - Za frontend ne potrebujemo enrichment view-a — lastnik, število streamov in observationov prikažemo samo v detajlnem sidebaru z dodatnimi query-ji.
 - **Urejanje senzorjev je izven scope-a** — `GRANT UPDATE ON api.sensors` ni potreben.
 
@@ -169,20 +169,20 @@ V `src/lib/api/sensors.ts`:
 /** Fetch all sensors with last_activity. Uses api.list_sensors. */
 export const getSensors = async (): Promise<Sensor[]>
 
-/** Fetch data streams for a sensor. Uses api.data_streams (⚠️ potrebuje view). */
+/** Fetch data streams for a sensor. Uses api.data_streams (✅ migracija 23). */
 export const getSensorStreams = async (sensorId: number): Promise<DataStream[]>
 
 /** Fetch ownerships, joined client-side with list_participants. */
 export const getSensorOwnerships = async (sensorId: number): Promise<SensorOwnership[]>
 
-/** Fetch recent observations with embedded data_streams + locations (⚠️ potrebuje view-a). */
+/** Fetch recent observations with embedded data_streams + locations (✅ migracija 23). */
 export const getRecentObservations = async (
   sensorId: number,
   limit?: number
 ): Promise<RecentObservation[]>
 ```
 
-> **⚠️ `getSensorStreams` in `getRecentObservations` ne delujeta** brez `api.data_streams` in `api.locations` view-ov. Glej §10.1.
+> **✅ `getSensorStreams` in `getRecentObservations` delujeta** — `api.data_streams` in `api.locations` obstajata od migracije 23. Glej §10.1.
 
 V `src/lib/api/types.ts` dodati:
 
@@ -335,28 +335,19 @@ State:
 - Upravljanje credentials (posebna stran)
 - Sort po lokaciji (lokacija je na observation, ne na senzor)
 
-## 10.1. 🔴 Manjkajoča `api.*` view-a (blokira Data Streams in Recent Observations)
+## 10.1. ✅ `api.*` view-a — ODPRAVLJENO z migracijo `23_views_and_grants.sql`
 
-Frontend in API helperji za `/devices` so implementirani, vendar Data Streams in Recent Observations kartici v sidebaru ne delujeta, ker `20_init.sql` nima 2 potrebnih `api.*` view-ev. PostgREST bere samo iz `api` sheme (`PGRST_DB_SCHEMAS=api`), zato brez teh objektov frontend dobi 404/400.
+Frontend in API helperji za `/devices` so implementirani; Data Streams in Recent Observations kartici sta zahtevali 2 manjkajoča `api.*` view-a, ki sta zdaj dodana. Poleg tega migracija 23 popravi še:
 
-**Manjkajoči SQL** (migracija `23_views_and_grants.sql`):
+- `api.observations`: INNER JOIN → **LEFT JOIN** na locations (meritve z `location_id = NULL` prej niso bile vidne v view-u),
+- `researcher`: dodan `GRANT USAGE ON SCHEMA api` (prej mrtvi grant-i na `api.*` view-e),
+- `webuser`: dodana `GRANT SELECT` na `api.data_streams` in `api.locations` — priprava za bodoči dashboard za pregled lastnih meritev (varno zaradi obstoječih RLS politik).
 
-```sql
--- 1. api.data_streams — popravi GET /data_streams (404 → 200)
-CREATE OR REPLACE VIEW api.data_streams
-WITH (security_invoker=true)
-AS SELECT id, sensor_id, name, description, unit_of_measurement, properties
-   FROM data.data_streams;
-GRANT SELECT ON api.data_streams TO admin;
-
--- 2. api.locations — popravi embed locations(properties) v observations (400 → 200)
-CREATE OR REPLACE VIEW api.locations
-WITH (security_invoker=true)
-AS SELECT id, properties, geog FROM data.locations;
-GRANT SELECT ON api.locations TO admin;
-```
+Končni SQL je v `src/db/migrations/23_views_and_grants.sql` in v `docs/TODO_DEVICES.md`.
 
 > **Opomba**: `api.users` view in `GRANT UPDATE ON api.sensors` **nista potrebna** — `getSensorOwnerships` že dela prek client-side joina na `list_participants`, urejanje senzorjev pa je izven scope-a te faze.
+>
+> **Operativno**: migracija se na obstoječi bazi NE aplicira sama (`docker-entrypoint-initdb.d` teče le ob praznem volume-u) — treba jo je pognati ročno s `psql -f`.
 
 ## 11. Kriteriji sprejetja
 
@@ -368,9 +359,9 @@ GRANT SELECT ON api.locations TO admin;
 - [x] Klik na vrstico odpre desni sidebar z detajli
 - [ ] ~~V sidebaru je mogoče urediti ime, tip, opis, status, credential_id, metadata~~ (izven scope-a — sidebar je read-only)
 - [x] V sidebaru so prikazani vsi metadata key/value pari (brez `status` ključa)
-- [ ] V sidebaru so prikazani vsi data_streams (⚠️ potrebuje `api.data_streams` view)
+- [x] V sidebaru so prikazani vsi data_streams (✅ `api.data_streams` — migracija 23)
 - [x] V sidebaru so prikazani vsi ownerships (deluje prek client-side joina)
-- [ ] V sidebaru je prikazanih zadnjih 20 observationov (⚠️ potrebuje `api.data_streams` + `api.locations` view-a)
+- [x] V sidebaru je prikazanih zadnjih 20 observationov (✅ `api.data_streams` + `api.locations` — migracija 23)
 - [x] Status badge prikazuje pravilno barvo glede na vrednost
 - [x] Navigacija v `+layout.svelte` vsebuje "Devices" povezavo
 - [x] `npm run check` in `npm run lint` brez napak

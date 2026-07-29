@@ -36,52 +36,65 @@ Treba se je odločiti med dvema pristopoma:
 5. **Spremembe `users/+page.svelte`**: handler `handleResetPassword`, povezava `on:resetPassword`.
 6. Po izbiri opcije: napisati migracijo (Opcija A) ali pustiti komentar (Opcija B).
 
-## `/devices` — Manjkajoča `api.*` view-a (blokira Data Streams in Recent Observations)
+## `/devices` — `api.*` view-a za Data Streams in Recent Observations ✅ ODPRAVLJENO
 
-### Problem
+### Problem (zgodovinsko)
 
-`/devices` stran in `DeviceDetailsPanel` sta implementirana (read-only), vendar Data Streams in Recent Observations kartici v sidebaru ne delujeta, ker `20_init.sql` nima 2 potrebnih `api.*` view-ev. PostgREST bere samo iz `PGRST_DB_SCHEMAS=api`, zato brez teh objektov frontend dobi 404/400.
+`/devices` stran in `DeviceDetailsPanel` sta implementirana (read-only), vendar Data Streams in Recent Observations kartici v sidebaru nista delovali, ker `20_init.sql` ni imel 2 potrebnih `api.*` view-ev. PostgREST bere samo iz `PGRST_DB_SCHEMAS=api`, zato je frontend dobival 404/400.
 
-### Dejansko stanje — samo 2 view-a manjkata
+### Rešitev — migracija `23_views_and_grants.sql` ✅
 
-| `api.*` view       | HTTP status | Vzrok                              | Vpliv v UI                                            |
-| ------------------ | ----------- | ---------------------------------- | ----------------------------------------------------- |
-| `list_sensors`     | 200 ✅      | Deluje                             | Seznam naprav v `/devices`                            |
-| `observations`     | 200 ✅      | Deluje                             | Osnovni SELECT dela, embedi pa ne                     |
-| `ownerships`       | 200 ✅      | Deluje                             | Lastništva (client-side join prek `list_participants`) |
-| `data_streams`     | **404**     | View ne obstaja                    | Data Streams + Recent Observations kartici prazni     |
-| `locations`        | **404**     | View ne obstaja                    | Embed `locations(properties)` v observations → 400    |
-
-> **Opomba**: `api.sensors` GRANT (za UPDATE) in `api.users` view nista potrebna — urejanje senzorjev je izven scope-a, `getSensorOwnerships` pa že dela prek client-side joina na `list_participants`.
-
-### Kaj manjka (2 view-a)
-
-#### 1. Manjkajoč view `api.data_streams`
-
-Povzroča: `GET /data_streams` → 404, `data_streams!inner` embed → 400.
+Migracija doda oba manjkajoča view-a in hkrati popravi še tri neskladja iz `20_init.sql`:
 
 ```sql
+-- 1. api.data_streams — popravi GET /data_streams (404 → 200)
 CREATE OR REPLACE VIEW api.data_streams
 WITH (security_invoker=true)
 AS SELECT id, sensor_id, name, description, unit_of_measurement, properties
    FROM data.data_streams;
 GRANT SELECT ON api.data_streams TO admin;
-```
+GRANT SELECT ON api.data_streams TO webuser;
+GRANT SELECT ON api.data_streams TO researcher;
 
-#### 2. Manjkajoč view `api.locations`
-
-Povzroča: `locations(properties)` embed v observations → 400.
-
-```sql
+-- 2. api.locations — popravi embed locations(properties) v observations (400 → 200)
 CREATE OR REPLACE VIEW api.locations
 WITH (security_invoker=true)
 AS SELECT id, properties, geog FROM data.locations;
 GRANT SELECT ON api.locations TO admin;
+GRANT SELECT ON api.locations TO researcher;
+GRANT SELECT ON api.locations TO webuser;
+
+-- 3. api.observations: INNER JOIN → LEFT JOIN na locations,
+--    da meritve z location_id = NULL ne izginejo iz view-a
+CREATE OR REPLACE VIEW api.observations
+WITH (security_invoker=true)
+AS select ob.*, l.geog from data.observations ob
+   left join data.locations l on l.id = ob.location_id;
+
+-- 4. researcher dobi USAGE na shemi api — brez tega so bili njegovi
+--    SELECT grant-i na api.* view-e (observations, data_streams,
+--    locations) za PostgREST nepovožljivi
+GRANT USAGE ON SCHEMA api TO researcher;
 ```
 
-### Kje to narediti
+Zakaj več grantov, kot je bilo prvotno načrtovano (samo `admin`):
+- `webuser` na obeh view-ih je varen — RLS politiki `allow_webuser_select_own_datastream` in `allow_webuser_select_own_locations` (20_init.sql) omejita vrstice na lastne — in ga potrebuje **bodoči dashboard za pregled lastnih meritev**, kjer webuser embeda `locations` v `observations`.
+- `researcher` je SELECT grante na baznih tabelah že imel, a brez `USAGE` na shemi `api` jih prek PostgREST ni mogel izkoristiti.
 
-Nova migracija `src/db/migrations/23_views_and_grants.sql`.
+> **Opomba**: `api.sensors` GRANT (za UPDATE) in `api.users` view nista potrebna — urejanje senzorjev je izven scope-a, `getSensorOwnerships` pa že dela prek client-side joina na `list_participants`.
+
+> **Operativno**: `docker-entrypoint-initdb.d` požene migracije samo ob **praznem** DB volume-u. Obstoječo bazo je treba posodobiti ročno:
+> `psql -U postgres -d postgres -f src/db/migrations/23_views_and_grants.sql`
+
+### Stanje po migraciji
+
+| `api.*` view       | HTTP status | Opombe                                                              |
+| ------------------ | ----------- | ------------------------------------------------------------------- |
+| `list_sensors`     | 200 ✅      | Seznam naprav v `/devices`                                          |
+| `observations`     | 200 ✅      | SELECT + embedi delujejo; meritve brez lokacije se ohranijo (LEFT JOIN) |
+| `ownerships`       | 200 ✅      | Lastništva (client-side join prek `list_participants`)              |
+| `data_streams`     | 200 ✅      | Dodan v migraciji 23 (granti: admin, webuser, researcher)           |
+| `locations`        | 200 ✅      | Dodan v migraciji 23 (granti: admin, webuser, researcher)           |
 
 ### Kako verificirati po fixu
 

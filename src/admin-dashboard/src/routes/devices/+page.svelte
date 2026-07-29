@@ -152,46 +152,6 @@
 	></div>
 
 	<div class="relative z-10 flex h-full flex-col gap-4 p-4 lg:p-6">
-		<!-- =============================================================
-		     ⚠️ NOTE: Data Streams in Recent Observations kartici sta prazni,
-		     ker api.data_streams in api.locations view-a ne obstajata.
-		     Popravek: nova migracija 23_views_and_grants.sql.
-		     Podrobnosti: docs/TODO_DEVICES.md, docs/PLAN_DEVICES.md.
-		     ============================================================= -->
-		<div
-			role="alert"
-			class="alert flex flex-col items-start gap-2 alert-soft alert-warning sm:flex-row sm:items-center"
-		>
-			<svg
-				class="h-5 w-5 flex-none text-warning"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-			>
-				<circle cx="12" cy="12" r="10" />
-				<line x1="12" y1="8" x2="12" y2="12" />
-				<circle cx="12" cy="16" r="0.5" fill="currentColor" />
-			</svg>
-			<div class="min-w-0 flex-1">
-				<h3 class="font-display text-sm font-semibold text-warning">
-					Data Streams in Recent Observations kartici sta prazni
-				</h3>
-				<p class="mt-1 font-mono text-xs text-base-content/70">
-					View-a <code class="text-warning">api.data_streams</code> in
-					<code class="text-warning">api.locations</code> ne obstajata — zato
-					<code class="text-warning">GET /data_streams</code> vrača 404,
-					embed <code class="text-warning">data_streams!inner</code> in
-					<code class="text-warning">locations</code> v observations pa 400.
-				</p>
-				<p class="mt-1 font-mono text-xs text-base-content/50">
-					Popravek: dodaj migracijo
-					<code class="text-base-content/70">23_views_and_grants.sql</code> (glej
-					<code class="text-base-content/70">docs/TODO_DEVICES.md</code>).
-				</p>
-			</div>
-		</div>
-
 		<div class="flex items-center justify-between">
 			<div>
 				<h1 class="font-display text-2xl font-bold">Devices</h1>
