@@ -1,7 +1,6 @@
 <script lang="ts">
 	import {
 		getSensors,
-		updateSensor,
 		getSensorStreams,
 		getSensorOwnerships,
 		getRecentObservations,
@@ -34,59 +33,24 @@
 	let ownerships = $state.raw<SensorOwnership[]>([]);
 	let recentObservations = $state.raw<RecentObservation[]>([]);
 
-	// --- add sensor modal ---
-	// (removed — Add Device UI is out of scope for this phase)
-
 	let showLoading = $derived(isLoadingSensors && sensors.length === 0);
 
-	// --- distinct sensor types from the loaded list ---
-	const sensorTypes = $derived(
-		Array.from(new Set(sensors.map((s) => s.sensor_type).filter(Boolean)))
-	);
-
-	// --- client-side filter (mirrors /users) ---
-	const filteredSensors = $derived(
-		sensors.filter((sensor) => {
-			const searchLower = filterSearch.toLowerCase().trim();
-			if (searchLower) {
-				const nameMatch = (sensor.name ?? '').toLowerCase().includes(searchLower);
-				const descMatch = (sensor.description ?? '').toLowerCase().includes(searchLower);
-				const propertyMatch =
-					sensor.properties &&
-					Object.values(sensor.properties).some((value) =>
-						String(value).toLowerCase().includes(searchLower)
-					);
-				if (!nameMatch && !descMatch && !propertyMatch) return false;
-			}
-			if (filterType !== 'all' && sensor.sensor_type !== filterType) return false;
-			if (filterStatus !== 'all') {
-				const status = (sensor.properties?.status as string) ?? 'unknown';
-				if (filterStatus === 'unknown') {
-					if ((sensor.properties?.status as string | undefined) !== undefined) return false;
-				} else if (status !== filterStatus) {
-					return false;
-				}
-			}
-			return true;
-		})
-	);
-
-	const paginatedSensors = $derived(
-		filteredSensors.slice((currentPage - 1) * pageSize, currentPage * pageSize)
-	);
-
-	const stats = $derived({
-		total: totalCount,
-		filtered: filteredSensors.length
-	});
+	// Sensor types for the filter dropdown (loaded once on page init via +page.ts).
+	let sensorTypes = $state.raw<string[]>(data.sensorTypes);
 
 	// --- data loading ---
 	async function loadSensors() {
 		isLoadingSensors = true;
 		try {
-			const result = await getSensors();
-			sensors = result;
-			totalCount = result.length;
+			const result = await getSensors({
+				search: filterSearch || undefined,
+				sensorType: filterType,
+				status: filterStatus,
+				limit: pageSize,
+				offset: (currentPage - 1) * pageSize
+			});
+			sensors = result.data;
+			totalCount = result.count;
 		} catch (error) {
 			console.error('Failed to load sensors:', error);
 			showToast('Failed to load sensors', 'error');
@@ -136,33 +100,19 @@
 
 	let isInitialLoad = $state(true);
 
+	// Re-fetch when filters, page, or page size change.
 	$effect(() => {
+		filterSearch;
+		filterType;
+		filterStatus;
+		currentPage;
+		pageSize;
 		if (!isInitialLoad) {
 			loadSensors();
 		} else {
 			isInitialLoad = false;
 		}
 	});
-
-	// --- sensor CRUD handlers ---
-	const handleUpdateSensor = async (
-		event: CustomEvent<{ id: number; changes: Partial<Sensor> }>
-	) => {
-		try {
-			await updateSensor(event.detail.id, event.detail.changes);
-			await loadSensors();
-			const refreshed = sensors.find((s) => s.id === event.detail.id);
-			if (refreshed) {
-				selectedSensor = refreshed;
-				// also refresh details so any new metadata/status is reflected
-				await loadSensorDetails(selectedSensor.id);
-			}
-			showToast('Device updated successfully', 'success');
-		} catch (error) {
-			console.error('Failed to update sensor:', error);
-			showToast('Failed to update device', 'error');
-		}
-	};
 
 	// --- formatters (mirrors DeviceDetailsPanel) ---
 	function formatRelativeTime(iso: string | null | undefined): string {
@@ -202,50 +152,6 @@
 	></div>
 
 	<div class="relative z-10 flex h-full flex-col gap-4 p-4 lg:p-6">
-		<!-- =============================================================
-		     🔴 TODO: Manjkajoči api.* view-i in GRANT-i (blokira funkcionalnost)
-		     PATCH /sensors vrne 403 (manjka GRANT na api.sensors), Data Streams
-		     card v sidebaru je prazen (api.data_streams view ne obstaja),
-		     Ownerships card nima username/participant_name (api.users view
-		     ne obstaja). Popravek: nova migracija z GRANT-i in view-i.
-		     Podrobnosti: TODO.md, PLAN.md §10.1.
-		     ============================================================= -->
-		<div
-			role="alert"
-			class="alert flex flex-col items-start gap-2 alert-soft alert-error sm:flex-row sm:items-center"
-		>
-			<svg
-				class="h-5 w-5 flex-none text-error"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-			>
-				<circle cx="12" cy="12" r="10" />
-				<line x1="12" y1="8" x2="12" y2="12" />
-				<circle cx="12" cy="16" r="0.5" fill="currentColor" />
-			</svg>
-			<div class="min-w-0 flex-1">
-				<h3 class="font-display text-sm font-semibold text-error">
-					Stran /devices ni produkcijsko pripravljena — manjkajo api.* view-i in GRANT-i
-				</h3>
-				<p class="mt-1 font-mono text-xs text-base-content/70">
-					Urejanje senzorjev (<code class="text-error">PATCH /sensors</code>) vrača
-					<code class="text-error">403 Forbidden</code>, ker manjka
-					<code class="text-error">GRANT SELECT,INSERT,UPDATE ON api.sensors TO admin</code>. Data
-					Streams in Ownerships kartici v sidebaru sta prazni, ker view-a
-					<code class="text-error">api.data_streams</code> in
-					<code class="text-error">api.users</code> sploh ne obstajata.
-				</p>
-				<p class="mt-1 font-mono text-xs text-base-content/50">
-					Popravek: dodaj novo migracijo
-					<code class="text-base-content/70">22_views_and_grants.sql</code> (glej
-					<code class="text-base-content/70">TODO.md</code> in
-					<code class="text-base-content/70">PLAN.md §10.1</code>).
-				</p>
-			</div>
-		</div>
-
 		<div class="flex items-center justify-between">
 			<div>
 				<h1 class="font-display text-2xl font-bold">Devices</h1>
@@ -254,7 +160,7 @@
 						<span class="loading loading-xs loading-spinner"></span>
 						<span class="font-mono text-base-content/50">Loading...</span>
 					{:else}
-						<span class="text-primary">{stats.filtered}</span> of {stats.total} records
+						<span class="text-primary">{totalCount}</span> records
 					{/if}
 				</p>
 			</div>
@@ -360,7 +266,7 @@
 									<span class="ml-2 font-mono text-base-content/50">Loading devices...</span>
 								</td>
 							</tr>
-						{:else if paginatedSensors.length === 0}
+						{:else if sensors.length === 0}
 							<tr>
 								<td colspan="4" class="py-12 text-center">
 									<div class="flex flex-col items-center gap-2 text-base-content/30">
@@ -379,7 +285,7 @@
 								</td>
 							</tr>
 						{:else}
-							{#each paginatedSensors as sensor (sensor.id)}
+							{#each sensors as sensor (sensor.id)}
 								<tr
 									class="cursor-pointer transition-colors hover:bg-primary/5"
 									onclick={() => openSensor(sensor)}
@@ -494,6 +400,5 @@
 		{streams}
 		{recentObservations}
 		on:close={() => (showDetailsPanel = false)}
-		on:updateSensor={handleUpdateSensor}
 	/>
 </div>

@@ -15,7 +15,7 @@ export const load: PageLoad = async () => {
 		};
 	}
 
-	const [participantsResult, studies, sensors] = await Promise.all([
+	const [participantsResult, studies, sensorsResult] = await Promise.all([
 		getParticipants({ limit: 100, offset: 0 }),
 		getStudies(),
 		getSensors()
@@ -25,6 +25,6 @@ export const load: PageLoad = async () => {
 		participants: participantsResult.data,
 		totalCount: participantsResult.count,
 		studies,
-		sensors
+		sensors: sensorsResult.data
 	};
 };

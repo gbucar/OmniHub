@@ -33,6 +33,7 @@ export type RecentObservation = {
 	id: number;
 	data_stream_id: number;
 	data_stream_name: string;
+	unit_of_measurement: string | null;
 	phenomenon_time: string;
 	result: number;
 	location: string | null;
