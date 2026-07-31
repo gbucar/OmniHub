@@ -129,6 +129,14 @@ jobs:
 
       # --- Artifacts & cleanup ---
 
+      - name: Debug — postgrest logs
+        if: failure()
+        run: |
+          echo "=== POSTGREST LOGS ==="
+          docker compose -f docker-compose.yml -f docker-compose.test.yml logs postgrest || true
+          echo "=== DB LOGS (last 50 lines) ==="
+          docker compose -f docker-compose.yml -f docker-compose.test.yml logs db --tail 50 || true
+
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v4
