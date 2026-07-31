@@ -83,7 +83,21 @@ jobs:
           docker compose \
             -f docker-compose.yml \
             -f docker-compose.test.yml \
-            up -d --wait postgrest
+            up -d postgrest
+
+      - name: Wait for PostgREST
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000 > /dev/null 2>&1; then
+              echo "✅ PostgREST ready"
+              exit 0
+            fi
+            echo "⏳ Waiting for PostgREST… ($i/30)"
+            sleep 2
+          done
+          echo "❌ PostgREST not ready after 60s"
+          docker compose -f docker-compose.yml -f docker-compose.test.yml logs postgrest
+          exit 1
 
       - name: Start admin dashboard
         run: |
