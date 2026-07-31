@@ -1,10 +1,5 @@
 <script lang="ts">
-	import {
-		pgClient,
-		getSensors,
-		type Study,
-		type Sensor
-	} from '$lib/api';
+	import { pgClient, getSensors, type Study, type Sensor } from '$lib/api';
 	import { parseCSV } from '$lib/utils/csv';
 	import {
 		autoDetectMapping,
@@ -312,7 +307,11 @@
 			}
 
 			const data = result?.data as
-				| { created: number; skipped: string[]; errors: Array<{ username: string; message: string }> }
+				| {
+						created: number;
+						skipped: string[];
+						errors: Array<{ username: string; message: string }>;
+				  }
 				| null
 				| undefined;
 			if (!data) {
@@ -357,7 +356,10 @@
 			handleClose();
 		} catch (error) {
 			console.error('Bulk import failed:', error);
-			showToast(`Import failed: ${error instanceof Error ? error.message : String(error)}`, 'error');
+			showToast(
+				`Import failed: ${error instanceof Error ? error.message : String(error)}`,
+				'error'
+			);
 		} finally {
 			isImporting = false;
 		}
@@ -498,19 +500,19 @@
 						<div class="mb-2 font-mono text-xs text-base-content/40 uppercase">
 							Preview (first 3 rows)
 						</div>
-						<div class="overflow-x-auto">
+						<div class="overflow-auto">
 							<table class="table table-sm">
-								<thead>
+								<thead class="bg-base-300">
 									<tr>
-										{#each parsedHeaders as h}
-											<th class="font-mono text-xs">{h}</th>
+										{#each parsedHeaders as h (h)}
+											<th class="sticky top-0 z-10 bg-base-300 font-mono text-xs">{h}</th>
 										{/each}
 									</tr>
 								</thead>
 								<tbody>
-									{#each previewRows as row}
+									{#each previewRows as row, rowIndex (rowIndex)}
 										<tr>
-											{#each parsedHeaders as _, i}
+											{#each parsedHeaders as _, i (i)}
 												<td class="font-mono text-xs">{row[i] ?? ''}</td>
 											{/each}
 										</tr>
@@ -537,7 +539,7 @@
 					</button>
 				</div>
 				<div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-					{#each SYSTEM_FIELDS as field}
+					{#each SYSTEM_FIELDS as field (field.key)}
 						<div class="form-control">
 							<label class="label py-1" for="map-{field.key}">
 								<span
@@ -553,13 +555,13 @@
 								onchange={(e) => setMapping(field.key, (e.target as HTMLSelectElement).value)}
 							>
 								<option value={NO_MAPPING}>(skip)</option>
-								{#each parsedHeaders as h}
+								{#each parsedHeaders as h (h)}
 									<option value={h}>{h}</option>
 								{/each}
 							</select>
 						</div>
 					{/each}
-					{#each deviceSystemFields as field}
+					{#each deviceSystemFields as field (field.key)}
 						<div class="form-control">
 							<label class="label py-1" for="map-{field.key}">
 								<span
@@ -575,7 +577,7 @@
 								onchange={(e) => setMapping(field.key, (e.target as HTMLSelectElement).value)}
 							>
 								<option value={NO_MAPPING}>(skip)</option>
-								{#each parsedHeaders as h}
+								{#each parsedHeaders as h (h)}
 									<option value={h}>{h}</option>
 								{/each}
 							</select>
@@ -610,7 +612,7 @@
 							bind:value={defaultStudyId}
 						>
 							<option value="">(no default)</option>
-							{#each studies as study}
+							{#each studies as study (study.id)}
 								<option value={study.id.toString()}>{study.name}</option>
 							{/each}
 						</select>
@@ -655,15 +657,15 @@
 					{:else}
 						<div class="max-h-40 overflow-y-auto">
 							<table class="table table-xs">
-								<thead>
+								<thead class="bg-base-300">
 									<tr>
-										<th class="font-mono text-xs">username</th>
-										<th class="font-mono text-xs">study</th>
-										<th class="font-mono text-xs">actions</th>
+										<th class="sticky top-0 z-10 bg-base-300 font-mono text-xs">username</th>
+										<th class="sticky top-0 z-10 bg-base-300 font-mono text-xs">study</th>
+										<th class="sticky top-0 z-10 bg-base-300 font-mono text-xs">actions</th>
 									</tr>
 								</thead>
 								<tbody>
-									{#each validation.valid as v, i (i)}
+									{#each validation.valid as v (v.index)}
 										<tr>
 											<td class="font-mono text-xs">{v.row.username}</td>
 											<td class="font-mono text-xs">
@@ -693,15 +695,15 @@
 					{:else}
 						<div class="max-h-40 overflow-y-auto">
 							<table class="table table-xs">
-								<thead>
+								<thead class="bg-base-300">
 									<tr>
-										<th class="font-mono text-xs">username</th>
-										<th class="font-mono text-xs">reason</th>
-										<th class="font-mono text-xs"></th>
+										<th class="sticky top-0 z-10 bg-base-300 font-mono text-xs">username</th>
+										<th class="sticky top-0 z-10 bg-base-300 font-mono text-xs">reason</th>
+										<th class="sticky top-0 z-10 bg-base-300 font-mono text-xs"></th>
 									</tr>
 								</thead>
 								<tbody>
-									{#each validation.problematic as v, i (i)}
+									{#each validation.problematic as v (v.index)}
 										<tr>
 											<td class="font-mono text-xs">{v.row.username || '—'}</td>
 											<td class="font-mono text-xs text-warning/80">{v.reason ?? '—'}</td>
@@ -736,15 +738,15 @@
 					{:else}
 						<div class="max-h-40 overflow-y-auto">
 							<table class="table table-xs">
-								<thead>
+								<thead class="bg-base-300">
 									<tr>
-										<th class="font-mono text-xs">username</th>
-										<th class="font-mono text-xs">reason</th>
-										<th class="font-mono text-xs"></th>
+										<th class="sticky top-0 z-10 bg-base-300 font-mono text-xs">username</th>
+										<th class="sticky top-0 z-10 bg-base-300 font-mono text-xs">reason</th>
+										<th class="sticky top-0 z-10 bg-base-300 font-mono text-xs"></th>
 									</tr>
 								</thead>
 								<tbody>
-									{#each validation.rejected as v, i (i)}
+									{#each validation.rejected as v (v.index)}
 										<tr>
 											<td class="font-mono text-xs">{v.row.username || '—'}</td>
 											<td class="font-mono text-xs text-error/80">{v.reason ?? '—'}</td>

@@ -605,18 +605,23 @@
 			</div>
 		</div>
 
-		<div
-			class="card min-h-0 flex-1 overflow-hidden bg-base-200"
-		>
-			<div class="h-full overflow-x-auto">
+		<div class="card min-h-0 flex-1 overflow-hidden bg-base-200">
+			<div class="h-full overflow-auto">
 				<table class="table">
-					<thead class="bg-base-300/50">
+					<thead class="bg-base-300">
 						<tr>
-							<th class="font-mono text-xs tracking-wider text-base-content/40 uppercase"
+							<th
+								class="sticky top-0 z-10 bg-base-300 font-mono text-xs tracking-wider text-base-content/40 uppercase"
 								>Username</th
 							>
-							<th class="font-mono text-xs tracking-wider text-base-content/40 uppercase">Study</th>
-							<th class="font-mono text-xs tracking-wider text-base-content/40 uppercase">Name</th>
+							<th
+								class="sticky top-0 z-10 bg-base-300 font-mono text-xs tracking-wider text-base-content/40 uppercase"
+								>Study</th
+							>
+							<th
+								class="sticky top-0 z-10 bg-base-300 font-mono text-xs tracking-wider text-base-content/40 uppercase"
+								>Name</th
+							>
 						</tr>
 					</thead>
 					<tbody>

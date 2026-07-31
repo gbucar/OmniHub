@@ -23,12 +23,6 @@
 		goto('/auth/login');
 	};
 
-	$effect(() => {
-		if (!$user.isLoggedIn) {
-			goto('/auth/login');
-		}
-	});
-
 	let { children } = $props();
 
 	let theme = $state<'omnihub' | 'omnihub-dark'>('omnihub');
@@ -79,7 +73,7 @@
 			</a>
 
 			<div class="ml-4 hidden items-center gap-1 md:flex">
-				{#each navItems as item}
+				{#each navItems as item (item.href)}
 					<a
 						href={item.href}
 						class="btn font-mono transition-all duration-200 btn-sm
