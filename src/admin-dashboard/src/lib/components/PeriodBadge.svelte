@@ -44,7 +44,7 @@
 		},
 		inactive: {
 			label: 'Inactive',
-			badgeClass: 'badge-outline !border-base-content/20 !text-base-content/60',
+			badgeClass: 'badge-neutral badge-soft !bg-base-content/8 border !border-base-content/20 !text-base-content/60',
 			dotClass: 'bg-base-content/50'
 		},
 		none: {
