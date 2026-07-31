@@ -16,7 +16,7 @@
 	// neutral for inactive, ghost for unknown.
 	const CONFIG: Record<string, { label: string; cls: string }> = {
 		active: { label: 'Active', cls: 'badge-success badge-soft' },
-		inactive: { label: 'Inactive', cls: 'badge-outline badge-neutral' },
+		inactive: { label: 'Inactive', cls: 'badge-outline badge-neutral !text-base-content/60' },
 		maintenance: { label: 'Maintenance', cls: 'badge-warning badge-soft' }
 	};
 
