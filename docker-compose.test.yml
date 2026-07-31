@@ -19,6 +19,12 @@ services:
     volumes:
       - db-test-data:/var/lib/postgresql:z
       - ./src/db/migrations:/docker-entrypoint-initdb.d:z
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
 
   # --- Override: admin-dashboard za teste (isti Dockerfile, testna konfiguracija) ---
   admin-dashboard:
