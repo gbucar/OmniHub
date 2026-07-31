@@ -44,8 +44,8 @@
 		},
 		inactive: {
 			label: 'Inactive',
-			badgeClass: 'badge-neutral badge-soft',
-			dotClass: 'bg-base-content/40'
+			badgeClass: 'badge-outline badge-neutral',
+			dotClass: 'bg-base-content/50'
 		},
 		none: {
 			label: 'No period',
