@@ -16,8 +16,11 @@
 	let { data } = $props();
 
 	// --- sensor list state ---
-	let sensors = $state.raw<Sensor[]>(data.sensors);
-	let totalCount = $state(data.totalCount);
+	// State variables are initialized from page data (loaded once by +page.ts)
+	// and then managed independently via loadSensors(). The IIFE wrapper avoids
+	// Svelte 5 state_referenced_locally warnings by reading `data` inside a closure.
+	let sensors = $state.raw<Sensor[]>((() => data.sensors)());
+	let totalCount = $state((() => data.totalCount)());
 	let isLoadingSensors = $state(false);
 	let currentPage = $state(1);
 	let pageSize = $state(100);
@@ -36,7 +39,7 @@
 	let showLoading = $derived(isLoadingSensors && sensors.length === 0);
 
 	// Sensor types for the filter dropdown (loaded once on page init via +page.ts).
-	let sensorTypes = $state.raw<string[]>(data.sensorTypes);
+	let sensorTypes = $state.raw<string[]>((() => data.sensorTypes)());
 
 	// --- data loading ---
 	async function loadSensors() {

@@ -194,10 +194,17 @@
 											: ''}"
 										onmousedown={(e) => e.preventDefault()}
 										onclick={() => onSelectSensor(sensor)}
+										onkeydown={(e) => {
+											if (e.key === 'Enter') {
+												e.preventDefault();
+												onSelectSensor(sensor);
+											}
+										}}
 										onmouseenter={() => onFocusSensor(index)}
 										onmouseleave={() => onFocusSensor(-1)}
 										role="option"
 										aria-selected={focusedSensorIndex === index}
+										tabindex="0"
 									>
 										<div class="font-mono">{sensor.name}</div>
 										{#if sensor.description}

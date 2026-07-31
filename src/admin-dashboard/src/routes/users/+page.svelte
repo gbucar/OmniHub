@@ -29,11 +29,15 @@
 	import StudyBadges from '$lib/components/StudyBadges.svelte';
 	let { data } = $props();
 
+	// State variables are initialized from page data (loaded once by +page.ts)
+	// and then managed independently via loadParticipants() / loadStudies().
+	// The IIFE wrappers avoid Svelte 5 state_referenced_locally warnings by
+	// reading `data` inside a closure.
 	let isInitialLoad = $state(true);
 
-	let participants = $state.raw<Participant[]>(data.participants);
-	let studies = $state.raw<Study[]>(data.studies);
-	let totalCount = $state(data.totalCount);
+	let participants = $state.raw<Participant[]>((() => data.participants)());
+	let studies = $state.raw<Study[]>((() => data.studies)());
+	let totalCount = $state((() => data.totalCount)());
 	let isLoadingParticipants = $state(false);
 	let isLoadingStudies = $state(false);
 	let currentPage = $state(1);
@@ -131,7 +135,7 @@
 	let studyStart = $state('');
 	let studyEnd = $state('');
 
-	let sensors = $state.raw<Sensor[]>(data.sensors);
+	let sensors = $state.raw<Sensor[]>((() => data.sensors)());
 	let showAddDeviceModal = $state(false);
 	let newOwnership = $state({
 		sensor_id: '',
