@@ -132,17 +132,30 @@ test.describe('Participants', () => {
 
 	test('PRT-10 — Validacija — prazen username', async ({ authenticatedPage: page }) => {
 		await page.getByRole('button', { name: 'Add Participant' }).click();
-		await page.waitForSelector('dialog[open]');
-		const dialog = page.locator('dialog[open]');
 
-		// Leave username empty, click Create
-		await dialog.getByRole('button', { name: 'Create' }).click();
+		// Wait for dialog to fully render (heading + form fields)
+		await expect(page.getByRole('heading', { name: 'Add Participant' })).toBeVisible();
+		const dialog = page.getByRole('dialog');
 
-		// Either HTML5 validation keeps form open or API rejects → error toast
-		await expectErrorToast(page);
-		// Dialog stays open after error
+		// Leave username empty — wait for the field to be interactive first
+		const usernameField = dialog.getByLabel('Username');
+		await usernameField.waitFor({ state: 'visible' });
+		await usernameField.clear();
+
+		await dialog.getByPlaceholder('Enter password').fill('testpass123');
+
+		// Click Create — form validation prevents submission with empty username
+		const createBtn = dialog.getByRole('button', { name: 'Create' });
+		await createBtn.waitFor({ state: 'visible' });
+		await createBtn.click({ force: true });
+
+		// Dialog stays open (form was not submitted or API returned error)
 		await expect(dialog).toBeVisible();
-		await dialog.getByRole('button', { name: 'Cancel' }).click();
+
+		// Close dialog via Cancel. Use force:true — sidebar z-10 elements
+		// from previous tests may intercept pointer events.
+		await dialog.getByRole('button', { name: 'Cancel' }).click({ force: true });
+		await expect(dialog).not.toBeVisible();
 	});
 
 	// ---------------------------------------------------------------------------

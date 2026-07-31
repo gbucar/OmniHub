@@ -8,14 +8,20 @@
 # Opomba: test-seed in playwright-tests uporabljata polling namesto
 # depends_on: condition zaradi omejitev podman-compose.
 
+# --- Named volumes (test-specific, isolated from dev) ---
+volumes:
+  db-test-data:
+  test-signals:
+
 services:
-  # --- Override: admin-dashboard v dev načinu (Vite) ---
+  # --- Override: db uporablja ločen volume za teste ---
+  db:
+    volumes:
+      - db-test-data:/var/lib/postgresql:z
+      - ./src/db/migrations:/docker-entrypoint-initdb.d:z
+
+  # --- Override: admin-dashboard za teste (isti Dockerfile, testna konfiguracija) ---
   admin-dashboard:
-    build:
-      context: ./src/admin-dashboard
-      dockerfile: Dockerfile.dev
-      args:
-        PUBLIC_POSTGREST_URL: http://postgrest:3000
     image: omnihub-admin-dashboard:test
     environment:
       - PUBLIC_POSTGREST_URL=http://postgrest:3000
@@ -29,7 +35,7 @@ services:
       timeout: 5s
       retries: 20
       start_period: 20s
-    restart: unless-stopped
+    restart: "no"
 
   # --- Override: postgrest healthcheck ---
   postgrest:
@@ -46,6 +52,7 @@ services:
     image: docker.io/postgres:18
     volumes:
       - ./tests/e2e/seed.sql:/seed.sql:z
+      - test-signals:/signals:z
     entrypoint:
       - /bin/bash
       - -c
@@ -59,23 +66,28 @@ services:
           "postgres://postgres:$${POSTGRES_PASSWORD}@db:5432/postgres" \
           -v ON_ERROR_STOP=1 -f /seed.sql
         echo "Seed complete."
+        # Signal to playwright-tests that seed is done
+        touch /signals/.seed-complete
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     restart: "no"
 
   # --- Playwright test runner ---
-  # Počaka, da admin-dashboard in postgrest sprejemata povezave,
+  # Počaka, da admin-dashboard, postgrest in seed končajo,
   # nato požene teste.
   playwright-tests:
     image: mcr.microsoft.com/playwright:v1.62.0-jammy
     volumes:
       - ./tests/e2e:/tests:z
+      - test-signals:/signals:z
     working_dir: /tests
     entrypoint:
       - /bin/bash
       - -c
       - |
         set -e
+        echo "Waiting for seed to complete..."
+        until [ -f /signals/.seed-complete ]; do sleep 2; done
         echo "Waiting for admin-dashboard..."
         for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30; do
           if wget -q -O- http://admin-dashboard:5173 >/dev/null 2>&1; then
@@ -94,6 +106,7 @@ services:
     depends_on:
       - admin-dashboard
       - postgrest
+      - test-seed
 
   # --- NE zaženemo pipelines v testnem stacku ---
   pipelines:

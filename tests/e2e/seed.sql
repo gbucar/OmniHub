@@ -1,7 +1,13 @@
 -- ============================================================================
 -- E2E Test Seed Data for OmniHub Admin Dashboard
 -- ============================================================================
--- Executed against a fresh TimescaleDB with all migrations applied.
+-- This script is IDEMPOTENT — it can be run multiple times against the same
+-- database without creating duplicate data.
+--
+-- Strategy:
+--   1. CLEANUP  — delete ALL existing data (from populate.sql or previous runs)
+--   2. INSERT   — deterministic test data with ON CONFLICT safety
+--
 -- ALL VALUES ARE DETERMINISTIC — no NOW(), no random(), fixed IDs throughout.
 -- ============================================================================
 
@@ -9,6 +15,30 @@ SET search_path TO auth, data, public, postgis;
 
 -- Ensure PostGIS is available for ST_GeogFromText()
 CREATE EXTENSION IF NOT EXISTS postgis;
+
+-- ============================================================================
+-- 0. CLEANUP — Remove all existing data in FK-safe order
+-- ============================================================================
+
+-- Child tables first (respect FK dependencies)
+DELETE FROM data.observations;
+DELETE FROM data.data_streams;
+DELETE FROM data.many_participants_studies;
+DELETE FROM data.ownerships;
+DELETE FROM data.participants;
+DELETE FROM data.sensors;
+DELETE FROM data.studies;
+DELETE FROM data.locations;
+
+-- Remove non-admin users. Admin stays for login-based tests.
+DELETE FROM auth.users WHERE role != 'admin';
+
+-- Reset auto-increment sequences so new data starts at predictable IDs
+ALTER SEQUENCE IF EXISTS data.data_streams_id_seq   RESTART WITH 1;
+ALTER SEQUENCE IF EXISTS data.locations_id_seq      RESTART WITH 1;
+ALTER SEQUENCE IF EXISTS data.observations_id_seq   RESTART WITH 1;
+ALTER SEQUENCE IF EXISTS data.sensors_id_seq        RESTART WITH 1;
+ALTER SEQUENCE IF EXISTS data.studies_id_seq        RESTART WITH 1;
 
 -- ============================================================================
 -- 1. USERS (auth.users)
@@ -34,11 +64,11 @@ INSERT INTO data.participants (user_id, properties) VALUES
     ('00000000-0000-4000-a000-000000000003', '{"name": "Bojan Test",  "age": 32, "sex": "male"}'::jsonb),
     ('00000000-0000-4000-a000-000000000004', '{"name": "Cvetka Test", "age": 45, "sex": "female"}'::jsonb),
     ('00000000-0000-4000-a000-000000000005', '{"name": "David Test",  "age": 28, "sex": "male"}'::jsonb),
-    ('00000000-0000-4000-a000-000000000006', '{"name": "Eva Test",    "age": 52, "sex": "female"}'::jsonb);
+    ('00000000-0000-4000-a000-000000000006', '{"name": "Eva Test",    "age": 52, "sex": "female"}'::jsonb)
+ON CONFLICT (user_id) DO NOTHING;
 
 -- ============================================================================
 -- 3. SENSORS (data.sensors)
---    id is bigserial — auto-assigned: Alpha=1, Beta=2
 -- ============================================================================
 
 INSERT INTO data.sensors (sensor_type, name, description, properties) VALUES
@@ -70,7 +100,6 @@ WHERE u.username IN ('test_participant_1', 'test_participant_2', 'test_participa
 
 -- ============================================================================
 -- 5. STUDIES (data.studies)
---    id is bigserial — auto-assigned: Alpha=1, Beta=2
 -- ============================================================================
 
 INSERT INTO data.studies (name, active_period) VALUES
@@ -81,8 +110,7 @@ INSERT INTO data.studies (name, active_period) VALUES
 
 -- ============================================================================
 -- 6. STUDY ASSIGNMENTS (data.many_participants_studies)
---    Participants 1-3 → Alpha (use Alpha's active_period for membership_period)
---    Participants 4-5 → Beta  (use Beta's active_period for membership_period)
+--    Participants 1-3 → Alpha; Participants 4-5 → Beta
 -- ============================================================================
 
 INSERT INTO data.many_participants_studies (user_id, study_id, membership_period)
@@ -106,9 +134,6 @@ WHERE u.username IN ('test_participant_4', 'test_participant_5');
 -- ============================================================================
 -- 7. DATA STREAMS (data.data_streams)
 --    5 streams per sensor: temperature, humidity, pm25, pm10, voc
---    Uses CROSS JOIN VALUES to create all combinations.
---    UNIQUE constraint on (sensor_id, name) is satisfied because each
---    (sensor_id × stream_name) pair is unique.
 -- ============================================================================
 
 INSERT INTO data.data_streams (sensor_id, name, description, unit_of_measurement, properties)
@@ -125,11 +150,11 @@ CROSS JOIN (VALUES
     ('pm25',        'PM2.5 particulate matter',            'µg/m³'),
     ('pm10',        'PM10 particulate matter',             'µg/m³'),
     ('voc',         'Volatile organic compounds',          'ppb')
-) AS ds (name, description, unit);
+) AS ds (name, description, unit)
+ON CONFLICT (sensor_id, name) DO NOTHING;
 
 -- ============================================================================
 -- 8. LOCATIONS (data.locations)
---    id is bigserial — auto-assigned: Ljubljana=1, Maribor=2
 -- ============================================================================
 
 INSERT INTO data.locations (geog, properties) VALUES
@@ -138,11 +163,9 @@ INSERT INTO data.locations (geog, properties) VALUES
 
 -- ============================================================================
 -- 9. OBSERVATIONS (data.observations)
---    5 observations per stream at 10:00 and 5 at 11:00 for Test Sensor Alpha only.
+--    5 observations per stream at 10:00 and 5 at 11:00 for Test Sensor Alpha.
 --    phenomenon_time uses tstzrange with degenerate [t, t] ranges.
---    UNIQUE constraint on (data_stream_id, phenomenon_time) is satisfied
---    because each time slot is unique per stream.
---    location_id: all observations use Ljubljana (id=1).
+--    All observations use Ljubljana location.
 -- ============================================================================
 
 -- Batch 1: 2026-01-15 10:00:00+00
@@ -159,7 +182,8 @@ SELECT
     END,
     (SELECT id FROM data.locations WHERE properties->>'city' = 'Ljubljana')
 FROM data.data_streams ds
-WHERE ds.sensor_id = (SELECT id FROM data.sensors WHERE name = 'Test Sensor Alpha');
+WHERE ds.sensor_id = (SELECT id FROM data.sensors WHERE name = 'Test Sensor Alpha')
+ON CONFLICT (data_stream_id, phenomenon_time) DO NOTHING;
 
 -- Batch 2: 2026-01-15 11:00:00+00
 INSERT INTO data.observations (data_stream_id, phenomenon_time, result, location_id)
@@ -175,4 +199,5 @@ SELECT
     END,
     (SELECT id FROM data.locations WHERE properties->>'city' = 'Ljubljana')
 FROM data.data_streams ds
-WHERE ds.sensor_id = (SELECT id FROM data.sensors WHERE name = 'Test Sensor Alpha');
+WHERE ds.sensor_id = (SELECT id FROM data.sensors WHERE name = 'Test Sensor Alpha')
+ON CONFLICT (data_stream_id, phenomenon_time) DO NOTHING;
