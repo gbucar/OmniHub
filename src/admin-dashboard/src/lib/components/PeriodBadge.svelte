@@ -34,18 +34,18 @@
 	> = {
 		active: {
 			label: 'Active',
-			badgeClass: 'badge-success badge-soft',
+			badgeClass: 'badge-success badge-soft outline outline-1 -outline-offset-1 outline-success/30',
 			dotClass: 'bg-success'
 		},
 		upcoming: {
 			label: 'Upcoming',
-			badgeClass: 'badge-info badge-soft',
+			badgeClass: 'badge-info badge-soft outline outline-1 -outline-offset-1 outline-info/30',
 			dotClass: 'bg-info'
 		},
 		inactive: {
 			label: 'Inactive',
-			badgeClass: 'badge-neutral badge-soft',
-			dotClass: 'bg-base-content/40'
+			badgeClass: 'badge-neutral badge-soft !bg-transparent !text-base-content/60 outline outline-1 -outline-offset-1 outline-base-content/20',
+			dotClass: 'bg-base-content/50'
 		},
 		none: {
 			label: 'No period',

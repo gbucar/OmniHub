@@ -1,3 +1,6 @@
 .env
 PLAN.md
 .podman-auth.json
+worktree
+/src/pipelines/pipelines
+.wt

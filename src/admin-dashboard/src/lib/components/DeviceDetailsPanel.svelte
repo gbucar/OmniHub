@@ -6,31 +6,19 @@
 		type SensorOwnership,
 		type RecentObservation
 	} from '$lib/api';
-	import { showToast } from '$lib/stores/toast';
 	import PeriodBadge from './PeriodBadge.svelte';
 	import SensorStatusBadge from './SensorStatusBadge.svelte';
-	import DeviceMetadataEditor from './DeviceMetadataEditor.svelte';
 
 	/**
 	 * Right-side slide-in sidebar showing details of a selected sensor.
 	 *
-	 * The parent owns the data and the API calls — this component is a
-	 * presentation + editing shell. It never mutates `selectedSensor` (the
-	 * parent declares it with `$state.raw`) and never calls the API
-	 * directly. The only mutation surface is the Information card, which
-	 * dispatches `updateSensor` with a `Partial<Sensor>` diff on save.
+	 * Read-only display panel. The parent owns the data and the API calls —
+	 * this component is purely a presentation shell. It never mutates
+	 * `selectedSensor` and never calls the API directly.
 	 *
 	 * The Ownerships card is read-only by design — device→participant
 	 * assignment is managed from the Participants page (`/users`) so the
-	 * Devices page stays a pure "browse & configure device" surface.
-	 *
-	 * Edit lifecycle:
-	 *   1. User clicks Edit → `startEditing()` populates `editedFields` /
-	 *      `editedMetadata` from the current sensor.
-	 *   2. User clicks Save → `saveSensor()` dispatches `updateSensor` with
-	 *      the diff. The parent re-fetches the sensor and re-passes it in.
-	 *   3. `selectedSensor` changing resets `editedFields` / `editedMetadata`
-	 *      to mirror the new source of truth.
+	 * Devices page stays a pure "browse & inspect device" surface.
 	 */
 	interface Props {
 		show: boolean;
@@ -44,149 +32,34 @@
 
 	const dispatch = createEventDispatcher<{
 		close: void;
-		updateSensor: { id: number; changes: Partial<Sensor> };
 	}>();
 
-	// --- SUGGESTED_TYPES: the four IOT models we see in `99_populate.sql`.
-	// Users can still type a custom value via the "Other..." free-input combo.
-	const SUGGESTED_TYPES = ['ATMOTUBE_PRO', 'ATMOAIR_PRO', 'ATMODOT_PRO', 'ATMOAIR_V2'];
-
-	// --- local edit state ---
-	let isEditing = $state(false);
+	// --- slide-in animation ---
 	let panelVisible = $state(false);
 
-	let editedFields = $state({
-		name: '',
-		sensor_type: '',
-		description: '',
-		status: 'active',
-		credential_id: '' as number | ''
-	});
-	// Working copy of properties minus the reserved `status` key. The
-	// `DeviceMetadataEditor` is the single source of truth for what's
-	// in here; we just hold the object identity for two-way binding.
-	let editedMetadata = $state<Record<string, unknown>>({});
-	let customType = $state('');
-
-	// The select shows "Other..." whenever the current sensor_type isn't
-	// one of the predefined options (either on first load or after the
-	// user picks "Other..." in this session).
-	const showCustomTypeInput = $derived(
-		editedFields.sensor_type !== '' && !SUGGESTED_TYPES.includes(editedFields.sensor_type)
-	);
-
-	// --- slide-in animation, mirrors ParticipantDetailsPanel ---
 	$effect(() => {
 		if (show) {
-			panelVisible = true;
+			// Defer to the next task so the browser paints the initial
+			// translate-x-full position first, then animates the slide-in.
+			setTimeout(() => (panelVisible = true), 0);
 		} else {
 			panelVisible = false;
 		}
 	});
 
-	// Re-seed the form whenever the parent swaps the active sensor.
+	// Slide in when the parent swaps the active sensor.
 	$effect(() => {
 		if (selectedSensor) {
-			panelVisible = true;
-			isEditing = false;
-			seedFromSensor(selectedSensor);
+			setTimeout(() => (panelVisible = true), 0);
 		}
 	});
-
-	// When in custom-type mode, keep sensor_type in sync with the free-input
-	// field. We re-assign the whole object so the change is observable to
-	// downstream derivations / binds.
-	$effect(() => {
-		if (showCustomTypeInput) {
-			editedFields = { ...editedFields, sensor_type: customType };
-		}
-	});
-
-	// --- helpers ---
-	const seedFromSensor = (s: Sensor) => {
-		const props = (s.properties ?? {}) as Record<string, unknown>;
-		editedFields = {
-			name: s.name ?? '',
-			sensor_type: s.sensor_type ?? '',
-			description: s.description ?? '',
-			status: (props.status as string) ?? 'active',
-			credential_id: (s.credential_id ?? '') as number | ''
-		};
-		customType = s.sensor_type && !SUGGESTED_TYPES.includes(s.sensor_type) ? s.sensor_type : '';
-		// Metadata excludes the reserved `status` key (DeviceMetadataEditor
-		// would strip it on its own, but we keep the local copy clean too).
-		const next: Record<string, unknown> = {};
-		for (const k of Object.keys(props)) {
-			if (k !== 'status') next[k] = props[k];
-		}
-		editedMetadata = next;
-	};
 
 	const closeDetailsPanel = () => {
 		panelVisible = false;
 		setTimeout(() => dispatch('close'), 200);
 	};
 
-	const startEditing = () => {
-		if (selectedSensor) seedFromSensor(selectedSensor);
-		isEditing = true;
-	};
-
-	const cancelEditing = () => {
-		if (selectedSensor) seedFromSensor(selectedSensor);
-		isEditing = false;
-	};
-
-	const saveSensor = () => {
-		if (!selectedSensor) return;
-		const trimmedName = editedFields.name.trim();
-		if (!trimmedName) {
-			showToast('Name is required', 'error');
-			return;
-		}
-		if (!editedFields.sensor_type.trim()) {
-			showToast('Sensor type is required', 'error');
-			return;
-		}
-
-		// Build the diff: top-level fields + merged `properties` (status +
-		// user-edited metadata). We never send `id` / `sys_created_at` /
-		// `last_activity` — the server owns those.
-		const properties: Record<string, unknown> = {
-			...editedMetadata,
-			status: editedFields.status
-		};
-		const changes: Partial<Sensor> = {
-			name: trimmedName,
-			sensor_type: editedFields.sensor_type.trim(),
-			description: editedFields.description.trim() || undefined,
-			credential_id:
-				editedFields.credential_id === '' || editedFields.credential_id === undefined
-					? undefined
-					: Number(editedFields.credential_id),
-			properties
-		};
-
-		dispatch('updateSensor', { id: selectedSensor.id, changes });
-		isEditing = false;
-	};
-
-	const onTypeSelect = (value: string) => {
-		if (value === '__custom__') {
-			customType = '';
-			editedFields = { ...editedFields, sensor_type: '' };
-		} else {
-			editedFields = { ...editedFields, sensor_type: value };
-			customType = '';
-		}
-	};
-
 	// --- formatters ---
-	const STATUS_OPTIONS = [
-		{ value: 'active', label: 'Active' },
-		{ value: 'inactive', label: 'Inactive' },
-		{ value: 'maintenance', label: 'Maintenance' }
-	];
 
 	/**
 	 * Human-friendly relative time. "Never" for null, "just now" / "2m
@@ -216,13 +89,16 @@
 	}
 
 	/**
-	 * Compact ISO -> "YYYY-MM-DD HH:MM" formatter for the observations
-	 * mini-table. Truncates the input to 16 chars (the prefix of any
-	 * ISO-like timestamptz) and replaces the 'T' separator with a space.
+	 * Parses a tstzrange value (serialized as `["2026-07-27 01:53+00","...")`)
+	 * and formats the lower bound as "YYYY-MM-DD HH:MM".
+	 * Falls back to direct slicing for plain ISO timestamps.
 	 */
 	const formatPhenomenonTime = (raw: string): string => {
 		if (!raw) return '—';
-		return raw.slice(0, 16).replace('T', ' ');
+		// tstzrange format: ["lower","upper") or ["lower","upper"]
+		const match = raw.match(/"([^"]+)"/);
+		const iso = match ? match[1] : raw;
+		return iso.slice(0, 16).replace('T', ' ');
 	};
 
 	// user_id: 'user-abc' / '00000000-...' → first letter for the avatar
@@ -304,192 +180,85 @@
 
 			<div class="space-y-6 p-4">
 				<!-- =============================================================
-				     Card 1: Information
+				     Card 1: Information (read-only)
 				     ============================================================= -->
 				<div class="card bg-base-300">
 					<div class="card-body p-4">
-						<div class="mb-4 flex items-center justify-between">
+						<div class="mb-4">
 							<h3 class="font-mono text-xs tracking-wider text-base-content/40 uppercase">
 								Information
 							</h3>
-							{#if !isEditing}
-								<button class="btn btn-sm btn-primary" onclick={startEditing}>
-									<svg
-										class="h-3.5 w-3.5"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="2"
-									>
-										<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-										<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-									</svg>
-									Edit
-								</button>
-							{:else}
-								<div class="flex gap-2">
-									<button class="btn btn-ghost btn-sm" onclick={cancelEditing}>Cancel</button>
-									<button class="btn btn-sm btn-primary" onclick={saveSensor}>Save</button>
-								</div>
-							{/if}
 						</div>
 
-						{#if isEditing}
-							<!-- EDIT MODE -->
-							<div class="grid grid-cols-2 gap-4">
-								<div class="form-control col-span-2">
-									<label class="label" for="edit-sensor-name">
-										<span
-											class="label-text font-mono text-xs tracking-wider text-base-content/30 uppercase"
-											>Name</span
-										>
-									</label>
-									<input
-										id="edit-sensor-name"
-										class="input-bordered input input-sm w-full"
-										type="text"
-										placeholder="Enter name"
-										bind:value={editedFields.name}
-									/>
-								</div>
-
-								<div class="form-control col-span-2">
-									<label class="label" for="edit-sensor-type">
-										<span
-											class="label-text font-mono text-xs tracking-wider text-base-content/30 uppercase"
-											>Sensor Type</span
-										>
-									</label>
-									<select
-										id="edit-sensor-type"
-										class="select-bordered select w-full select-sm"
-										value={showCustomTypeInput ? '__custom__' : editedFields.sensor_type}
-										onchange={(e) => onTypeSelect((e.currentTarget as HTMLSelectElement).value)}
-									>
-										<option value="" disabled>Select a type</option>
-										{#each SUGGESTED_TYPES as t}
-											<option value={t}>{t}</option>
-										{/each}
-										<option value="__custom__">Other...</option>
-									</select>
-									{#if showCustomTypeInput}
-										<input
-											class="input-bordered input input-sm mt-2 w-full font-mono"
-											placeholder="Custom type identifier"
-											bind:value={customType}
-										/>
-									{/if}
-								</div>
-
-								<div class="form-control">
-									<label class="label" for="edit-sensor-status">
-										<span
-											class="label-text font-mono text-xs tracking-wider text-base-content/30 uppercase"
-											>Status</span
-										>
-									</label>
-									<select
-										id="edit-sensor-status"
-										class="select-bordered select w-full select-sm"
-										bind:value={editedFields.status}
-									>
-										{#each STATUS_OPTIONS as opt}
-											<option value={opt.value}>{opt.label}</option>
-										{/each}
-									</select>
-								</div>
-
-								<div class="form-control">
-									<label class="label" for="edit-sensor-credential">
-										<span
-											class="label-text font-mono text-xs tracking-wider text-base-content/30 uppercase"
-											>Credential ID</span
-										>
-									</label>
-									<input
-										id="edit-sensor-credential"
-										type="number"
-										min="0"
-										step="1"
-										class="input-bordered input input-sm w-full font-mono"
-										placeholder="Optional"
-										bind:value={editedFields.credential_id}
-									/>
-								</div>
-
-								<div class="form-control col-span-2">
-									<label class="label" for="edit-sensor-description">
-										<span
-											class="label-text font-mono text-xs tracking-wider text-base-content/30 uppercase"
-											>Description</span
-										>
-									</label>
-									<textarea
-										id="edit-sensor-description"
-										class="textarea-bordered textarea w-full"
-										placeholder="Optional notes about this sensor"
-										rows="2"
-										bind:value={editedFields.description}
-									></textarea>
-								</div>
-
-								<div class="form-control col-span-2">
-									<span
-										class="mb-1 block font-mono text-xs tracking-wider text-base-content/30 uppercase"
-										>Metadata</span
-									>
-									<DeviceMetadataEditor bind:metadata={editedMetadata} />
-								</div>
+						<div class="space-y-3">
+							<div class="flex items-center justify-between">
+								<span class="font-mono text-xs text-base-content/40">Name</span>
+								<span class="font-mono text-sm font-medium">{selectedSensor.name || '—'}</span>
 							</div>
-						{:else}
-							<!-- DISPLAY MODE -->
-							<div class="space-y-3">
-								<div class="flex items-center justify-between">
-									<span class="font-mono text-xs text-base-content/40">Name</span>
-									<span class="font-mono text-sm font-medium">{selectedSensor.name || '—'}</span>
-								</div>
-								<div class="flex items-center justify-between">
-									<span class="font-mono text-xs text-base-content/40">Sensor type</span>
-									{#if selectedSensor.sensor_type}
-										<span
-											class="badge badge-soft font-mono text-[10px] tracking-wider uppercase badge-primary"
-										>
-											{selectedSensor.sensor_type}
-										</span>
-									{:else}
-										<span class="font-mono text-sm text-base-content/40">—</span>
-									{/if}
-								</div>
-								<div class="flex items-center justify-between">
-									<span class="font-mono text-xs text-base-content/40">Status</span>
-									<SensorStatusBadge
-										status={(selectedSensor.properties?.status as string) ?? 'active'}
-									/>
-								</div>
-								<div class="flex items-center justify-between">
-									<span class="font-mono text-xs text-base-content/40">Last activity</span>
-									<span class="font-mono text-sm text-base-content/70">
-										{formatRelativeTime(selectedSensor.last_activity)}
+							<div class="flex items-center justify-between">
+								<span class="font-mono text-xs text-base-content/40">Sensor type</span>
+								{#if selectedSensor.sensor_type}
+									<span
+										class="badge badge-soft font-mono text-[10px] tracking-wider uppercase badge-primary"
+									>
+										{selectedSensor.sensor_type}
 									</span>
-								</div>
-								<div class="flex items-center justify-between">
-									<span class="font-mono text-xs text-base-content/40">Credential ID</span>
-									<span class="font-mono text-sm text-base-content/70">
-										{selectedSensor.credential_id ?? '—'}
-									</span>
-								</div>
-								{#if selectedSensor.description}
-									<div class="pt-2">
-										<span class="font-mono text-xs tracking-wider text-base-content/30 uppercase"
-											>Description</span
-										>
-										<p class="mt-1 text-sm text-base-content/80">
-											{selectedSensor.description}
-										</p>
-									</div>
+								{:else}
+									<span class="font-mono text-sm text-base-content/40">—</span>
 								{/if}
 							</div>
-						{/if}
+							<div class="flex items-center justify-between">
+								<span class="font-mono text-xs text-base-content/40">Status</span>
+								<SensorStatusBadge
+									status={(selectedSensor.properties?.status as string) ?? 'unknown'}
+								/>
+							</div>
+							<div class="flex items-center justify-between">
+								<span class="font-mono text-xs text-base-content/40">Last activity</span>
+								<span class="font-mono text-sm text-base-content/70">
+									{formatRelativeTime(selectedSensor.last_activity)}
+								</span>
+							</div>
+							<div class="flex items-center justify-between">
+								<span class="font-mono text-xs text-base-content/40">Credential ID</span>
+								<span class="font-mono text-sm text-base-content/70">
+									{selectedSensor.credential_id ?? '—'}
+								</span>
+							</div>
+							{#if selectedSensor.description}
+								<div class="pt-2">
+									<span class="font-mono text-xs tracking-wider text-base-content/30 uppercase"
+										>Description</span
+									>
+									<p class="mt-1 text-sm text-base-content/80">
+										{selectedSensor.description}
+									</p>
+								</div>
+							{/if}
+
+							<!-- Metadata: all properties except the reserved `status` key -->
+							{#if selectedSensor.properties}
+								{#if Object.keys(selectedSensor.properties).some((k) => k !== 'status')}
+									<div class="pt-2">
+										<span
+											class="font-mono text-xs tracking-wider text-base-content/30 uppercase"
+										>
+											Metadata
+										</span>
+										<div class="mt-1 space-y-1.5">
+											{#each Object.entries(selectedSensor.properties).filter(([k]) => k !== 'status') as [key, value]}
+												<div class="flex items-center justify-between">
+													<span class="font-mono text-xs text-base-content/40">{key}</span>
+													<span class="font-mono text-xs text-base-content/70"
+														>{value as string}</span
+													>
+												</div>
+											{/each}
+										</div>
+									</div>
+								{/if}
+							{/if}
+						</div>
 					</div>
 				</div>
 
@@ -657,16 +426,17 @@
 						{:else}
 							<div class="space-y-1">
 								<div
-									class="grid grid-cols-[1.4fr_1fr_0.8fr_0.8fr] gap-2 px-1 pb-1 font-mono text-[10px] tracking-wider text-base-content/30 uppercase"
+									class="grid grid-cols-[1.2fr_0.8fr_0.7fr_0.5fr_0.8fr] gap-2 px-1 pb-1 font-mono text-[10px] tracking-wider text-base-content/30 uppercase"
 								>
 									<span>Time</span>
 									<span>Stream</span>
 									<span class="text-right">Result</span>
+									<span class="text-right">Unit</span>
 									<span class="text-right">Location</span>
 								</div>
 								{#each recentObservations as obs (obs.id)}
 									<div
-										class="grid grid-cols-[1.4fr_1fr_0.8fr_0.8fr] items-center gap-2 rounded-md bg-base-200 px-2 py-1.5"
+										class="grid grid-cols-[1.2fr_0.8fr_0.7fr_0.5fr_0.8fr] items-center gap-2 rounded-md bg-base-200 px-2 py-1.5"
 									>
 										<span class="truncate font-mono text-xs text-base-content/70">
 											{formatPhenomenonTime(obs.phenomenon_time)}
@@ -676,6 +446,9 @@
 										</span>
 										<span class="truncate text-right font-mono text-xs font-medium text-primary">
 											{Number(obs.result).toFixed(2)}
+										</span>
+										<span class="truncate text-right font-mono text-[10px] text-base-content/40 uppercase">
+											{obs.unit_of_measurement ?? '—'}
 										</span>
 										<span class="truncate text-right font-mono text-xs text-base-content/60">
 											{obs.location ?? '—'}

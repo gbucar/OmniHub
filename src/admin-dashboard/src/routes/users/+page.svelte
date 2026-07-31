@@ -23,16 +23,21 @@
 	import AddStudyModal from '$lib/components/modals/AddStudyModal.svelte';
 	import AddToStudyModal from '$lib/components/modals/AddToStudyModal.svelte';
 	import AddDeviceModal from '$lib/components/modals/AddDeviceModal.svelte';
+	import BulkDownloadModal from '$lib/components/modals/BulkDownloadModal.svelte';
+	import BulkUploadModal from '$lib/components/modals/BulkUploadModal.svelte';
 	import ParticipantDetailsPanel from '$lib/components/ParticipantDetailsPanel.svelte';
 	import StudyBadges from '$lib/components/StudyBadges.svelte';
-	import { onMount } from 'svelte';
+	let { data } = $props();
 
-	let mounted = $state(false);
-	onMount(() => setTimeout(() => (mounted = true), 50));
+	// State variables are initialized from page data (loaded once by +page.ts)
+	// and then managed independently via loadParticipants() / loadStudies().
+	// The IIFE wrappers avoid Svelte 5 state_referenced_locally warnings by
+	// reading `data` inside a closure.
+	let isInitialLoad = $state(true);
 
-	let participants = $state.raw<Participant[]>([]);
-	let studies = $state.raw<Study[]>([]);
-	let totalCount = $state(0);
+	let participants = $state.raw<Participant[]>((() => data.participants)());
+	let studies = $state.raw<Study[]>((() => data.studies)());
+	let totalCount = $state((() => data.totalCount)());
 	let isLoadingParticipants = $state(false);
 	let isLoadingStudies = $state(false);
 	let currentPage = $state(1);
@@ -82,17 +87,20 @@
 		filterSearch;
 		filterStudy;
 		pageSize;
-		currentPage = 1;
+		// Reset to page 1 only if we are not already there. Svelte 5
+		// detects the no-op write and does not re-run downstream effects
+		// when the value is unchanged, but the explicit guard is clearer
+		// and avoids any spurious pagination resets.
+		if (currentPage !== 1) currentPage = 1;
 	});
 
 	$effect(() => {
 		currentPage;
-		loadParticipants();
-	});
-
-	$effect(() => {
-		loadStudies();
-		loadSensors();
+		if (!isInitialLoad) {
+			loadParticipants();
+		} else {
+			isInitialLoad = false;
+		}
 	});
 
 	let showLoading = $derived(isLoadingParticipants && participants.length === 0);
@@ -101,6 +109,12 @@
 	let showDetailsPanel = $state(false);
 	let participantStudies = $state.raw<ParticipantStudy[]>([]);
 	let userOwnerships = $state<Ownership[]>([]);
+
+	// Bulk-download / bulk-upload modal state. The modals carry their
+	// own participant multi-select, so we don't need any selection
+	// state in the main table.
+	let showBulkDownloadModal = $state(false);
+	let showBulkUploadModal = $state(false);
 
 	let newUser = $state({
 		username: '',
@@ -121,7 +135,7 @@
 	let studyStart = $state('');
 	let studyEnd = $state('');
 
-	let sensors = $state.raw<Sensor[]>([]);
+	let sensors = $state.raw<Sensor[]>((() => data.sensors)());
 	let showAddDeviceModal = $state(false);
 	let newOwnership = $state({
 		sensor_id: '',
@@ -148,7 +162,7 @@
 
 	async function loadSensors() {
 		try {
-			sensors = await getSensors();
+			sensors = (await getSensors()).data;
 		} catch (error) {
 			console.error('Failed to load sensors:', error);
 		}
@@ -394,6 +408,37 @@
 		total: totalCount,
 		filtered: participants.length
 	});
+
+	// ---- Bulk actions ---------------------------------------------------
+
+	function openBulkDownload() {
+		// Open the modal in "no preselection" mode — the admin picks a
+		// study and participants from inside the modal.
+		showBulkDownloadModal = true;
+		closeBulkActionsMenu();
+	}
+
+	function openBulkUpload() {
+		showBulkUploadModal = true;
+		closeBulkActionsMenu();
+	}
+
+	/**
+	 * Programmatically close the Bulk Actions popover. The native popover
+	 * only auto-closes on outside clicks, but our menu items open a modal
+	 * (not an outside click), so we hide the popover explicitly.
+	 */
+	function closeBulkActionsMenu() {
+		if (typeof document === 'undefined') return;
+		document.getElementById('bulk-actions-menu')?.hidePopover?.();
+	}
+
+	async function handleBulkImported() {
+		// Refresh the participants list after a successful import so the
+		// new users appear in the table without a manual reload.
+		await loadParticipants();
+		await loadStudies();
+	}
 </script>
 
 <svelte:head>
@@ -406,7 +451,7 @@
 	></div>
 
 	<div class="relative z-10 flex h-full flex-col gap-4 p-4 lg:p-6">
-		<div class="flex items-center justify-between {mounted ? 'animate-fade-in-up' : 'opacity-0'}">
+		<div class="flex items-center justify-between">
 			<div>
 				<h1 class="font-display text-2xl font-bold">Participants</h1>
 				<p class="mt-1 font-mono text-sm text-base-content/50">
@@ -432,6 +477,66 @@
 					</svg>
 					Add Study
 				</button>
+				<button
+					class="btn font-mono btn-ghost"
+					popovertarget="bulk-actions-menu"
+					style="anchor-name:--bulk-anchor"
+					aria-label="Bulk actions"
+				>
+					<svg
+						class="h-4 w-4"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+						<polyline points="17 8 12 3 7 8" />
+						<line x1="12" y1="3" x2="12" y2="15" />
+					</svg>
+					Bulk Actions
+				</button>
+				<ul
+					popover
+					id="bulk-actions-menu"
+					class="menu dropdown dropdown-end w-56 rounded-box border border-neutral/20 bg-base-100 p-2 font-mono shadow-lg"
+					style="position-anchor:--bulk-anchor"
+				>
+					<li>
+						<button type="button" onclick={openBulkDownload}>
+							<svg
+								class="h-4 w-4"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+								<polyline points="7 10 12 15 17 10" />
+								<line x1="12" y1="15" x2="12" y2="3" />
+							</svg>
+							<span>Bulk Download</span>
+						</button>
+					</li>
+					<li>
+						<button type="button" onclick={openBulkUpload}>
+							<svg
+								class="h-4 w-4"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+								<polyline points="17 8 12 3 7 8" />
+								<line x1="12" y1="3" x2="12" y2="15" />
+							</svg>
+							<span>Bulk Upload</span>
+						</button>
+					</li>
+				</ul>
 				<button onclick={() => (showAddParticipantModal = true)} class="btn font-mono btn-primary">
 					<svg
 						class="h-4 w-4"
@@ -447,7 +552,7 @@
 			</div>
 		</div>
 
-		<div class="card bg-base-200 {mounted ? 'animate-fade-in-up stagger-1' : 'opacity-0'}">
+		<div class="card bg-base-200">
 			<div class="card-body p-4 lg:p-6">
 				<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
 					<div class="form-control">
@@ -504,20 +609,23 @@
 			</div>
 		</div>
 
-		<div
-			class="card min-h-0 flex-1 overflow-hidden bg-base-200 {mounted
-				? 'animate-fade-in-up stagger-2'
-				: 'opacity-0'}"
-		>
-			<div class="h-full overflow-x-auto">
+		<div class="card min-h-0 flex-1 overflow-hidden bg-base-200">
+			<div class="h-full overflow-auto">
 				<table class="table">
-					<thead class="bg-base-300/50">
+					<thead class="bg-base-300">
 						<tr>
-							<th class="font-mono text-xs tracking-wider text-base-content/40 uppercase"
+							<th
+								class="sticky top-0 z-10 bg-base-300 font-mono text-xs tracking-wider text-base-content/40 uppercase"
 								>Username</th
 							>
-							<th class="font-mono text-xs tracking-wider text-base-content/40 uppercase">Study</th>
-							<th class="font-mono text-xs tracking-wider text-base-content/40 uppercase">Name</th>
+							<th
+								class="sticky top-0 z-10 bg-base-300 font-mono text-xs tracking-wider text-base-content/40 uppercase"
+								>Study</th
+							>
+							<th
+								class="sticky top-0 z-10 bg-base-300 font-mono text-xs tracking-wider text-base-content/40 uppercase"
+								>Name</th
+							>
 						</tr>
 					</thead>
 					<tbody>
@@ -705,5 +813,20 @@
 		onSelectSensor={selectSensor}
 		{onToggleDropdown}
 		{onFocusSensor}
+	/>
+
+	<BulkDownloadModal
+		show={showBulkDownloadModal}
+		{studies}
+		onClose={() => {
+			showBulkDownloadModal = false;
+		}}
+	/>
+
+	<BulkUploadModal
+		show={showBulkUploadModal}
+		{studies}
+		onImported={handleBulkImported}
+		onClose={() => (showBulkUploadModal = false)}
 	/>
 </div>

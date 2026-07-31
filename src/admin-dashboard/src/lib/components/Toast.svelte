@@ -5,11 +5,11 @@
 {#if $toast.visible}
 	<div class="toast toast-start toast-bottom z-50">
 		<div
-			class="toast-animate alert shadow-lg {$toast.type === 'success'
+			class="toast-animate alert max-w-md shadow-lg {$toast.type === 'success'
 				? 'alert-success'
 				: 'alert-error'}"
 		>
-			<span class="font-mono text-sm">{$toast.message}</span>
+			<span class="font-mono text-sm whitespace-pre-line">{$toast.message}</span>
 			<button
 				onclick={() => hideToast()}
 				class="btn btn-circle btn-ghost btn-xs"

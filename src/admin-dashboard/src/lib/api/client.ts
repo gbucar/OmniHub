@@ -1,6 +1,6 @@
 import { PostgrestClient } from '@supabase/postgrest-js';
-import { env } from '$env/dynamic/public';
 import { browser } from '$app/environment';
+import { env } from '$env/dynamic/public';
 import { writable, type Writable } from 'svelte/store';
 import { createUser, type User } from './types';
 

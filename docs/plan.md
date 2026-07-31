@@ -7,16 +7,16 @@
 		- podatki o udeležencih
 	- [x] `auth` (samo auth procedure in admin)
 		- avtorizacijski podatki o udeležencih (username + password)
-	- [ ] `api` (pogledi: pass-through, procedure: security-definer)
+	- [x] `api` (pogledi: pass-through, procedure: security-definer)
 		- [x]  procedura, ki omogoča prijavo
 			- prejme uporabniško ime + geslo
 			- vrne JWT 200 / napako 401
 		- [x] procedura, ki omogoča zamenjavo gesla
 			- prejme uporabniško ime + geslo + novo geslo + ponovitev novega gesla
 			- vrne OK 201 / napako 401
-		- [ ] pogledi, ki omogočajo dostop do tabel iz `data`, optimizirano za admin dashboard
-			- pregled senzorjev
-			- pregled uporabnikov
+		- [x] pogledi, ki omogočajo dostop do tabel iz `data`, optimizirano za admin dashboard
+			- pregled senzorjev (`list_sensors`, `sensors`, `data_streams`, `locations`, `observations` — migracija 23)
+			- pregled uporabnikov (`list_participants`, `participants`, `ownerships`, `studies`)
 	- [ ] `log`
 		- [x] podatki o delovanju povezovalnih enot (čas zagona, trajanje, količina prenešenih podatkov)
 		- [ ] podatki o delovanju spletne aplikacije (healthcheck, uspešni/neuspešni poskusi prijave)
@@ -49,8 +49,8 @@
 	- [ ] dodajanje novega uporabnika
 	- [ ] dodajanje več novih uporabnikov
 - [ ] pregled naprav
-	- [ ] prikaz vseh naprav
-	- [ ] iskanje po napravah
+	- [x] prikaz vseh naprav
+	- [x] iskanje po napravah
 	- [ ] urejanje podatkov naprave
 	- [ ] dodajanje nove naprave
 	- [ ] dodajanje več novih naprav

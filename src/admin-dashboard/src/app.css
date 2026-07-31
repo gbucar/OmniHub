@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Sora:wght@400;500;600;700&display=swap');
+
 @import 'tailwindcss';
 @plugin 'daisyui' {
 	themes:
@@ -57,13 +59,14 @@
 	name: 'omnihub-dark';
 	extends: omnihub;
 	prefersdark: true;
+	color-scheme: dark;
 
 	--color-base-100: oklch(0.07 0.01 240);
 	--color-base-200: oklch(0.12 0.01 240);
 	--color-base-300: oklch(0.18 0.02 240);
 	--color-base-content: oklch(0.93 0.01 240);
 
-	--color-neutral: oklch(0.25 0.03 240);
+	--color-neutral: oklch(0.38 0.03 240);
 	--color-neutral-content: oklch(0.93 0.01 240);
 
 	--color-primary: oklch(0.72 0.2 195);
@@ -81,8 +84,6 @@
 	--color-error: oklch(0.62 0.25 25);
 	--color-error-content: oklch(0.98 0.01 240);
 }
-
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Sora:wght@400;500;600;700&display=swap');
 
 :root {
 	--font-display: 'Sora', sans-serif;
@@ -120,15 +121,15 @@ body {
 	background: oklch(0.55 0.18 195);
 }
 
-.dark ::-webkit-scrollbar-track {
+[data-theme='omnihub-dark'] ::-webkit-scrollbar-track {
 	background: oklch(0.12 0.01 240);
 }
 
-.dark ::-webkit-scrollbar-thumb {
-	background: oklch(0.25 0.03 240);
+[data-theme='omnihub-dark'] ::-webkit-scrollbar-thumb {
+	background: oklch(0.38 0.03 240);
 }
 
-.dark ::-webkit-scrollbar-thumb:hover {
+[data-theme='omnihub-dark'] ::-webkit-scrollbar-thumb:hover {
 	background: oklch(0.45 0.15 195);
 }
 

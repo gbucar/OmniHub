@@ -1,5 +1,11 @@
 export { pgClient, user, setAuthToken, clearAuth, login } from './client';
-export { getParticipants, addParticipant, updateParticipant } from './participants';
+export {
+	getParticipants,
+	addParticipant,
+	addParticipantAndReturnId,
+	lookupUserIdByUsername,
+	updateParticipant
+} from './participants';
 export {
 	getStudies,
 	addStudy,
@@ -13,10 +19,10 @@ export {
 	addOwnership,
 	updateOwnership,
 	removeOwnership,
-	updateSensor,
 	getSensorStreams,
 	getSensorOwnerships,
-	getRecentObservations
+	getRecentObservations,
+	getSensorTypes
 } from './sensors';
 export type {
 	Sensor,
@@ -29,4 +35,5 @@ export type {
 	ParticipantStudy,
 	User
 } from './types';
+export type { SensorFilters, PaginatedResult } from './sensors';
 export { createUser } from './types';
