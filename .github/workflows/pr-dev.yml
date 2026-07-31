@@ -120,7 +120,10 @@ jobs:
           docker compose -f docker-compose.yml -f docker-compose.test.yml logs admin-dashboard
           exit 1
 
-      # --- Install Playwright and run tests ---
+      # --- Install test deps and run tests in the Playwright container ---
+      # node_modules is required because the playwright-tests service mounts
+      # ./tests/e2e into the container. No browser download — the
+      # mcr.microsoft.com/playwright image already contains Chromium.
 
       - uses: actions/setup-node@v4
         with:
@@ -128,18 +131,18 @@ jobs:
           cache: npm
           cache-dependency-path: tests/e2e/package-lock.json
 
-      - name: Install Playwright
+      - name: Install test dependencies
         working-directory: tests/e2e
-        run: |
-          npm ci
-          npx playwright install chromium --with-deps
+        run: npm ci
 
+      # --no-deps: db/postgrest/admin-dashboard are already up and seeded;
+      # avoids re-running the test-seed service. -T: no TTY on CI runners.
       - name: Run E2E tests
-        working-directory: tests/e2e
-        run: npm test
-        env:
-          TEST_BASE_URL: http://localhost:3001
-          CI: 'true'
+        run: |
+          docker compose \
+            -f docker-compose.yml \
+            -f docker-compose.test.yml \
+            run --rm --no-deps -T playwright-tests
 
       # --- Artifacts & cleanup ---
 
@@ -157,8 +160,8 @@ jobs:
         with:
           name: playwright-report
           path: |
-            playwright-report/
-            test-results/
+            tests/e2e/playwright-report/
+            tests/e2e/test-results/
 
       - name: Cleanup Docker stack
         if: always()
