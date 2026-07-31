@@ -1,40 +1,10 @@
 # TODO
 
-## Admin password reset za udeležence
-
-### Namen
-V `ParticipantDetailsPanel` (admin dashboard) v razdelku "Account Details" bo dodan gumb "Reset password", ki razširi inline formo z dvema poljema (novo geslo + potrditev) in omogoči adminu, da ponastavi geslo udeležencu, ki ga je pozabil.
-
-### Backend dilema: kako poklicati spremembo gesla
-Admin že ima neposredne pravice na `auth.users`:
-- `GRANT SELECT, INSERT, UPDATE ON TABLE auth.users TO admin;` (20_init.sql:1272)
-- RLS `allow_admin_update_user_data_cp` (20_init.sql:527)
-- Trigger `encrypt_pass` avtomatsko zhashira geslo ob UPDATE
-
-Treba se je odločiti med dvema pristopoma:
-
-**Opcija A — nov RPC `api.admin_reset_user_password` (priporočeno)**
-- Nova migracija `22_admin_reset_user_password.sql`.
-- Funkcija: `api.admin_reset_user_password(target_user_id uuid, new_password text, new_password_confirmation text) RETURNS void`.
-- `SECURITY DEFINER`, preveri admin role iz JWT, preveri ujemanje novih gesel.
-- `UPDATE auth.users SET password = new_password WHERE id = target_user_id;` (trigger zhashira).
-- Dodati objekt v `src/db/db.dbm`.
-- Frontend kliče: `pgClient?.schema('api').rpc('admin_reset_user_password', {...})`.
-- Prednosti: poslovna logika v bazi, lažji audit, skladno z obstoječimi RPC-ji.
-
-**Opcija B — neposreden PostgREST UPDATE**
-- Brez migracije.
-- `pgClient.from('users').update({ password }).eq('id', targetUserId)`.
-- Validacijo ujemanja in admin role naredi frontend (RLS poskrbi za pravice).
-- Slabosti: logika v frontend, `auth.users` izpostavljen, ni centralnega audita.
-
-### Implementacija (treba narediti)
-1. Izbrati opcijo (A ali B).
-2. **Frontend** (že dogovorjeno): gumb v Account Details kartici → inline forma z dvema `PasswordInput` poljema → handler v `users/+page.svelte` → toast na uspeh/napako.
-3. **API plast**: dodati `resetParticipantPassword(userId, newPassword)` v `src/lib/api/participants.ts` in izvoz v `index.ts`. Če Opcija A → kliče RPC; če Opcija B → kliče PostgREST UPDATE.
-4. **Spremembe `ParticipantDetailsPanel.svelte`**: nov state za formo, nov dispatch event `resetPassword`, gumb + inline UI.
-5. **Spremembe `users/+page.svelte`**: handler `handleResetPassword`, povezava `on:resetPassword`.
-6. Po izbiri opcije: napisati migracijo (Opcija A) ali pustiti komentar (Opcija B).
+> **Vse naloge so zaključene.** Ta dokument služi kot zgodovinska referenca.
+>
+> ~~Admin password reset~~ — **odstranjen iz plana** (izven scope-a trenutne faze).
+>
+> Spodaj je dokumentiran potek reševanja `/devices` API view-ov.
 
 ## `/devices` — `api.*` view-a za Data Streams in Recent Observations ✅ ODPRAVLJENO
 

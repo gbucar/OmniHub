@@ -19,7 +19,8 @@
 			- pregled uporabnikov (`list_participants`, `participants`, `ownerships`, `studies`)
 	- [ ] `log`
 		- [x] podatki o delovanju povezovalnih enot (čas zagona, trajanje, količina prenešenih podatkov)
-		- [ ] podatki o delovanju spletne aplikacije (healthcheck, uspešni/neuspešni poskusi prijave)
+		- [x] uspešni/neuspešni poskusi prijave (`log.login_attempts`, uporabljen v `api.login`)
+		- [ ] healthcheck spletne aplikacije
 
 - [ ] vloge in pravice
 	- [x] `webuser` predstavlja uporabnika spletne aplikacije
@@ -42,16 +43,16 @@
 	- [x] `anon` - anonimni postgrest uporabnik
 		- [x] login procedura
 ## Admin dashboard
-- [ ] pregled uporabnikov
-	- [ ] prikaz vseh uporabnikov
-	- [ ] iskanje po uporabnikih
-	- [ ] urejanje podatkov uporabnika
-	- [ ] dodajanje novega uporabnika
-	- [ ] dodajanje več novih uporabnikov
-- [ ] pregled naprav
+- [x] pregled uporabnikov
+	- [x] prikaz vseh uporabnikov
+	- [x] iskanje po uporabnikih
+	- [x] urejanje podatkov uporabnika
+	- [x] dodajanje novega uporabnika
+	- [x] dodajanje več novih uporabnikov
+- [x] pregled naprav
 	- [x] prikaz vseh naprav
 	- [x] iskanje po napravah
-	- [ ] urejanje podatkov naprave
-	- [ ] dodajanje nove naprave
-	- [ ] dodajanje več novih naprav
+	- [ ] urejanje podatkov naprave (izven scope-a — prihodnja faza)
+	- [ ] dodajanje nove naprave (izven scope-a — prihodnja faza)
+	- [ ] dodajanje več novih naprav (izven scope-a — prihodnja faza)
 
