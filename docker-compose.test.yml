@@ -26,8 +26,11 @@ services:
       retries: 10
       start_period: 15s
 
-  # --- Override: admin-dashboard za teste (isti Dockerfile, testna konfiguracija) ---
+  # --- Override: admin-dashboard za teste (Vite dev server) ---
   admin-dashboard:
+    build:
+      context: ./src/admin-dashboard
+      dockerfile: Dockerfile.dev
     image: omnihub-admin-dashboard:test
     environment:
       - PUBLIC_POSTGREST_URL=http://postgrest:3000
