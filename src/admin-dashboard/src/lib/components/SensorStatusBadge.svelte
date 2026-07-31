@@ -15,9 +15,9 @@
 	// elsewhere in the dashboard: green for healthy, amber for maintenance,
 	// neutral for inactive, ghost for unknown.
 	const CONFIG: Record<string, { label: string; cls: string }> = {
-		active: { label: 'Active', cls: 'badge-success badge-soft' },
-		inactive: { label: 'Inactive', cls: 'badge-outline badge-neutral !text-base-content/60' },
-		maintenance: { label: 'Maintenance', cls: 'badge-warning badge-soft' }
+		active: { label: 'Active', cls: 'badge-success badge-soft border !border-success/30' },
+		inactive: { label: 'Inactive', cls: 'badge-outline !border-base-content/20 !text-base-content/60' },
+		maintenance: { label: 'Maintenance', cls: 'badge-warning badge-soft border !border-warning/30' }
 	};
 
 	const config = $derived(CONFIG[normalized] ?? { label: 'Unknown', cls: 'badge-ghost' });

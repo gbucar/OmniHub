@@ -34,17 +34,17 @@
 	> = {
 		active: {
 			label: 'Active',
-			badgeClass: 'badge-success badge-soft',
+			badgeClass: 'badge-success badge-soft border !border-success/30',
 			dotClass: 'bg-success'
 		},
 		upcoming: {
 			label: 'Upcoming',
-			badgeClass: 'badge-info badge-soft',
+			badgeClass: 'badge-info badge-soft border !border-info/30',
 			dotClass: 'bg-info'
 		},
 		inactive: {
 			label: 'Inactive',
-			badgeClass: 'badge-outline badge-neutral !text-base-content/60',
+			badgeClass: 'badge-outline !border-base-content/20 !text-base-content/60',
 			dotClass: 'bg-base-content/50'
 		},
 		none: {
