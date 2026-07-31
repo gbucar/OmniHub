@@ -240,9 +240,7 @@
 							{#if selectedSensor.properties}
 								{#if Object.keys(selectedSensor.properties).some((k) => k !== 'status')}
 									<div class="pt-2">
-										<span
-											class="font-mono text-xs tracking-wider text-base-content/30 uppercase"
-										>
+										<span class="font-mono text-xs tracking-wider text-base-content/30 uppercase">
 											Metadata
 										</span>
 										<div class="mt-1 space-y-1.5">
@@ -447,7 +445,9 @@
 										<span class="truncate text-right font-mono text-xs font-medium text-primary">
 											{Number(obs.result).toFixed(2)}
 										</span>
-										<span class="truncate text-right font-mono text-[10px] text-base-content/40 uppercase">
+										<span
+											class="truncate text-right font-mono text-[10px] text-base-content/40 uppercase"
+										>
 											{obs.unit_of_measurement ?? '—'}
 										</span>
 										<span class="truncate text-right font-mono text-xs text-base-content/60">

@@ -44,7 +44,8 @@
 		},
 		inactive: {
 			label: 'Inactive',
-			badgeClass: 'badge-neutral badge-soft !bg-transparent !text-base-content/60 outline outline-1 -outline-offset-1 outline-base-content/20',
+			badgeClass:
+				'badge-neutral badge-soft !bg-transparent !text-base-content/60 outline outline-1 -outline-offset-1 outline-base-content/20',
 			dotClass: 'bg-base-content/50'
 		},
 		none: {

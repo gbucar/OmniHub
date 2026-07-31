@@ -13,9 +13,7 @@
 
 	{#if $user.isLoggedIn}
 		<div class="relative z-10 flex h-full flex-col items-center justify-center p-8">
-			<div
-				class="card max-w-lg bg-base-200 shadow-2xl"
-			>
+			<div class="card max-w-lg bg-base-200 shadow-2xl">
 				<div class="card-body items-center p-8 text-center">
 					<div class="relative mb-6">
 						<div

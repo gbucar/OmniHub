@@ -1,10 +1,5 @@
 <script lang="ts">
-	import {
-		pgClient,
-		getParticipants,
-		type Participant,
-		type Study
-	} from '$lib/api';
+	import { pgClient, getParticipants, type Participant, type Study } from '$lib/api';
 	import { serializeCSV, downloadCSV } from '$lib/utils/csv';
 	import { showToast } from '$lib/stores/toast';
 
@@ -147,7 +142,10 @@
 		try {
 			// Fetch ownerships for all selected users (1 call via in() filter)
 			const [ownershipsRes, sensorsRes, mpsRes] = await Promise.all([
-				pgClient?.from('ownerships').select('user_id, sensor_id, start_date, end_date').in('user_id', userIds),
+				pgClient
+					?.from('ownerships')
+					.select('user_id, sensor_id, start_date, end_date')
+					.in('user_id', userIds),
 				pgClient?.from('list_sensors').select('id, name'),
 				pgClient
 					?.from('many_participants_studies')
@@ -171,7 +169,10 @@
 				start_date: string;
 				end_date: string;
 			}>;
-			const ownershipsByUser = new Map<string, Array<{ name: string; start: string; end: string }>>();
+			const ownershipsByUser = new Map<
+				string,
+				Array<{ name: string; start: string; end: string }>
+			>();
 			for (const o of rawOwnerships) {
 				if (!ownershipsByUser.has(o.user_id)) ownershipsByUser.set(o.user_id, []);
 				ownershipsByUser.get(o.user_id)!.push({
@@ -244,8 +245,7 @@
 			];
 			const allHeaders = [...baseHeaders, ...deviceHeaders];
 
-			const toDate = (val: string | null | undefined): string =>
-				val ? val.slice(0, 10) : '';
+			const toDate = (val: string | null | undefined): string => (val ? val.slice(0, 10) : '');
 
 			const csvRows: string[][] = rows.map((r) => {
 				const deviceCells: string[] = [];
