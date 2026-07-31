@@ -137,7 +137,10 @@ jobs:
 
       # --no-deps: db/postgrest/admin-dashboard are already up and seeded;
       # avoids re-running the test-seed service. -T: no TTY on CI runners.
+      # Hard cap: Playwright globalTimeout (10 min) stops the run first;
+      # this kills the step if the container ever hangs regardless.
       - name: Run E2E tests
+        timeout-minutes: 12
         run: |
           docker compose \
             -f docker-compose.yml \

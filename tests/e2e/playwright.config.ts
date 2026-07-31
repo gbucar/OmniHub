@@ -5,6 +5,10 @@ export default defineConfig({
 
   timeout: 15_000,
 
+  // Abort the whole run after 10 min in CI — a fully failing run
+  // (35 tests × 15s × retry) would otherwise take ~18 min.
+  globalTimeout: process.env.CI ? 10 * 60_000 : 0,
+
   expect: {
     timeout: 5_000,
   },

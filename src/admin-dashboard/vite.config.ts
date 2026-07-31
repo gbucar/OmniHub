@@ -3,5 +3,9 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-	plugins: [tailwindcss(), sveltekit()]
+	plugins: [tailwindcss(), sveltekit()],
+	server: {
+		// Allow access via the Docker Compose service name (E2E test stack).
+		allowedHosts: ['admin-dashboard']
+	}
 });
