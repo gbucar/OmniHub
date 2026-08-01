@@ -109,13 +109,18 @@ export async function openDeviceDetails(page: Page, sensorName: string): Promise
 	const row = page.getByRole('button', { name: new RegExp(sensorName) });
 	await row.click();
 
-	// Wait for the sidebar to slide in and API calls to resolve.
-	// 1500 ms covers CSS transition (200 ms) + 3 parallel API calls
-	// (streams, ownerships, observations) under parallel worker load.
-	await page.waitForTimeout(1500);
+	// Wait for the sidebar panel to slide in. The "Information" heading
+	// is rendered synchronously from props (no API call needed), so its
+	// presence confirms the panel is ready. The other cards (streams,
+	// ownerships, observations) load asynchronously — individual tests
+	// should wait for their specific content if needed.
+	const panel = page.getByRole('complementary');
+	await panel.getByText(sensorName).first().waitFor({ state: 'visible', timeout: 5000 });
+	await panel.getByText('Information').waitFor({ state: 'visible', timeout: 5000 });
 
-	// Confirm the sidebar is visible by waiting for the heading
-	await page.getByText(sensorName).first().waitFor({ state: 'visible', timeout: 5000 });
+	// Brief pause for API calls (streams, ownerships, observations)
+	// to kick off under parallel worker load.
+	await page.waitForTimeout(500);
 }
 
 /**
