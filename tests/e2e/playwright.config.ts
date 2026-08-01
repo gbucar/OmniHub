@@ -15,11 +15,10 @@ export default defineConfig({
 
   retries: process.env.CI ? 1 : 0,
 
-  // Single worker locally (deterministic output), 3 in CI (parallel by spec file).
-  // With 5 spec files and 3 workers the run time drops from ~2 min to ~45 s.
-  // 3 workers provides a good balance: 3× speedup while keeping PostgREST
-  // API load low enough that ownership/observation data loads reliably.
-  workers: process.env.CI ? 3 : 1,
+  // Single worker — spec files share a single database and mutations
+  // in one spec (e.g. participants renaming seed data) would break
+  // assertions in another spec running concurrently.
+  workers: 1,
 
   reporter: process.env.CI
     ? [['list'], ['html', { open: 'never' }]]

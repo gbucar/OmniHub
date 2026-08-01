@@ -2,14 +2,13 @@
 # PR Checks — dev
 # ============================================================================
 # Runs on pull requests targeting `dev` or `master`.
-# Three parallel jobs must pass before merging:
-#   1. lint-and-build          — typecheck, format, production build (~2 min)
-#   2. e2e-tests-readonly      — auth + nav + devices specs, 4 workers (~45 s)
-#   3. e2e-tests-mutations     — participants + studies specs, 1 worker (~90 s)
+# Two parallel jobs must pass before merging:
+#   1. lint-and-build — typecheck, format, production build (~2 min)
+#   2. e2e-tests      — Playwright E2E tests against a fresh Docker stack (~90 s)
 #
-# Read-only and mutation tests run in separate Docker stacks (COMPOSE_PROJECT_NAME)
-# so they are fully isolated. This allows read-only specs to use 4 parallel
-# workers while mutation specs (which modify the database) stay serial.
+# E2E tests use workers: 2 (2× speedup vs. serial). Two concurrent workers
+# are safe for PostgREST load — tests within each spec file stay sequential
+# and the seed data is deterministic.
 # ============================================================================
 
 name: PR Checks — dev
@@ -51,26 +50,29 @@ jobs:
         run: npm run build
 
   # --------------------------------------------------------------------------
-  # Job 2: Read-only E2E tests — auth, navigation, devices.
-  # These specs never mutate the database, so they can safely run
-  # with 4 parallel workers in a single Docker stack.
+  # Job 2: E2E tests with Playwright against a fresh Docker stack.
+  # Uses docker-compose.test.yml to spin up an isolated environment
+  # with deterministic seed data, then runs all Playwright specs.
   # --------------------------------------------------------------------------
-  e2e-tests-readonly:
+  e2e-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v4
 
+      # Docker Compose reads variables from .env in the project directory.
+      # .env.example already contains correct local-development passwords.
       - name: Setup .env
         run: cp .env.example .env
+
+      # --- Start test infrastructure ---
 
       - name: Start database
         run: |
           docker compose \
             -f docker-compose.yml \
             -f docker-compose.test.yml \
-            -p e2e-ro \
             up -d --wait db
 
       - name: Seed test data
@@ -78,7 +80,6 @@ jobs:
           docker compose \
             -f docker-compose.yml \
             -f docker-compose.test.yml \
-            -p e2e-ro \
             run --rm test-seed
 
       - name: Start API
@@ -86,7 +87,6 @@ jobs:
           docker compose \
             -f docker-compose.yml \
             -f docker-compose.test.yml \
-            -p e2e-ro \
             up -d postgrest
 
       - name: Wait for PostgREST
@@ -100,6 +100,7 @@ jobs:
             sleep 2
           done
           echo "❌ PostgREST not ready after 60s"
+          docker compose -f docker-compose.yml -f docker-compose.test.yml logs postgrest
           exit 1
 
       - name: Start admin dashboard
@@ -107,7 +108,6 @@ jobs:
           docker compose \
             -f docker-compose.yml \
             -f docker-compose.test.yml \
-            -p e2e-ro \
             up -d admin-dashboard
 
       - name: Wait for admin dashboard
@@ -121,7 +121,13 @@ jobs:
             sleep 2
           done
           echo "❌ Admin dashboard not ready after 60s"
+          docker compose -f docker-compose.yml -f docker-compose.test.yml logs admin-dashboard
           exit 1
+
+      # --- Install test deps and run tests in the Playwright container ---
+      # node_modules is required because the playwright-tests service mounts
+      # ./tests/e2e into the container. No browser download — the
+      # mcr.microsoft.com/playwright image already contains Chromium.
 
       - uses: actions/setup-node@v4
         with:
@@ -133,143 +139,39 @@ jobs:
         working-directory: tests/e2e
         run: npm ci
 
-      - name: Run read-only E2E tests (4 workers)
+      # --no-deps: db/postgrest/admin-dashboard are already up and seeded;
+      # avoids re-running the test-seed service. -T: no TTY on CI runners.
+      - name: Run E2E tests
         timeout-minutes: 8
         run: |
           docker compose \
             -f docker-compose.yml \
             -f docker-compose.test.yml \
-            -p e2e-ro \
-            run --rm --no-deps -T playwright-tests \
-              specs/auth.spec.ts \
-              specs/navigation.spec.ts \
-              specs/devices.spec.ts
+            run --rm --no-deps -T playwright-tests
+
+      # --- Artifacts & cleanup ---
 
       - name: Debug — postgrest logs
         if: failure()
-        run: docker compose -f docker-compose.yml -f docker-compose.test.yml -p e2e-ro logs postgrest || true
+        run: |
+          echo "=== POSTGREST LOGS ==="
+          docker compose -f docker-compose.yml -f docker-compose.test.yml logs postgrest || true
+          echo "=== DB LOGS (last 50 lines) ==="
+          docker compose -f docker-compose.yml -f docker-compose.test.yml logs db --tail 50 || true
 
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-readonly
+          name: playwright-report
           path: |
             tests/e2e/playwright-report/
             tests/e2e/test-results/
 
       - name: Cleanup Docker stack
         if: always()
-        run: docker compose -f docker-compose.yml -f docker-compose.test.yml -p e2e-ro down -v
-
-  # --------------------------------------------------------------------------
-  # Job 3: Mutation E2E tests — participants, studies.
-  # These specs create/edit data and must run serially (workers: 1)
-  # in their own isolated Docker stack.
-  # --------------------------------------------------------------------------
-  e2e-tests-mutations:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup .env
-        run: cp .env.example .env
-
-      - name: Start database
         run: |
           docker compose \
             -f docker-compose.yml \
             -f docker-compose.test.yml \
-            -p e2e-mut \
-            up -d --wait db
-
-      - name: Seed test data
-        run: |
-          docker compose \
-            -f docker-compose.yml \
-            -f docker-compose.test.yml \
-            -p e2e-mut \
-            run --rm test-seed
-
-      - name: Start API
-        run: |
-          docker compose \
-            -f docker-compose.yml \
-            -f docker-compose.test.yml \
-            -p e2e-mut \
-            up -d postgrest
-
-      - name: Wait for PostgREST
-        run: |
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:3000 > /dev/null 2>&1; then
-              echo "✅ PostgREST ready"
-              exit 0
-            fi
-            echo "⏳ Waiting for PostgREST… ($i/30)"
-            sleep 2
-          done
-          echo "❌ PostgREST not ready after 60s"
-          exit 1
-
-      - name: Start admin dashboard
-        run: |
-          docker compose \
-            -f docker-compose.yml \
-            -f docker-compose.test.yml \
-            -p e2e-mut \
-            up -d admin-dashboard
-
-      - name: Wait for admin dashboard
-        run: |
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:3001 > /dev/null 2>&1; then
-              echo "✅ Admin dashboard ready"
-              exit 0
-            fi
-            echo "⏳ Waiting for admin dashboard… ($i/30)"
-            sleep 2
-          done
-          echo "❌ Admin dashboard not ready after 60s"
-          exit 1
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: npm
-          cache-dependency-path: tests/e2e/package-lock.json
-
-      - name: Install test dependencies
-        working-directory: tests/e2e
-        run: npm ci
-
-      - name: Run mutation E2E tests (1 worker, serial)
-        timeout-minutes: 8
-        run: |
-          docker compose \
-            -f docker-compose.yml \
-            -f docker-compose.test.yml \
-            -p e2e-mut \
-            run --rm --no-deps -T playwright-tests \
-              --workers=1 \
-              specs/participants.spec.ts \
-              specs/studies.spec.ts
-
-      - name: Debug — postgrest logs
-        if: failure()
-        run: docker compose -f docker-compose.yml -f docker-compose.test.yml -p e2e-mut logs postgrest || true
-
-      - name: Upload Playwright report
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report-mutations
-          path: |
-            tests/e2e/playwright-report/
-            tests/e2e/test-results/
-
-      - name: Cleanup Docker stack
-        if: always()
-        run: docker compose -f docker-compose.yml -f docker-compose.test.yml -p e2e-mut down -v
+            down -v
