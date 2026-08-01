@@ -50,7 +50,7 @@ jobs:
         run: npm run build
 
   # --------------------------------------------------------------------------
-  # Job 2: E2E tests with Playwright against a fresh Docker stack.
+  # Job 2: E2E tests with Playwright against a fresh Podman stack.
   # Uses docker-compose.test.yml to spin up an isolated environment
   # with deterministic seed data, then runs all Playwright specs.
   # --------------------------------------------------------------------------
@@ -77,14 +77,14 @@ jobs:
 
       - name: Start database
         run: |
-          docker compose \
+          podman compose \
             -f docker-compose.yml \
             -f docker-compose.test.yml \
             up -d --wait db
 
       - name: Start API
         run: |
-          docker compose \
+          podman compose \
             -f docker-compose.yml \
             -f docker-compose.test.yml \
             up -d postgrest
@@ -100,12 +100,12 @@ jobs:
             sleep 2
           done
           echo "❌ PostgREST not ready after 60s"
-          docker compose -f docker-compose.yml -f docker-compose.test.yml logs postgrest
+          podman compose -f docker-compose.yml -f docker-compose.test.yml logs postgrest
           exit 1
 
       - name: Start admin dashboard
         run: |
-          docker compose \
+          podman compose \
             -f docker-compose.yml \
             -f docker-compose.test.yml \
             up -d admin-dashboard
@@ -121,7 +121,7 @@ jobs:
             sleep 2
           done
           echo "❌ Admin dashboard not ready after 60s"
-          docker compose -f docker-compose.yml -f docker-compose.test.yml logs admin-dashboard
+          podman compose -f docker-compose.yml -f docker-compose.test.yml logs admin-dashboard
           exit 1
 
       # --- Install test deps and run tests in the Playwright container ---
@@ -144,7 +144,7 @@ jobs:
       - name: Run E2E tests
         timeout-minutes: 8
         run: |
-          docker compose \
+          podman compose \
             -f docker-compose.yml \
             -f docker-compose.test.yml \
             run --rm --no-deps -T playwright-tests
@@ -155,9 +155,9 @@ jobs:
         if: failure()
         run: |
           echo "=== POSTGREST LOGS ==="
-          docker compose -f docker-compose.yml -f docker-compose.test.yml logs postgrest || true
+          podman compose -f docker-compose.yml -f docker-compose.test.yml logs postgrest || true
           echo "=== DB LOGS (last 50 lines) ==="
-          docker compose -f docker-compose.yml -f docker-compose.test.yml logs db --tail 50 || true
+          podman compose -f docker-compose.yml -f docker-compose.test.yml logs db --tail 50 || true
 
       - name: Upload Playwright report
         if: failure()
@@ -168,10 +168,10 @@ jobs:
             tests/e2e/playwright-report/
             tests/e2e/test-results/
 
-      - name: Cleanup Docker stack
+      - name: Cleanup Podman stack
         if: always()
         run: |
-          docker compose \
+          podman compose \
             -f docker-compose.yml \
             -f docker-compose.test.yml \
             down -v
