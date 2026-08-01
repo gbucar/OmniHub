@@ -109,8 +109,10 @@ export async function openDeviceDetails(page: Page, sensorName: string): Promise
 	const row = page.getByRole('button', { name: new RegExp(sensorName) });
 	await row.click();
 
-	// Wait for the sidebar panel to slide in (CSS transition 200ms + reactive state + API calls)
-	await page.waitForTimeout(800);
+	// Wait for the sidebar to slide in and API calls to resolve.
+	// 1500 ms covers CSS transition (200 ms) + 3 parallel API calls
+	// (streams, ownerships, observations) under parallel worker load.
+	await page.waitForTimeout(1500);
 
 	// Confirm the sidebar is visible by waiting for the heading
 	await page.getByText(sensorName).first().waitFor({ state: 'visible', timeout: 5000 });

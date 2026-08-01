@@ -103,7 +103,7 @@ services:
           sleep 2
         done
         echo "Running Playwright tests..."
-        npx playwright test --reporter=list
+        npx playwright test --reporter=list "$@"
         echo "Tests completed"
     environment:
       TEST_BASE_URL: http://admin-dashboard:5173
