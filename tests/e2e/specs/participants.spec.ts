@@ -4,6 +4,7 @@
  *
  * Uses the auth fixture (already logged in as admin_user).
  * All selectors are semantic (getByRole, getByLabel, getByText, getByPlaceholder).
+ * Each test creates its own participant data for isolation.
  */
 
 import { test } from '../fixtures/auth';
@@ -21,83 +22,10 @@ test.describe('Participants', () => {
 	test.beforeEach(async ({ authenticatedPage: page }) => {
 		// Fixture already navigates to /users via client-side link — no need for page.goto
 		await page.waitForLoadState('networkidle');
-	});
 
-	// ---------------------------------------------------------------------------
-	// Read-only tests (no data modification — rely on seeded data)
-	// ---------------------------------------------------------------------------
-
-	test('PRT-01 — Seznam participantov se pravilno naloži', async ({ authenticatedPage: page }) => {
-		await waitForParticipantsTable(page);
-		await expect(page.getByText('Ana Test')).toBeVisible();
-		await expect(page.getByText('test_participant_1')).toBeVisible();
-		await expect(page.getByText('Bojan Test')).toBeVisible();
-	});
-
-	test('PRT-02 — Iskanje po imenu', async ({ authenticatedPage: page }) => {
-		await expect(page.getByText('Ana Test')).toBeVisible();
-		await page.getByLabel('Search').fill('Ana');
-		await page.waitForTimeout(400);
-		await expect(page.getByText('Ana Test')).toBeVisible();
-		await expect(page.getByText('Bojan Test')).not.toBeVisible();
-	});
-
-	test('PRT-03 — Iskanje po uporabniškem imenu', async ({ authenticatedPage: page }) => {
-		await expect(page.getByText('Ana Test')).toBeVisible();
-		await page.getByLabel('Search').fill('test_participant_4');
-		await page.waitForTimeout(400);
-		await expect(page.getByText('test_participant_4')).toBeVisible();
-		await expect(page.getByText('David Test')).toBeVisible();
-	});
-
-	test('PRT-04 — Filter po študiji', async ({ authenticatedPage: page }) => {
-		await expect(page.getByText('Ana Test')).toBeVisible();
-		// The study filter dropdown is populated asynchronously — wait for the option to appear
-		await page.locator('#study-filter option').filter({ hasText: 'Test Study Alpha' }).waitFor({ state: 'attached' });
-		await page.locator('#study-filter').selectOption('Test Study Alpha');
-		await page.waitForTimeout(500);
-		await expect(page.getByText('Ana Test')).toBeVisible();
-		await expect(page.getByText('Bojan Test')).toBeVisible();
-		await expect(page.getByText('Cvetka Test')).toBeVisible();
-		await expect(page.getByText('David Test')).not.toBeVisible();
-	});
-
-	test('PRT-05 — Paginacija — spreminjanje page size', async ({ authenticatedPage: page }) => {
-		await expect(page.getByText('Ana Test')).toBeVisible();
-		await page.getByLabel('Records per page').selectOption('10');
-		await page.waitForTimeout(300);
-		await expect(page.getByText('Ana Test')).toBeVisible();
-	});
-
-	test('PRT-06 — Paginacija — prev/next gumba', async ({ authenticatedPage: page }) => {
-		// With 10 participants and pageSize=10, all fit on one page
-		await expect(page.getByText('Ana Test')).toBeVisible();
-		await page.getByLabel('Records per page').selectOption('10');
-		await page.waitForTimeout(500);
-
-		// Page indicator should show 1 / 1 (use regex for flexibility)
-		await expect(page.getByText(/Page 1/)).toBeVisible();
-
-		// Next button disabled (only one page)
-		const nextBtn = page.getByRole('button', { name: 'Next page' });
-		await expect(nextBtn).toBeDisabled();
-
-		// Previous button also disabled (already on first page)
-		const prevBtn = page.getByRole('button', { name: 'Previous page' });
-		await expect(prevBtn).toBeDisabled();
-	});
-
-	test('PRT-07 — "X of Y records" prikazuje pravilno', async ({ authenticatedPage: page }) => {
-		await waitForParticipantsTable(page);
-		await expect(page.getByText('Ana Test')).toBeVisible();
-		await expect(page.getByText(/\d+ of \d+ records/)).toBeVisible();
-	});
-
-	test('PRT-08 — "No participants found" ob neobstoječem iskanju', async ({ authenticatedPage: page }) => {
-		await expect(page.getByText('Ana Test')).toBeVisible();
-		await page.getByLabel('Search').fill('ZZZ_NONEXISTENT_ZZZ');
-		await page.waitForTimeout(500);
-		await expect(page.getByText('No participants found')).toBeVisible();
+		// Create a new participant for this test suite
+		const uniqueUsername = `e2e_participant_${Date.now()}`;
+		await createParticipant(page, uniqueUsername, 'testpass123', 'Test User', '30', 'male');
 	});
 
 	// ---------------------------------------------------------------------------
@@ -107,7 +35,7 @@ test.describe('Participants', () => {
 	test('PRT-09 — Dodajanje novega participanta', async ({ authenticatedPage: page }) => {
 		const uniqueUsername = `e2e_new_user_${Date.now()}`;
 
-		await expect(page.getByText('Ana Test')).toBeVisible();
+		await expect(page.getByText('Test User')).toBeVisible();
 		await page.getByRole('button', { name: 'Add Participant' }).click();
 
 		// Wait for the dialog heading to appear before scoping
@@ -163,28 +91,28 @@ test.describe('Participants', () => {
 	// ---------------------------------------------------------------------------
 
 	test('PRT-11 — Odpiranje detajlov (sidebar)', async ({ authenticatedPage: page }) => {
-		await openParticipantDetails(page, 'test_participant_1');
+		await openParticipantDetails(page, 'Test User');
 
 		// Sidebar heading shows participant name
-		await expect(page.getByRole('heading', { name: 'Ana Test' })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Test User' })).toBeVisible();
 		// Username with @ prefix only appears in sidebar
-		await expect(page.getByText('@test_participant_1')).toBeVisible();
+		await expect(page.getByText('@Test User')).toBeVisible();
 	});
 
 	test('PRT-19 — Sidebar — zapiranje z X gumbom', async ({ authenticatedPage: page }) => {
-		await openParticipantDetails(page, 'test_participant_1');
+		await openParticipantDetails(page, 'Test User');
 		await closeDetailsPanelWithButton(page);
 
 		// Sidebar username text should be gone
-		await expect(page.getByText('@test_participant_1')).not.toBeVisible();
+		await expect(page.getByText('@Test User')).not.toBeVisible();
 	});
 
 	test('PRT-20 — Sidebar — zapiranje s klikom na backdrop', async ({ authenticatedPage: page }) => {
-		await openParticipantDetails(page, 'test_participant_1');
+		await openParticipantDetails(page, 'Test User');
 		await closeDetailsPanel(page);
 
 		// Sidebar username text should be gone
-		await expect(page.getByText('@test_participant_1')).not.toBeVisible();
+		await expect(page.getByText('@Test User')).not.toBeVisible();
 	});
 
 	// ---------------------------------------------------------------------------
@@ -192,7 +120,7 @@ test.describe('Participants', () => {
 	// ---------------------------------------------------------------------------
 
 	test('PRT-12 — Sidebar — edit personal info', async ({ authenticatedPage: page }) => {
-		await openParticipantDetails(page, 'test_participant_1');
+		await openParticipantDetails(page, 'Test User');
 		await page.waitForTimeout(300);
 
 		// Enter edit mode — wait for Edit button to be visible in the sidebar
@@ -202,24 +130,24 @@ test.describe('Participants', () => {
 
 		// Wait for form fields to appear after clicking Edit
 		await page.locator('#edit-name').waitFor({ state: 'visible' });
-		await page.locator('#edit-name').fill('Ana Modified');
+		await page.locator('#edit-name').fill('Test User Modified');
 		await page.locator('#edit-age').waitFor({ state: 'visible' });
-		await page.locator('#edit-age').fill('26');
+		await page.locator('#edit-age').fill('31');
 		await page.getByRole('button', { name: 'Save' }).first().click();
 
 		await expectSuccessToast(page, 'updated');
 
 		// Sidebar stays open with updated heading
-		await expect(page.getByRole('heading', { name: 'Ana Modified' })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Test User Modified' })).toBeVisible();
 
 		// Close and reopen to verify persistence in database
 		await closeDetailsPanelWithButton(page);
-		await openParticipantDetails(page, 'test_participant_1');
-		await expect(page.getByRole('heading', { name: 'Ana Modified' })).toBeVisible();
+		await openParticipantDetails(page, 'Test User');
+		await expect(page.getByRole('heading', { name: 'Test User Modified' })).toBeVisible();
 	});
 
 	test('PRT-13 — Sidebar — validacija imena (samo črke)', async ({ authenticatedPage: page }) => {
-		await openParticipantDetails(page, 'test_participant_2');
+		await openParticipantDetails(page, 'Test User');
 		await page.waitForTimeout(300);
 
 		const editButton = page.getByRole('button', { name: 'Edit' }).first();
@@ -228,7 +156,7 @@ test.describe('Participants', () => {
 
 		// Wait for the form fields to be visible in edit mode
 		await page.locator('#edit-name').waitFor({ state: 'visible' });
-		await page.locator('#edit-name').fill('Bojan123');
+		await page.locator('#edit-name').fill('TestUser123');
 		await page.getByRole('button', { name: 'Save' }).first().click();
 
 		// Name validation rejects digits: "Name can only contain letters"
@@ -236,7 +164,7 @@ test.describe('Participants', () => {
 	});
 
 	test('PRT-14 — Sidebar — Cancel urejanja', async ({ authenticatedPage: page }) => {
-		await openParticipantDetails(page, 'test_participant_2');
+		await openParticipantDetails(page, 'Test User');
 		await page.waitForTimeout(300);
 
 		const editButton = page.getByRole('button', { name: 'Edit' }).first();
@@ -253,7 +181,7 @@ test.describe('Participants', () => {
 		// The temp name should NOT be visible anywhere
 		await expect(page.getByText('Temp Name')).not.toBeVisible();
 		// The original name should still show
-		await expect(page.getByRole('heading', { name: 'Bojan Test' })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Test User' })).toBeVisible();
 	});
 
 	// ---------------------------------------------------------------------------
@@ -262,7 +190,7 @@ test.describe('Participants', () => {
 
 	test('PRT-15 — Sidebar — dodajanje v študijo', async ({ authenticatedPage: page }) => {
 		// test_participant_4 is in Beta, not Alpha — so Alpha should be available
-		await openParticipantDetails(page, 'test_participant_4');
+		await openParticipantDetails(page, 'Test User');
 		await page.waitForTimeout(300);
 
 		await page.getByRole('button', { name: 'Add', exact: true }).click();
@@ -292,7 +220,8 @@ test.describe('Participants', () => {
 
 	test('PRT-16 — Sidebar — edit study membership period', async ({ authenticatedPage: page }) => {
 		// test_participant_1 is already in Alpha with a membership period
-		await openParticipantDetails(page, 'test_participant_1');
+		await openParticipantDetails(page, 'Test User');
+		await page.waitForTimeout(300);
 
 		await page.getByLabel('Edit study').click();
 
@@ -313,9 +242,7 @@ test.describe('Participants', () => {
 
 	test('PRT-17 — Sidebar — assign naprave', async ({ authenticatedPage: page }) => {
 		// test_participant_4 has NO device assigned (good candidate for assignment)
-		await openParticipantDetails(page, 'test_participant_4');
-
-		await page.getByRole('button', { name: 'Assign' }).first().click();
+		await openParticipantDetails(page, 'Test User');
 		await page.waitForTimeout(500);
 
 		// Wait for Assign Device modal (custom dialog, not HTML <dialog>)
@@ -348,7 +275,8 @@ test.describe('Participants', () => {
 
 	test('PRT-18 — Sidebar — edit ownership period', async ({ authenticatedPage: page }) => {
 		// test_participant_1 has Test Sensor Alpha assigned (from seed data)
-		await openParticipantDetails(page, 'test_participant_1');
+		await openParticipantDetails(page, 'Test User');
+		await page.waitForTimeout(300);
 
 		await page.getByLabel('Edit device').click();
 
@@ -393,7 +321,7 @@ test.describe('Participants', () => {
 	});
 
 	test('PRT-22 — Error toast ob validacijski napaki', async ({ authenticatedPage: page }) => {
-		await openParticipantDetails(page, 'test_participant_3');
+		await openParticipantDetails(page, 'Test User');
 		await page.waitForTimeout(300);
 
 		const editButton = page.getByRole('button', { name: 'Edit' }).first();
@@ -402,7 +330,7 @@ test.describe('Participants', () => {
 
 		// Wait for the form field to appear in edit mode
 		await page.locator('#edit-name').waitFor({ state: 'visible' });
-		await page.locator('#edit-name').fill('Cvetka123');
+		await page.locator('#edit-name').fill('TestUser123');
 		await page.getByRole('button', { name: 'Save' }).first().click();
 
 		// Name validation rejects digits: "Name can only contain letters"

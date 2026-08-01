@@ -63,7 +63,7 @@ tests/e2e/
 
 ## Testni podatki
 
-`seed.sql` vstavi deterministične podatke v svežo bazo. Po seedu ima baza:
+`seed.sql` (`98_seed_test_data.sql` v migracijah) vsebuje deterministične testne podatke v sveži bazo:
 
 | Entiteta | Število | Detajli |
 |----------|---------|---------|
@@ -74,6 +74,13 @@ tests/e2e/
 | Data streams | 10 | 5 na senzor (temperature, humidity, pm25, pm10, voc) |
 | Lokacije | 2 | Ljubljana, Maribor |
 | Observations | 10 | 5 streams × 2 časovni točki za Sensor Alpha |
+
+**Test izolacija**: Vsak test spec file ustvari svoje dodatne podatke preko API-ja (`api.add_participant`, `api.bulk_import_participants`, POST na `/sensors`, itd.). To zagotavlja:
+- **Izolacijo testov**: vsak test poveže na svoje podatke, brez interference med testi
+- **Paralelni zagon**: več workerjev lahko teče brez težav
+- **Determinizem**: vsak test poteka v svežem kontekstu z lastnimi podatki
+
+**CI poganjanje**: GitHub Action pred zagonom baze zamenja migracije 98_atmotubes.sql in 99_*.sql z seed.sql (`rm -f src/db/migrations/9[89]_*.sql && cp tests/e2e/seed.sql src/db/migrations/98_seed_test_data.sql`), tako da baza vsebuje deterministične testne podatke že od začetka.
 
 ## CI
 

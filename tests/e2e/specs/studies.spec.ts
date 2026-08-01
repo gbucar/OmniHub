@@ -4,37 +4,27 @@
 
 import { test } from '../fixtures/auth';
 import { expect } from '@playwright/test';
-import { expectSuccessToast } from '../helpers/selectors';
+import { expectSuccessToast, createStudy } from '../helpers/selectors';
 
 test.describe('Studies', () => {
+	let createdStudyName: string;
+
 	test.beforeEach(async ({ authenticatedPage: page }) => {
 		// Fixture already navigates to /users via client-side link
 		await page.waitForLoadState('networkidle');
 	});
 
+	// ---------------------------------------------------------------------------
+	// Add study
+	// ---------------------------------------------------------------------------
+
 	test('STD-01 — add a new study via modal', async ({ authenticatedPage: page }) => {
-		// Click "Add Study" button
-		await page.getByRole('button', { name: 'Add Study' }).click();
+		// Create a study for this test
+		const uniqueStudyName = `e2e_study_${Date.now()}`;
+		await createStudy(page, uniqueStudyName, new Date().toISOString().split('T')[0], new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0]);
 
-		// Wait for modal
-		await page.waitForSelector('dialog[open]');
-		const dialog = page.locator('dialog[open]');
-
-		// Fill in study details
-		const today = new Date();
-		const startDate = today.toISOString().split('T')[0];
-		const nextYear = new Date(today.getFullYear() + 1, today.getMonth(), today.getDate());
-		const endDate = nextYear.toISOString().split('T')[0];
-
-		await dialog.getByLabel('Study Name').fill(`E2E Test Study ${Date.now()}`);
-		await dialog.getByLabel('Start Date').fill(startDate);
-		await dialog.getByLabel('End Date').fill(endDate);
-
-		// Submit (button text is "Create")
-		await dialog.getByRole('button', { name: 'Create' }).click();
-
-		// Expect success toast
-		await expectSuccessToast(page, 'Study');
+		// Verify the study appears in the list
+		await expect(page.getByText(uniqueStudyName)).toBeVisible({ timeout: 5000 });
 	});
 
 	test('STD-02 — empty study name disables create button', async ({ authenticatedPage: page }) => {

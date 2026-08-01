@@ -4,12 +4,12 @@
  * Usage:
  *   import { test } from '../fixtures/auth';
  *   test('my test', async ({ authenticatedPage }) => {
- *     await authenticatedPage.goto('/users');
+ *     await authenticatedPage.goto('/devices');
  *     // page is already logged in as admin_user
  *   });
  */
 
-import { test as base, type Page } from '@playwright/test';
+import { test as base, type Page, expect as playExpect } from '@playwright/test';
 
 const ADMIN_USERNAME = 'admin_user';
 const ADMIN_PASSWORD = 'admin_geslo_123';
@@ -31,12 +31,13 @@ export const test = base.extend<AuthFixtures>({
 		await page.getByRole('button', { name: 'Sign In' }).click();
 		await page.waitForURL('/');
 
-		// Navigate to participants via SvelteKit client-side link (preserves auth)
-		await page.getByRole('link', { name: /Participants/ }).first().click();
-		await page.waitForURL('/users');
+		// Navigate to devices via SvelteKit client-side link (preserves auth)
+		// /users would be empty since seed now only has admin_user
+		await page.getByRole('link', { name: /Devices/ }).first().click();
+		await page.waitForURL('/devices');
 		await page.waitForLoadState('networkidle');
 		await use(page);
 	}
 });
 
-export { expect } from '@playwright/test';
+export { playExpect as expect } from '@playwright/test';

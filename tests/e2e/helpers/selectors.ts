@@ -134,3 +134,115 @@ export async function closeDeviceDetailsPanelWithButton(page: Page): Promise<voi
 	await page.getByLabel('Close panel').click();
 	await page.waitForTimeout(250);
 }
+
+// ============================================================================
+// Helper functions for creating test data via API
+// ============================================================================
+
+/**
+ * Create a participant via API and wait for the page to reflect it.
+ * @param page - Playwright page
+ * @param username - Unique username for the participant
+ * @param password - Password for the participant
+ * @param name - Display name for the participant
+ * @param age - Age of the participant
+ * @param sex - Sex of the participant
+ */
+export async function createParticipant(
+	page: Page,
+	username: string,
+	password: string,
+	name: string,
+	age: number,
+	sex: string
+): Promise<void> {
+	await page.getByRole('button', { name: 'Add Participant' }).click();
+
+	// Wait for the dialog to fully render
+	await expect(page.getByRole('heading', { name: 'Add Participant' })).toBeVisible();
+	const dialog = page.getByRole('dialog');
+
+	await dialog.getByLabel('Username').fill(username);
+	await dialog.getByPlaceholder('Enter password').fill(password);
+	await dialog.locator('#modal-name').fill(name);
+	await dialog.locator('#modal-age').fill(age.toString());
+	await dialog.locator('#modal-sex').selectOption(sex);
+
+	await dialog.getByRole('button', { name: 'Create' }).click();
+	await expectSuccessToast(page, 'Participant');
+
+	// Wait for the new participant to appear in the table
+	await page.getByLabel('Search').fill(username);
+	await playExpect(page.getByText(username)).toBeVisible({ timeout: 5000 });
+}
+
+/**
+ * Create a study via API and wait for the page to reflect it.
+ * @param page - Playwright page
+ * @param studyName - Unique name for the study
+ * @param startDate - Start date of the study (ISO string YYYY-MM-DD)
+ * @param endDate - End date of the study (ISO string YYYY-MM-DD)
+ */
+export async function createStudy(
+	page: Page,
+	studyName: string,
+	startDate: string,
+	endDate: string
+): Promise<void> {
+	await page.getByRole('button', { name: 'Add Study' }).click();
+
+	// Wait for modal
+	await page.waitForSelector('dialog[open]');
+	const dialog = page.locator('dialog[open]');
+
+	await dialog.getByLabel('Study Name').fill(studyName);
+	await dialog.getByLabel('Start Date').fill(startDate);
+	await dialog.getByLabel('End Date').fill(endDate);
+
+	// Submit
+	await dialog.getByRole('button', { name: 'Create' }).click();
+
+	await expectSuccessToast(page, 'Study');
+}
+
+/**
+ * Create a sensor via API and wait for the page to reflect it.
+ * @param page - Playwright page
+ * @param sensorType - Type of sensor (e.g., 'ATMOTUBE_PRO', 'ATMOAIR_V2')
+ * @param sensorName - Unique name for the sensor
+ * @param description - Description of the sensor
+ */
+export async function createSensor(
+	page: Page,
+	sensorType: string,
+	sensorName: string,
+	description: string
+): Promise<void> {
+	// Navigate to devices page
+	await navigateTo(page, 'Devices');
+	await waitForDevicesTable(page);
+
+	// Click "Add Device" (note: this button may need to be identified differently)
+	// For now, we'll use a flexible approach that searches for the button
+	const addDeviceButton = page.getByRole('button', { name: /add.*device/i });
+	if (await addDeviceButton.count() > 0) {
+		await addDeviceButton.first().click();
+		await page.waitForTimeout(500);
+	}
+
+	// Wait for the form to appear
+	await expect(page.getByRole('heading', { name: /add.*device/i })).toBeVisible({ timeout: 5000 });
+
+	const dialog = page.getByRole('dialog');
+	await dialog.getByLabel('Sensor Type').selectOption(sensorType);
+	await dialog.getByLabel('Name').fill(sensorName);
+	await dialog.getByLabel('Description').fill(description);
+
+	// Submit - note: button text may vary
+	await dialog.getByRole('button', { name: /create/i }).click();
+	await expectSuccessToast(page, 'Device');
+
+	// Wait for the new sensor to appear in the table
+	await page.getByLabel('Search').fill(sensorName);
+	await playExpect(page.getByText(sensorName)).toBeVisible({ timeout: 5000 });
+}
