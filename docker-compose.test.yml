@@ -50,6 +50,7 @@ services:
   # No healthcheck — PostgREST image is built FROM scratch and contains
   # no shell, wget, or curl. Readiness is verified via curl from the host.
   postgrest:
+    image: docker.io/postgrest/postgrest:v14.5
 
   # --- Seed service ---
   # Počaka, da so DB migracije končane, nato vstavi testne podatke.

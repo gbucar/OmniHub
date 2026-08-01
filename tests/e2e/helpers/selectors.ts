@@ -100,3 +100,34 @@ export async function navigateTo(page: Page, label: string): Promise<void> {
 	await page.getByRole('link', { name: label, exact: false }).first().click();
 	await page.waitForLoadState('networkidle');
 }
+
+/**
+ * Open a device's details panel by clicking its row in the table.
+ * @param sensorName - The sensor name to find in the table (partial match)
+ */
+export async function openDeviceDetails(page: Page, sensorName: string): Promise<void> {
+	const row = page.getByRole('button', { name: new RegExp(sensorName) });
+	await row.click();
+
+	// Wait for the sidebar panel to slide in (CSS transition 200ms + reactive state + API calls)
+	await page.waitForTimeout(800);
+
+	// Confirm the sidebar is visible by waiting for the heading
+	await page.getByText(sensorName).first().waitFor({ state: 'visible', timeout: 5000 });
+}
+
+/**
+ * Close the device details panel by clicking the backdrop.
+ */
+export async function closeDeviceDetailsPanel(page: Page): Promise<void> {
+	await page.getByLabel('Close details').click();
+	await page.waitForTimeout(250);
+}
+
+/**
+ * Close the device details panel using the X button in the sidebar header.
+ */
+export async function closeDeviceDetailsPanelWithButton(page: Page): Promise<void> {
+	await page.getByLabel('Close panel').click();
+	await page.waitForTimeout(250);
+}

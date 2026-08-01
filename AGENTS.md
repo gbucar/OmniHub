@@ -97,3 +97,13 @@ Two themes are defined: `omnihub` (light) and `omnihub-dark` (dark). The app res
 - Format admin dashboard: `npm run format`
 - Build admin dashboard: `npm run build`
 - Populate db with sample data: run `src/db/populate.sql` after migrations
+
+## Testing
+- OmniHub has an extensive E2E test suite (Playwright) covering all major features: auth,
+  navigation, participants, studies, and devices. See `tests/README_TESTS.md` for an overview
+  and instructions on running specific test subsets.
+- Run all E2E tests (containerized): `podman compose -f docker-compose.yml -f docker-compose.test.yml up -d --wait && cd tests/e2e && npm ci && npm test`
+- Run a single test file: `npx playwright test specs/devices.spec.ts`
+- Run tests matching a pattern: `npx playwright test -g "DEV-01"`
+- Run only devices tests headed (debugging): `npx playwright test specs/devices.spec.ts --headed`
+- Barebones mode (no containers): seed DB via `psql -f tests/e2e/seed.sql`, start `npm run dev` in admin-dashboard, then `npx playwright test`

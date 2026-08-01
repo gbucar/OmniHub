@@ -57,7 +57,7 @@ tests/e2e/
 │   ├── navigation.spec.ts    # Navbar, hamburger, theme (4 testi)
 │   ├── participants.spec.ts  # CRUD, search, filter, pagination (22 testov)
 │   ├── studies.spec.ts       # Add study, validation (3 testi)
-│   └── devices.spec.ts       # Devices management (17 testov — Faza 2)
+│   └── devices.spec.ts       # Tabela, filtri, paginacija, sidebar detajli (25 testov)
 └── README.md
 ```
 
@@ -118,6 +118,5 @@ Testi uporabljajo **samo semantic selectors**:
 
 ## Znane omejitve
 
-- **Devices page (Faza 2)**: `devices.spec.ts` je odvisen od migracije `22_views_and_grants.sql`
 - **Brisanje podatkov**: testi ne brišejo ustvarjenih podatkov (vsak uporabi unikaten username)
-- **Naključni vrstni red**: testi se izvajajo paralelno v ločenih workerjih
+- **Serial execution**: testi se izvajajo zaporedno (`workers: 1`)
