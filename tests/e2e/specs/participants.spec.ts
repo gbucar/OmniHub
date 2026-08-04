@@ -15,17 +15,22 @@ import {
 	closeDetailsPanel,
 	closeDetailsPanelWithButton,
 	expectSuccessToast,
-	expectErrorToast
+	expectErrorToast,
+	navigateTo,
+	createParticipant
 } from '../helpers/selectors';
 
 test.describe('Participants', () => {
+	let createdUsername: string;
+
 	test.beforeEach(async ({ authenticatedPage: page }) => {
-		// Fixture already navigates to /users via client-side link — no need for page.goto
-		await page.waitForLoadState('networkidle');
+		// Auth fixture navigates to /devices — redirect to /users for participants
+		await navigateTo(page, 'Participants');
+		await waitForParticipantsTable(page);
 
 		// Create a new participant for this test suite
-		const uniqueUsername = `e2e_participant_${Date.now()}`;
-		await createParticipant(page, uniqueUsername, 'testpass123', 'Test User', '30', 'male');
+		createdUsername = `e2e_participant_${Date.now()}`;
+		await createParticipant(page, createdUsername, 'testpass123', 'Test User', '30', 'male');
 	});
 
 	// ---------------------------------------------------------------------------
@@ -91,28 +96,28 @@ test.describe('Participants', () => {
 	// ---------------------------------------------------------------------------
 
 	test('PRT-11 — Odpiranje detajlov (sidebar)', async ({ authenticatedPage: page }) => {
-		await openParticipantDetails(page, 'Test User');
+		await openParticipantDetails(page, createdUsername);
 
 		// Sidebar heading shows participant name
 		await expect(page.getByRole('heading', { name: 'Test User' })).toBeVisible();
 		// Username with @ prefix only appears in sidebar
-		await expect(page.getByText('@Test User')).toBeVisible();
+		await expect(page.getByText(`@${createdUsername}`)).toBeVisible();
 	});
 
 	test('PRT-19 — Sidebar — zapiranje z X gumbom', async ({ authenticatedPage: page }) => {
-		await openParticipantDetails(page, 'Test User');
+		await openParticipantDetails(page, createdUsername);
 		await closeDetailsPanelWithButton(page);
 
 		// Sidebar username text should be gone
-		await expect(page.getByText('@Test User')).not.toBeVisible();
+		await expect(page.getByText(`@${createdUsername}`)).not.toBeVisible();
 	});
 
 	test('PRT-20 — Sidebar — zapiranje s klikom na backdrop', async ({ authenticatedPage: page }) => {
-		await openParticipantDetails(page, 'Test User');
+		await openParticipantDetails(page, createdUsername);
 		await closeDetailsPanel(page);
 
 		// Sidebar username text should be gone
-		await expect(page.getByText('@Test User')).not.toBeVisible();
+		await expect(page.getByText(`@${createdUsername}`)).not.toBeVisible();
 	});
 
 	// ---------------------------------------------------------------------------
@@ -120,7 +125,7 @@ test.describe('Participants', () => {
 	// ---------------------------------------------------------------------------
 
 	test('PRT-12 — Sidebar — edit personal info', async ({ authenticatedPage: page }) => {
-		await openParticipantDetails(page, 'Test User');
+		await openParticipantDetails(page, createdUsername);
 		await page.waitForTimeout(300);
 
 		// Enter edit mode — wait for Edit button to be visible in the sidebar
@@ -142,12 +147,12 @@ test.describe('Participants', () => {
 
 		// Close and reopen to verify persistence in database
 		await closeDetailsPanelWithButton(page);
-		await openParticipantDetails(page, 'Test User');
+		await openParticipantDetails(page, createdUsername);
 		await expect(page.getByRole('heading', { name: 'Test User Modified' })).toBeVisible();
 	});
 
 	test('PRT-13 — Sidebar — validacija imena (samo črke)', async ({ authenticatedPage: page }) => {
-		await openParticipantDetails(page, 'Test User');
+		await openParticipantDetails(page, createdUsername);
 		await page.waitForTimeout(300);
 
 		const editButton = page.getByRole('button', { name: 'Edit' }).first();
@@ -164,7 +169,7 @@ test.describe('Participants', () => {
 	});
 
 	test('PRT-14 — Sidebar — Cancel urejanja', async ({ authenticatedPage: page }) => {
-		await openParticipantDetails(page, 'Test User');
+		await openParticipantDetails(page, createdUsername);
 		await page.waitForTimeout(300);
 
 		const editButton = page.getByRole('button', { name: 'Edit' }).first();
@@ -190,7 +195,7 @@ test.describe('Participants', () => {
 
 	test('PRT-15 — Sidebar — dodajanje v študijo', async ({ authenticatedPage: page }) => {
 		// test_participant_4 is in Beta, not Alpha — so Alpha should be available
-		await openParticipantDetails(page, 'Test User');
+		await openParticipantDetails(page, createdUsername);
 		await page.waitForTimeout(300);
 
 		await page.getByRole('button', { name: 'Add', exact: true }).click();
@@ -219,8 +224,8 @@ test.describe('Participants', () => {
 	});
 
 	test('PRT-16 — Sidebar — edit study membership period', async ({ authenticatedPage: page }) => {
-		// test_participant_1 is already in Alpha with a membership period
-		await openParticipantDetails(page, 'Test User');
+		// test_participant_1 is already in Test Study Alpha with a membership period
+		await openParticipantDetails(page, 'test_participant_1');
 		await page.waitForTimeout(300);
 
 		await page.getByLabel('Edit study').click();
@@ -241,9 +246,12 @@ test.describe('Participants', () => {
 	});
 
 	test('PRT-17 — Sidebar — assign naprave', async ({ authenticatedPage: page }) => {
-		// test_participant_4 has NO device assigned (good candidate for assignment)
-		await openParticipantDetails(page, 'Test User');
+		// test_participant_4 has NO device assigned — sidebar shows "No devices assigned"
+		await openParticipantDetails(page, 'test_participant_4');
 		await page.waitForTimeout(500);
+
+		// Click "Assign" button to open the Assign Device modal
+		await page.getByRole('button', { name: 'Assign' }).click();
 
 		// Wait for Assign Device modal (custom dialog, not HTML <dialog>)
 		await expect(page.getByRole('heading', { name: 'Assign Device' })).toBeVisible();
@@ -275,7 +283,7 @@ test.describe('Participants', () => {
 
 	test('PRT-18 — Sidebar — edit ownership period', async ({ authenticatedPage: page }) => {
 		// test_participant_1 has Test Sensor Alpha assigned (from seed data)
-		await openParticipantDetails(page, 'Test User');
+		await openParticipantDetails(page, 'test_participant_1');
 		await page.waitForTimeout(300);
 
 		await page.getByLabel('Edit device').click();
@@ -321,7 +329,7 @@ test.describe('Participants', () => {
 	});
 
 	test('PRT-22 — Error toast ob validacijski napaki', async ({ authenticatedPage: page }) => {
-		await openParticipantDetails(page, 'Test User');
+		await openParticipantDetails(page, createdUsername);
 		await page.waitForTimeout(300);
 
 		const editButton = page.getByRole('button', { name: 'Edit' }).first();

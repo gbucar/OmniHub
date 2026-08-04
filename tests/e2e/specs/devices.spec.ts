@@ -3,7 +3,6 @@
  *
  * Uses the auth fixture (already logged in as admin_user).
  * All selectors are semantic (getByRole, getByLabel, getByText, getByPlaceholder).
- * Each test creates its own sensor data for isolation.
  */
 
 import { test } from '../fixtures/auth';
@@ -13,23 +12,14 @@ import {
 	openDeviceDetails,
 	closeDeviceDetailsPanel,
 	closeDeviceDetailsPanelWithButton,
-	navigateTo,
-	createSensor
+	navigateTo
 } from '../helpers/selectors';
 
 test.describe('Devices', () => {
-	let createdSensorName: string;
-	let createdSensorType: string;
-
 	test.beforeEach(async ({ authenticatedPage: page }) => {
 		// Fixture logs in and navigates to /users. Navigate to /devices.
 		await navigateTo(page, 'Devices');
 		await waitForDevicesTable(page);
-
-		// Create a new sensor for this test suite
-		createdSensorName = `e2e_sensor_${Date.now()}`;
-		createdSensorType = 'ATMOTUBE_PRO';
-		await createSensor(page, createdSensorType, createdSensorName, 'Test sensor for devices tests');
 	});
 
 	// ---------------------------------------------------------------------------
@@ -38,32 +28,35 @@ test.describe('Devices', () => {
 
 	test('DEV-01 — Tabela naprav se pravilno naloži', async ({ authenticatedPage: page }) => {
 		// Scope checks to table rows to avoid matching filter dropdown options
-		const sensorRow = page.getByRole('button', { name: new RegExp(createdSensorName) });
-		await expect(sensorRow.getByText(createdSensorType)).toBeVisible();
+		const alphaRow = page.getByRole('button', { name: /Test Sensor Alpha/ });
+		await expect(alphaRow.getByText('ATMOTUBE_PRO')).toBeVisible();
+
+		const betaRow = page.getByRole('button', { name: /Test Sensor Beta/ });
+		await expect(betaRow.getByText('ATMOAIR_V2')).toBeVisible();
 	});
 
 	test('DEV-02 — Števec zapisov prikazuje pravilno število', async ({ authenticatedPage: page }) => {
 		// The page subtitle shows "N records" with the primary-highlighted count
-		await expect(page.getByText('1 record')).toBeVisible();
+		await expect(page.getByText('2 records')).toBeVisible();
 	});
 
 	test('DEV-03 — Iskanje po imenu senzorja', async ({ authenticatedPage: page }) => {
-		await expect(page.getByText(createdSensorName)).toBeVisible();
+		await expect(page.getByText('Test Sensor Beta')).toBeVisible();
 
-		await page.getByLabel('Search').fill(createdSensorName.substring(0, 5));
+		await page.getByLabel('Search').fill('Alpha');
 		await page.waitForTimeout(400);
 
-		await expect(page.getByText(createdSensorName)).toBeVisible();
-		await expect(page.getByText(createdSensorName)).not.toBeVisible(); // After filtering, only the matching one remains
+		await expect(page.getByText('Test Sensor Alpha')).toBeVisible();
+		await expect(page.getByText('Test Sensor Beta')).not.toBeVisible();
 	});
 
 	test('DEV-04 — Iskanje po opisu', async ({ authenticatedPage: page }) => {
-		await page.getByLabel('Search').fill('sensor for devices tests');
+		await page.getByLabel('Search').fill('air quality');
 		await page.waitForTimeout(400);
 
-		// Only our created sensor should match
-		await expect(page.getByText(createdSensorName)).toBeVisible();
-		await expect(page.getByText('No devices found')).not.toBeVisible();
+		// Both sensors have "air quality monitoring" in description
+		await expect(page.getByText('Test Sensor Alpha')).toBeVisible();
+		await expect(page.getByText('Test Sensor Beta')).toBeVisible();
 	});
 
 	test('DEV-05 — Prazno stanje ob neobstoječem iskanju', async ({ authenticatedPage: page }) => {
@@ -78,26 +71,27 @@ test.describe('Devices', () => {
 	// ---------------------------------------------------------------------------
 
 	test('DEV-06 — Filter po tipu senzorja', async ({ authenticatedPage: page }) => {
-		await page.locator('#type-filter').selectOption(createdSensorType);
+		await page.locator('#type-filter').selectOption('ATMOTUBE_PRO');
 		await page.waitForTimeout(400);
 
-		await expect(page.getByText(createdSensorName)).toBeVisible();
-		await expect(page.getByText('No devices found')).not.toBeVisible();
+		await expect(page.getByText('Test Sensor Alpha')).toBeVisible();
+		await expect(page.getByText('Test Sensor Beta')).not.toBeVisible();
 	});
 
 	test('DEV-07 — Filter po statusu Active', async ({ authenticatedPage: page }) => {
 		await page.locator('#status-filter').selectOption('active');
 		await page.waitForTimeout(400);
 
-		await expect(page.getByText(createdSensorName)).toBeVisible();
-		await expect(page.getByText('No devices found')).not.toBeVisible();
+		await expect(page.getByText('Test Sensor Alpha')).toBeVisible();
+		await expect(page.getByText('Test Sensor Beta')).not.toBeVisible();
 	});
 
 	test('DEV-08 — Filter po statusu Inactive', async ({ authenticatedPage: page }) => {
 		await page.locator('#status-filter').selectOption('inactive');
 		await page.waitForTimeout(400);
 
-		await expect(page.getByText('No devices found')).toBeVisible();
+		await expect(page.getByText('Test Sensor Beta')).toBeVisible();
+		await expect(page.getByText('Test Sensor Alpha')).not.toBeVisible();
 	});
 
 	test('DEV-09 — Filter po statusu Unknown', async ({ authenticatedPage: page }) => {
@@ -109,16 +103,16 @@ test.describe('Devices', () => {
 
 	test('DEV-10 — Filter "All Types" vrne vse po filtriranju', async ({ authenticatedPage: page }) => {
 		// First filter by type to narrow down
-		await page.locator('#type-filter').selectOption(createdSensorType);
+		await page.locator('#type-filter').selectOption('ATMOTUBE_PRO');
 		await page.waitForTimeout(400);
-		await expect(page.getByText('No devices found')).not.toBeVisible();
+		await expect(page.getByText('Test Sensor Beta')).not.toBeVisible();
 
 		// Reset to All Types
 		await page.locator('#type-filter').selectOption('all');
 		await page.waitForTimeout(400);
 
-		await expect(page.getByText(createdSensorName)).toBeVisible();
-		await expect(page.getByText('No devices found')).not.toBeVisible();
+		await expect(page.getByText('Test Sensor Alpha')).toBeVisible();
+		await expect(page.getByText('Test Sensor Beta')).toBeVisible();
 	});
 
 	// ---------------------------------------------------------------------------
@@ -129,12 +123,12 @@ test.describe('Devices', () => {
 		await page.getByLabel('Records per page').selectOption('10');
 		await page.waitForTimeout(400);
 
-		await expect(page.getByText(createdSensorName)).toBeVisible();
-		await expect(page.getByText('No devices found')).not.toBeVisible();
+		await expect(page.getByText('Test Sensor Alpha')).toBeVisible();
+		await expect(page.getByText('Test Sensor Beta')).toBeVisible();
 	});
 
 	test('DEV-12 — Prev/Next gumba onemogočena na eni strani', async ({ authenticatedPage: page }) => {
-		// With only 1 sensor, everything fits on one page
+		// With only 2 sensors, everything fits on one page
 		await expect(page.getByText(/Page 1/)).toBeVisible();
 
 		const prevBtn = page.getByRole('button', { name: 'Previous page' });
@@ -155,19 +149,19 @@ test.describe('Devices', () => {
 	// to avoid matching filter dropdown options and table badges outside the panel.
 
 	test('DEV-14 — Odpiranje detajlov s klikom na vrstico', async ({ authenticatedPage: page }) => {
-		await openDeviceDetails(page, createdSensorName);
+		await openDeviceDetails(page, 'Test Sensor Alpha');
 
 		await expect(
-			page.getByRole('complementary').getByRole('heading', { name: createdSensorName })
+			page.getByRole('complementary').getByRole('heading', { name: 'Test Sensor Alpha' })
 		).toBeVisible();
 	});
 
 	test('DEV-15 — Panel prikazuje tip in status senzorja', async ({ authenticatedPage: page }) => {
-		await openDeviceDetails(page, createdSensorName);
+		await openDeviceDetails(page, 'Test Sensor Alpha');
 		const panel = page.getByRole('complementary');
 
 		// Sensor type badge — appears in header AND info card; use first()
-		await expect(panel.getByText(createdSensorType).first()).toBeVisible();
+		await expect(panel.getByText('ATMOTUBE_PRO').first()).toBeVisible();
 		// Status badge — appears in header AND info card; use first()
 		await expect(panel.getByText('Active').first()).toBeVisible();
 
@@ -175,7 +169,7 @@ test.describe('Devices', () => {
 	});
 
 	test('DEV-16 — Panel prikazuje last activity', async ({ authenticatedPage: page }) => {
-		await openDeviceDetails(page, createdSensorName);
+		await openDeviceDetails(page, 'Test Sensor Alpha');
 		const panel = page.getByRole('complementary');
 
 		// Last activity row exists with a relative time, not "Never"
@@ -185,10 +179,10 @@ test.describe('Devices', () => {
 	});
 
 	test('DEV-17 — Panel prikazuje description', async ({ authenticatedPage: page }) => {
-		await openDeviceDetails(page, createdSensorName);
+		await openDeviceDetails(page, 'Test Sensor Alpha');
 		const panel = page.getByRole('complementary');
 
-		await expect(panel.getByText('Test sensor for devices tests')).toBeVisible();
+		await expect(panel.getByText('Atmotube Pro sensor for air quality monitoring')).toBeVisible();
 
 		await closeDeviceDetailsPanelWithButton(page);
 	});
@@ -198,7 +192,7 @@ test.describe('Devices', () => {
 	// ---------------------------------------------------------------------------
 
 	test('DEV-18 — Panel prikazuje data streams', async ({ authenticatedPage: page }) => {
-		await openDeviceDetails(page, createdSensorName);
+		await openDeviceDetails(page, 'Test Sensor Alpha');
 		const panel = page.getByRole('complementary');
 
 		await expect(panel.getByText('Data Streams')).toBeVisible();
@@ -210,20 +204,19 @@ test.describe('Devices', () => {
 	});
 
 	test('DEV-19 — Panel prikazuje ownerships', async ({ authenticatedPage: page }) => {
-		await openDeviceDetails(page, createdSensorName);
+		await openDeviceDetails(page, 'Test Sensor Alpha');
 		const panel = page.getByRole('complementary');
 
-		// Ownerships section exists and shows participant count badge.
-		// Don't assert specific names — they may have been mutated by
-		// participants tests running on another worker.
 		await expect(panel.getByText('Ownerships')).toBeVisible();
-		await expect(panel.getByText(/participants/)).toBeVisible();
+		// Test Sensor Alpha is owned by participants 1 (Ana) and 2 (Bojan)
+		await expect(panel.getByText('Ana Test')).toBeVisible();
+		await expect(panel.getByText('Bojan Test')).toBeVisible();
 
 		await closeDeviceDetailsPanelWithButton(page);
 	});
 
 	test('DEV-20 — Panel prikazuje recent observations', async ({ authenticatedPage: page }) => {
-		await openDeviceDetails(page, createdSensorName);
+		await openDeviceDetails(page, 'Test Sensor Alpha');
 		const panel = page.getByRole('complementary');
 
 		await expect(panel.getByText('Recent Observations')).toBeVisible();
@@ -233,14 +226,8 @@ test.describe('Devices', () => {
 		await closeDeviceDetailsPanelWithButton(page);
 	});
 
-	test('DEV-21 — Neaktiven senzor nima observations', async ({ authenticatedPage: page }) => {
-		// Create an inactive sensor
-		const uniqueSensorName = `e2e_inactive_${Date.now()}`;
-		await createSensor(page, 'ATMOAIR_V2', uniqueSensorName, 'Inactive sensor for testing');
-		await page.locator('#type-filter').selectOption('ATMOAIR_V2');
-		await page.waitForTimeout(400);
-
-		await openDeviceDetails(page, uniqueSensorName);
+	test('DEV-21 — Beta senzor nima observations', async ({ authenticatedPage: page }) => {
+		await openDeviceDetails(page, 'Test Sensor Beta');
 		const panel = page.getByRole('complementary');
 
 		// Use heading role to avoid matching "No recent observations" text
@@ -257,7 +244,7 @@ test.describe('Devices', () => {
 	// ---------------------------------------------------------------------------
 
 	test('DEV-22 — Zapiranje panela z X gumbom', async ({ authenticatedPage: page }) => {
-		await openDeviceDetails(page, createdSensorName);
+		await openDeviceDetails(page, 'Test Sensor Alpha');
 		await closeDeviceDetailsPanelWithButton(page);
 
 		// Panel heading should not be visible anymore
@@ -265,31 +252,25 @@ test.describe('Devices', () => {
 	});
 
 	test('DEV-23 — Zapiranje panela s klikom na backdrop', async ({ authenticatedPage: page }) => {
-		await openDeviceDetails(page, createdSensorName);
+		await openDeviceDetails(page, 'Test Sensor Alpha');
 		await closeDeviceDetailsPanel(page);
 
 		await expect(page.getByRole('complementary')).not.toBeVisible();
 	});
 
-	test('DEV-24 — Senzor prikazuje pravilne podatke', async ({ authenticatedPage: page }) => {
-		await openDeviceDetails(page, createdSensorName);
+	test('DEV-24 — Beta senzor prikazuje pravilne podatke', async ({ authenticatedPage: page }) => {
+		await openDeviceDetails(page, 'Test Sensor Beta');
 		const panel = page.getByRole('complementary');
 
-		await expect(panel.getByRole('heading', { name: createdSensorName })).toBeVisible();
+		await expect(panel.getByRole('heading', { name: 'Test Sensor Beta' })).toBeVisible();
 		// Status badge — appears in header AND info card AND period badge; use first()
-		await expect(panel.getByText('Active').first()).toBeVisible();
+		await expect(panel.getByText('Inactive').first()).toBeVisible();
 
 		await closeDeviceDetailsPanelWithButton(page);
 	});
 
 	test('DEV-25 — Last activity za neaktiven senzor', async ({ authenticatedPage: page }) => {
-		// Create an inactive sensor
-		const uniqueSensorName = `e2e_inactive_${Date.now()}`;
-		await createSensor(page, 'ATMOAIR_V2', uniqueSensorName, 'Inactive sensor for testing');
-		await page.locator('#type-filter').selectOption('ATMOAIR_V2');
-		await page.waitForTimeout(400);
-
-		await openDeviceDetails(page, uniqueSensorName);
+		await openDeviceDetails(page, 'Test Sensor Beta');
 		const panel = page.getByRole('complementary');
 
 		// Beta has no observations, so last activity shows "Never"

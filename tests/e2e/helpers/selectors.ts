@@ -5,7 +5,7 @@
  * (getByRole, getByLabel, getByText) instead of CSS selectors.
  */
 
-import { type Page, type Locator } from '@playwright/test';
+import { expect, type Page, type Locator } from '@playwright/test';
 
 /**
  * Wait for the participants table to finish loading.
@@ -39,6 +39,8 @@ export async function openParticipantDetails(page: Page, username: string): Prom
 	// so we must target them as buttons. Each <tr role="button"> has an accessible
 	// name built from all of its cell contents (username, studies, name).
 	const row = page.getByRole('button', { name: new RegExp(username) });
+	// Wait for the row to be present (table may have re-rendered after dynamic data creation)
+	await row.waitFor({ state: 'attached', timeout: 5000 });
 	await row.click();
 
 	// Wait for the sidebar panel to slide in and fully render
@@ -173,7 +175,7 @@ export async function createParticipant(
 
 	// Wait for the new participant to appear in the table
 	await page.getByLabel('Search').fill(username);
-	await playExpect(page.getByText(username)).toBeVisible({ timeout: 5000 });
+	await expect(page.getByText(username)).toBeVisible({ timeout: 5000 });
 }
 
 /**
@@ -244,5 +246,5 @@ export async function createSensor(
 
 	// Wait for the new sensor to appear in the table
 	await page.getByLabel('Search').fill(sensorName);
-	await playExpect(page.getByText(sensorName)).toBeVisible({ timeout: 5000 });
+	await expect(page.getByText(sensorName)).toBeVisible({ timeout: 5000 });
 }

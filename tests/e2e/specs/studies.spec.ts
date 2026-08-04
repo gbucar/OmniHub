@@ -4,13 +4,14 @@
 
 import { test } from '../fixtures/auth';
 import { expect } from '@playwright/test';
-import { expectSuccessToast, createStudy } from '../helpers/selectors';
+import { expectSuccessToast, createStudy, navigateTo } from '../helpers/selectors';
 
 test.describe('Studies', () => {
 	let createdStudyName: string;
 
 	test.beforeEach(async ({ authenticatedPage: page }) => {
-		// Fixture already navigates to /users via client-side link
+		// Auth fixture navigates to /devices — redirect to /users where studies are managed
+		await navigateTo(page, 'Participants');
 		await page.waitForLoadState('networkidle');
 	});
 
@@ -23,8 +24,8 @@ test.describe('Studies', () => {
 		const uniqueStudyName = `e2e_study_${Date.now()}`;
 		await createStudy(page, uniqueStudyName, new Date().toISOString().split('T')[0], new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0]);
 
-		// Verify the study appears in the list
-		await expect(page.getByText(uniqueStudyName)).toBeVisible({ timeout: 5000 });
+		// Study appears in the Study filter dropdown (only visible in table when assigned)
+		await expect(page.getByRole('option', { name: uniqueStudyName }).first()).toBeAttached();
 	});
 
 	test('STD-02 — empty study name disables create button', async ({ authenticatedPage: page }) => {

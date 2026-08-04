@@ -41,6 +41,14 @@ ALTER SEQUENCE IF EXISTS data.sensors_id_seq        RESTART WITH 1;
 ALTER SEQUENCE IF EXISTS data.studies_id_seq        RESTART WITH 1;
 
 -- ============================================================================
+-- 0b. JWT CONFIG — required for login to sign tokens
+-- ============================================================================
+INSERT INTO config.app_settings (setting_value, setting_name) VALUES
+    ('testsecrettestsecrettestsecrettestsecret', 'POSTGREST_JWT_SECRET'),
+    ('3600', 'POSTGREST_JWT_DURATION_SECONDS')
+ON CONFLICT (setting_name) DO NOTHING;
+
+-- ============================================================================
 -- 1. USERS (auth.users)
 --    Passwords are bcrypt-hashed automatically by the encrypt_pass trigger.
 --    Raw passwords: admin=admin_geslo_123, participants=test123

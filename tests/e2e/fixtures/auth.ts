@@ -9,7 +9,7 @@
  *   });
  */
 
-import { test as base, type Page, expect as playExpect } from '@playwright/test';
+import { test as base, type Page, expect } from '@playwright/test';
 
 const ADMIN_USERNAME = 'admin_user';
 const ADMIN_PASSWORD = 'admin_geslo_123';
@@ -40,4 +40,4 @@ export const test = base.extend<AuthFixtures>({
 	}
 });
 
-export { playExpect as expect } from '@playwright/test';
+export { expect } from '@playwright/test';
