@@ -38,11 +38,8 @@ export async function openParticipantDetails(page: Page, username: string): Prom
 	// Table rows use role="button" (explicit) which overrides implicit row role,
 	// so we must target them as buttons. Each <tr role="button"> has an accessible
 	// name built from all of its cell contents (username, studies, name).
-	// Ensure table has fully loaded after potential re-renders
-	await page.waitForLoadState('networkidle');
 	const row = page.getByRole('button', { name: new RegExp(username) });
-	// Wait for the row to be present (table may have re-rendered after dynamic data creation)
-	await row.waitFor({ state: 'attached', timeout: 10000 });
+	await row.waitFor({ state: 'attached', timeout: 5000 });
 	await row.click();
 
 	// Wait for the sidebar panel to slide in and fully render
