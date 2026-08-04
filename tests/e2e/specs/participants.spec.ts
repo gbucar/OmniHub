@@ -223,33 +223,49 @@ test.describe('Participants', () => {
 		await expectSuccessToast(page, 'study');
 	});
 
-	// TODO: FIXME — Requires seed user to be present in table and not displaced by dynamic data.
-	// Needs refactor to create participant + study + device in beforeEach.
-	test.skip('PRT-16 — Sidebar — edit study membership period', async ({ authenticatedPage: page }) => {
-		// test_participant_1 is already in Test Study Alpha with a membership period
-		await openParticipantDetails(page, 'test_participant_1');
+	test('PRT-16 — Sidebar — edit study membership period', async ({ authenticatedPage: page }) => {
+		// Step 1: First add the dynamic user to a study (like PRT-15)
+		await openParticipantDetails(page, createdUsername);
 		await page.waitForTimeout(300);
 
-		await page.getByLabel('Edit study').click();
-
-		// Wait for edit mode date inputs to appear
-		await page.getByLabel('Edit start date').waitFor({ state: 'visible' });
+		await page.getByRole('button', { name: 'Add', exact: true }).click();
+		await expect(page.getByRole('heading', { name: 'Add to Study' })).toBeVisible();
+		const addDialog = page.getByRole('dialog');
+		await addDialog.locator('#select-study option[value]:not([value=""])').first().waitFor({ state: 'attached' });
+		await addDialog.locator('#select-study').selectOption({ index: 1 });
 
 		const today = new Date().toISOString().split('T')[0];
 		const nextYear = new Date();
 		nextYear.setFullYear(nextYear.getFullYear() + 1);
 		const endDate = nextYear.toISOString().split('T')[0];
 
-		await page.getByLabel('Edit start date').fill(today);
-		await page.getByLabel('Edit end date').fill(endDate);
+		await addDialog.getByLabel('Start Date').fill(today);
+		await addDialog.getByLabel('End Date').fill(endDate);
+		await addDialog.getByRole('button', { name: 'Add to Study' }).click();
+		await expectSuccessToast(page, 'study');
+
+		// Step 2: Now edit the membership period
+		await page.waitForTimeout(500); // let sidebar update after study assignment
+		await page.getByLabel('Edit study').click();
+
+		// Wait for edit mode date inputs to appear
+		await page.getByLabel('Edit start date').waitFor({ state: 'visible' });
+
+		const editToday = new Date().toISOString().split('T')[0];
+		const editNextYear = new Date();
+		editNextYear.setFullYear(editNextYear.getFullYear() + 1);
+		const editEndDate = editNextYear.toISOString().split('T')[0];
+
+		await page.getByLabel('Edit start date').fill(editToday);
+		await page.getByLabel('Edit end date').fill(editEndDate);
 
 		await page.getByLabel('Save changes').click();
 		await expectSuccessToast(page, 'period');
 	});
 
-	test.skip('PRT-17 — Sidebar — assign naprave', async ({ authenticatedPage: page }) => {
-		// test_participant_4 has NO device assigned — sidebar shows "No devices assigned"
-		await openParticipantDetails(page, 'test_participant_4');
+	test('PRT-17 — Sidebar — assign naprave', async ({ authenticatedPage: page }) => {
+		// Dynamic user has NO device assigned — sidebar shows "No devices assigned"
+		await openParticipantDetails(page, createdUsername);
 		await page.waitForTimeout(500);
 
 		// Click "Assign" button to open the Assign Device modal
@@ -283,23 +299,46 @@ test.describe('Participants', () => {
 		await expectSuccessToast(page, 'Device');
 	});
 
-	test.skip('PRT-18 — Sidebar — edit ownership period', async ({ authenticatedPage: page }) => {
-		// test_participant_1 has Test Sensor Alpha assigned (from seed data)
-		await openParticipantDetails(page, 'test_participant_1');
-		await page.waitForTimeout(300);
+	test('PRT-18 — Sidebar — edit ownership period', async ({ authenticatedPage: page }) => {
+		// Step 1: First assign a device to the dynamic user (like PRT-17)
+		await openParticipantDetails(page, createdUsername);
+		await page.waitForTimeout(500);
 
-		await page.getByLabel('Edit device').click();
+		// Click "Assign" button to open the Assign Device modal
+		await page.getByRole('button', { name: 'Assign' }).click();
+		await expect(page.getByRole('heading', { name: 'Assign Device' })).toBeVisible();
+		const assignDialog = page.getByRole('dialog', { name: 'Assign Device' });
 
-		// Wait for edit mode date inputs to appear
-		await page.getByLabel('Edit start date').waitFor({ state: 'visible' });
+		// Select a sensor
+		await assignDialog.getByLabel('Select Sensor').fill('Test Sensor Beta');
+		const option = assignDialog.getByRole('option', { name: 'Test Sensor Beta' });
+		await option.waitFor({ state: 'visible' });
+		await option.click();
 
 		const today = new Date().toISOString().split('T')[0];
 		const nextYear = new Date();
 		nextYear.setFullYear(nextYear.getFullYear() + 1);
 		const endDate = nextYear.toISOString().split('T')[0];
 
-		await page.getByLabel('Edit start date').fill(today);
-		await page.getByLabel('Edit end date').fill(endDate);
+		await assignDialog.getByLabel('Start Date').fill(today);
+		await assignDialog.getByLabel('End Date').fill(endDate);
+		await assignDialog.getByRole('button', { name: 'Assign' }).click();
+		await expectSuccessToast(page, 'Device');
+
+		// Step 2: Now edit the ownership period
+		await page.waitForTimeout(500); // let sidebar update after device assignment
+		await page.getByLabel('Edit device').click();
+
+		// Wait for edit mode date inputs to appear
+		await page.getByLabel('Edit start date').waitFor({ state: 'visible' });
+
+		const editToday2 = new Date().toISOString().split('T')[0];
+		const editNextYear2 = new Date();
+		editNextYear2.setFullYear(editNextYear2.getFullYear() + 1);
+		const editEndDate2 = editNextYear2.toISOString().split('T')[0];
+
+		await page.getByLabel('Edit start date').fill(editToday2);
+		await page.getByLabel('Edit end date').fill(editEndDate2);
 
 		await page.getByLabel('Save changes').click();
 		await expectSuccessToast(page, 'updated');
