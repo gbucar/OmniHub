@@ -4,11 +4,11 @@ End-to-end testi za OmniHub Admin Dashboard z uporabo [Playwright](https://playw
 
 ## Hitri začetek
 
-### 1. Postavi testni Podman stack
+### 1. Postavi testni Docker stack
 
 ```bash
 # Root repozitorija
-podman compose -f docker-compose.yml -f docker-compose.test.yml up -d --wait
+docker compose -f docker-compose.yml -f docker-compose.test.yml up -d --wait
 ```
 
 To zažene:
@@ -38,7 +38,7 @@ npm run test:ui        # interaktivni UI mode
 
 ```bash
 # Iz root repozitorija
-podman compose -f docker-compose.yml -f docker-compose.test.yml down -v
+docker compose -f docker-compose.yml -f docker-compose.test.yml down -v
 ```
 
 ## Struktura
@@ -80,17 +80,17 @@ tests/e2e/
 - **Paralelni zagon**: več workerjev lahko teče brez težav
 - **Determinizem**: vsak test poteka v svežem kontekstu z lastnimi podatki
 
-**CI poganjanje**: GitHub Action pred zagonom baze zamenja migracije 98_atmotubes.sql in 99_*.sql z seed.sql (`rm -f src/db/migrations/9[89]_*.sql && cp tests/e2e/seed.sql src/db/migrations/98_seed_test_data.sql`), nato uporablja Podman Compose za start testnega stacka.
+**CI poganjanje**: GitHub Action pred zagonom baze zamenja migracije 98_atmotubes.sql in 99_*.sql z seed.sql (`rm -f src/db/migrations/9[89]_*.sql && cp tests/e2e/seed.sql src/db/migrations/98_seed_test_data.sql`), tako da baza vsebuje deterministične testne podatke že od začetka.
 
 ## CI
 
-Za GitHub Actions uporablja `podman compose`:
+Za GitHub Actions uporabi `docker compose up --wait`:
 
 ```yaml
 - name: Start test stack
   run: |
     cp .env.example .env
-    podman compose -f docker-compose.yml -f docker-compose.test.yml up -d --wait
+    docker compose -f docker-compose.yml -f docker-compose.test.yml up -d --wait
 
 - name: Run E2E tests
   working-directory: tests/e2e
@@ -101,7 +101,7 @@ Za GitHub Actions uporablja `podman compose`:
 
 - name: Cleanup
   if: always()
-  run: podman compose -f docker-compose.yml -f docker-compose.test.yml down -v
+  run: docker compose -f docker-compose.yml -f docker-compose.test.yml down -v
 ```
 
 ## Selektorska strategija
