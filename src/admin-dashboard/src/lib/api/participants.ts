@@ -35,17 +35,12 @@ export const getParticipants = async (filters?: {
 	// ── Server-side search ────────────────────────────────────────────
 	if (filters?.search) {
 		const s = filters.search;
-		query = query?.or(
-			`username.ilike.*${s}*,properties->>name.ilike.*${s}*`
-		);
+		query = query?.or(`username.ilike.*${s}*,properties->>name.ilike.*${s}*`);
 	}
 
 	// ── Server-side pagination ────────────────────────────────────────
 	if (filters?.limit !== undefined && filters?.offset !== undefined) {
-		query = query?.range(
-			filters.offset,
-			filters.offset + filters.limit - 1
-		);
+		query = query?.range(filters.offset, filters.offset + filters.limit - 1);
 	}
 
 	const data = await query;
@@ -57,9 +52,10 @@ export const getParticipants = async (filters?: {
 		let studies: Study[] = [];
 		if (row.studies) {
 			try {
-				studies = typeof row.studies === 'string'
-					? JSON.parse(row.studies)
-					: (row.studies as unknown as Study[]);
+				studies =
+					typeof row.studies === 'string'
+						? JSON.parse(row.studies)
+						: (row.studies as unknown as Study[]);
 			} catch {
 				studies = [];
 			}
@@ -85,9 +81,7 @@ export const getParticipants = async (filters?: {
 	// reliable for membership checks.
 	if (filters?.study && filters.study !== 'all') {
 		const wantedStudyId = parseInt(filters.study);
-		participants = participants.filter((p) =>
-			p.studies.some((s) => s.id === wantedStudyId)
-		);
+		participants = participants.filter((p) => p.studies.some((s) => s.id === wantedStudyId));
 	}
 
 	return { data: participants, count };
