@@ -23,7 +23,7 @@ jobs:
   # Fast feedback — catches obvious issues before E2E tests.
   # --------------------------------------------------------------------------
   lint-and-build:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: src/admin-dashboard
@@ -55,7 +55,7 @@ jobs:
   # with deterministic seed data, then runs all Playwright specs.
   # --------------------------------------------------------------------------
   e2e-tests:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
