@@ -1,26 +1,28 @@
 import { pgClient } from './client';
 import type { Participant, Study } from './types';
 
-type RawParticipantRow = {
+type ParticipantRow = {
 	user_id: string;
 	username: string | null;
 	role: string | null;
 	properties: Record<string, unknown> | null;
+	/** JSON array of { id, name } objects — one per study the participant belongs to. */
+	studies: Study[] | string | null;
 	study_name: string | null;
 	study_id: number | null;
-	// Sourced from `data.participants.sys_created_at` via the
-	// `list_participants` view. May be null in legacy rows that predate
-	// the column being NOT NULL.
 	sys_created_at?: string | null;
+	sys_changed_at?: string | null;
 };
 
 /**
- * `api.list_participants` is a SQL view that joins `data.participants` to
- * `data.many_participants_studies`, so a participant belonging to N studies
- * appears in N rows. The UI wants one row per user, with all their studies
- * collected into a `studies: Study[]` array — so we de-duplicate here and
- * also re-implement the search/filter/limit/offset semantics on the
- * de-duplicated set.
+ * Fetch participants with server-side search and pagination.
+ *
+ * The view `api.list_participants` (migration 21) returns one row per user
+ * with studies aggregated into a JSON array, so `range()` + `count: 'exact'`
+ * work correctly at the database level — no client-side de-duplication needed.
+ *
+ * Study filtering is applied client-side on the already-parsed studies array
+ * because the view's `MIN(study_id)` is not reliable for membership checks.
  */
 export const getParticipants = async (filters?: {
 	search?: string;
@@ -28,70 +30,65 @@ export const getParticipants = async (filters?: {
 	limit?: number;
 	offset?: number;
 }) => {
-	const data = await pgClient?.from('list_participants').select('*');
-	const rawRows = (data?.data ?? []) as RawParticipantRow[];
+	let query = pgClient?.from('list_participants').select('*', { count: 'exact' });
 
-	// 1. Group raw rows by user_id, collecting all (study_id, study_name) pairs.
-	const byUser = new Map<string, RawParticipantRow & { studies: Study[] }>();
-	for (const row of rawRows) {
-		const existing = byUser.get(row.user_id);
-		if (existing) {
-			if (row.study_id != null && row.study_name != null) {
-				existing.studies.push({ id: row.study_id, name: row.study_name });
-			}
-		} else {
-			byUser.set(row.user_id, {
-				...row,
-				studies:
-					row.study_id != null && row.study_name != null
-						? [{ id: row.study_id, name: row.study_name }]
-						: []
-			});
-		}
-	}
-
-	let participants: Participant[] = Array.from(byUser.values()).map((u) => ({
-		user_id: u.user_id,
-		username: u.username,
-		role: u.role,
-		properties: u.properties,
-		sys_created_at: u.sys_created_at ?? null,
-		// Derive the free-text `type` classification from properties->>'type'.
-		// The DB doesn't have a dedicated column — we read/write it via
-		// the `properties` jsonb so no migration is required.
-		type:
-			u.properties && typeof u.properties.type === 'string' && u.properties.type.length > 0
-				? u.properties.type
-				: null,
-		studies: u.studies,
-		// Deprecated single-study fields — first study or null.
-		study_name: u.studies[0]?.name ?? null,
-		study_id: u.studies[0]?.id ?? null
-	}));
-
-	// 2. Apply search filter (case-insensitive over username and properties.name).
+	// ── Server-side search ────────────────────────────────────────────
 	if (filters?.search) {
-		const needle = filters.search.toLowerCase();
-		participants = participants.filter((p) => {
-			if (p.username?.toLowerCase().includes(needle)) return true;
-			const name = p.properties?.name;
-			if (typeof name === 'string' && name.toLowerCase().includes(needle)) return true;
-			return false;
-		});
+		const s = filters.search;
+		query = query?.or(
+			`username.ilike.*${s}*,properties->>name.ilike.*${s}*`
+		);
 	}
 
-	// 3. Apply study filter (participants must be a member of the chosen study).
+	// ── Server-side pagination ────────────────────────────────────────
+	if (filters?.limit !== undefined && filters?.offset !== undefined) {
+		query = query?.range(
+			filters.offset,
+			filters.offset + filters.limit - 1
+		);
+	}
+
+	const data = await query;
+	const rawRows = (data?.data ?? []) as ParticipantRow[];
+	const count = data?.count ?? 0;
+
+	// ── Parse studies JSON ────────────────────────────────────────────
+	let participants: Participant[] = rawRows.map((row) => {
+		let studies: Study[] = [];
+		if (row.studies) {
+			try {
+				studies = typeof row.studies === 'string'
+					? JSON.parse(row.studies)
+					: (row.studies as unknown as Study[]);
+			} catch {
+				studies = [];
+			}
+		}
+		return {
+			user_id: row.user_id,
+			username: row.username,
+			role: row.role,
+			properties: row.properties,
+			sys_created_at: row.sys_created_at ?? null,
+			type:
+				row.properties && typeof row.properties.type === 'string' && row.properties.type.length > 0
+					? row.properties.type
+					: null,
+			studies,
+			study_name: studies[0]?.name ?? null,
+			study_id: studies[0]?.id ?? null
+		};
+	});
+
+	// ── Client-side study filter ──────────────────────────────────────
+	// Applied after parsing because MIN(study_id) in the view is not
+	// reliable for membership checks.
 	if (filters?.study && filters.study !== 'all') {
 		const wantedStudyId = parseInt(filters.study);
-		participants = participants.filter((p) => p.studies.some((s) => s.id === wantedStudyId));
+		participants = participants.filter((p) =>
+			p.studies.some((s) => s.id === wantedStudyId)
+		);
 	}
-
-	const count = participants.length;
-
-	// 4. Apply pagination.
-	const offset = filters?.offset ?? 0;
-	const limit = filters?.limit ?? 10;
-	participants = participants.slice(offset, offset + limit);
 
 	return { data: participants, count };
 };
