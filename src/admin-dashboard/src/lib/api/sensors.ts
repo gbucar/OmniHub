@@ -346,7 +346,11 @@ export const getRecentObservations = async (
 
 	const raw = (data?.data ?? []) as Record<string, unknown>[];
 	return raw.map((item) => {
-		const ds = item.data_streams as { id: number; name: string; unit_of_measurement: string | null } | null;
+		const ds = item.data_streams as {
+			id: number;
+			name: string;
+			unit_of_measurement: string | null;
+		} | null;
 		const loc = item.locations as
 			| { properties: Record<string, unknown> | null }
 			| { properties: Record<string, unknown> | null }[]
