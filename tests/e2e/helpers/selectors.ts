@@ -67,17 +67,21 @@ export async function closeDetailsPanelWithButton(page: Page): Promise<void> {
 }
 
 /**
- * Wait for a toast notification to appear, then verify its text.
+ * Wait for a toast notification to appear and return the toast element.
+ * Uses .toast CSS selector (documented exception — daisyUI doesn't
+ * expose role="alert" on its toast component by default).
  * Returns the toast locator so the caller can assert its content.
  */
 export async function getToast(page: Page): Promise<Locator> {
-	const toast = page.locator('.toast'); // daisyUI uses .toast class
+	const toast = page.locator('.toast');
 	await toast.waitFor({ state: 'visible', timeout: 5000 });
 	return toast;
 }
 
 /**
- * Wait for a success toast with specific text.
+ * Wait for a success toast notification.
+ * Scopes to .alert-success inside the toast (documented CSS exception).
+ * The `text` parameter is a human-readable label for the test output.
  */
 export async function expectSuccessToast(page: Page, text: string): Promise<void> {
 	const toast = await getToast(page);
@@ -86,7 +90,8 @@ export async function expectSuccessToast(page: Page, text: string): Promise<void
 }
 
 /**
- * Wait for an error toast with specific text.
+ * Wait for an error toast notification.
+ * Scopes to .alert-error inside the toast (documented CSS exception).
  */
 export async function expectErrorToast(page: Page): Promise<void> {
 	const toast = await getToast(page);

@@ -4,58 +4,105 @@ End-to-end testi za OmniHub Admin Dashboard z uporabo [Playwright](https://playw
 
 ## Hitri začetek
 
-### 1. Postavi testni Docker stack
+### Način A: Vse v Dockerju (nič lokalnega)
 
 ```bash
-# Root repozitorija
-docker compose -f docker-compose.yml -f docker-compose.test.yml up -d --wait
+# Iz korenskega direktorija repozitorija
+cp .env.example .env
+podman compose -f docker-compose.yml -f docker-compose.test.yml up -d
+podman compose -f docker-compose.yml -f docker-compose.test.yml run --rm playwright-tests
+podman compose -f docker-compose.yml -f docker-compose.test.yml down -v
 ```
 
-To zažene:
-- **db** (TimescaleDB + migracije)
-- **test-seed** (naloži `seed.sql` testne podatke)
-- **postgrest** (API na `http://localhost:3000`)
-- **admin-dashboard** (build iz source kode na `http://localhost:3001`)
-- **apidocs** (Swagger na `http://localhost:8080`)
+> Potrebuješ samo `podman` ali `docker`. Node.js, npm, in Playwright **niso**
+> potrebni lokalno — vse teče v kontejnerjih.
 
-### 2. Namesti Playwright
+### Način B: API v Dockerju, testi lokalno (hitrejši razvoj)
 
 ```bash
+# 1. Postavi infrastrukturo
+cp .env.example .env
+podman compose -f docker-compose.yml -f docker-compose.test.yml up -d
+
+# 2. Namesti odvisnosti (samo prvič)
 cd tests/e2e
-npm install
-npx playwright install chromium
+npm ci
+
+# 3. Poženi teste
+npm test                     # vsi testi (headless)
+npm run test:headed          # z vidnim brskalnikom
+npm run test:ui              # interaktivni UI mode
+
+# 4. Počisti
+podman compose -f docker-compose.yml -f docker-compose.test.yml down -v
 ```
 
-### 3. Poženi teste
+### Način C: Brez kontejnerjev (barebones)
 
 ```bash
-npm test               # vsi testi (headless)
-npm run test:headed    # z brskalnikom
-npm run test:ui        # interaktivni UI mode
+# 1. Seed (opcijsko)
+PGPASSWORD=postgres psql -h localhost -U postgres -f tests/e2e/seed.sql
+
+# 2. Zaženi admin-dashboard (Vite dev server)
+cd src/admin-dashboard && npm run dev
+
+# 3. Poženi teste (v ločenem terminalu)
+cd tests/e2e && TEST_BASE_URL=http://localhost:5173 npm test
 ```
 
-### 4. Počisti
+## Poganjanje samo določenih testov
+
+Vsi ukazi delujejo tako lokalno (Način B/C) kot v Dockerju (Način A —
+samo dodaš `podman compose run --rm playwright-tests` pred ukazom).
 
 ```bash
-# Iz root repozitorija
-docker compose -f docker-compose.yml -f docker-compose.test.yml down -v
+# Samo en spec file
+npx playwright test specs/devices.spec.ts
+
+# En specifičen test po ID-ju
+npx playwright test -g "DEV-01"
+
+# Skupina testov po patternu (regex)
+npx playwright test -g "PRT-0[1-8]"      # Participants table basics
+npx playwright test -g "DEV-1[5-9]"       # Device details panel
+
+# Z vidnim brskalnikom (debugging, samo Način B/C)
+npx playwright test specs/devices.spec.ts --headed
+
+# Interaktivni UI (samo Način B/C)
+npm run test:ui
+
+# Samo avtentikacijski testi
+npx playwright test -g "AUTH-"
+```
+
+### V Dockerju (Način A)
+
+```bash
+# Samo en spec file v Dockerju
+podman compose -f docker-compose.yml -f docker-compose.test.yml \
+  run --rm playwright-tests specs/devices.spec.ts
+
+# Specifičen test v Dockerju
+podman compose -f docker-compose.yml -f docker-compose.test.yml \
+  run --rm playwright-tests -g "PRT-12"
 ```
 
 ## Struktura
 
 ```
 tests/e2e/
-├── playwright.config.ts       # Playwright konfiguracija
+├── playwright.config.ts       # Playwright konfiguracija (Chromium, timeout 15s)
 ├── seed.sql                   # Deterministični testni podatki
-├── package.json               # Playwright dependency
+├── package.json               # @playwright/test dependency
 ├── fixtures/
-│   └── auth.ts               # Authenticated page fixture
+│   └── auth.ts               # Authenticated page fixture (admin_user)
 ├── helpers/
 │   └── selectors.ts          # Semantic selector helperji
 ├── specs/
 │   ├── auth.spec.ts          # Login, logout, redirect (6 testov)
 │   ├── navigation.spec.ts    # Navbar, hamburger, theme (4 testi)
-│   ├── participants.spec.ts  # CRUD, search, filter, pagination (22 testov)
+│   ├── participants.spec.ts  # Tabela, search, filter, paginacija, sidebar, CRUD (22 testov)
 │   ├── studies.spec.ts       # Add study, validation (3 testi)
 │   └── devices.spec.ts       # Tabela, filtri, paginacija, sidebar detajli (25 testov)
 └── README.md
@@ -63,46 +110,26 @@ tests/e2e/
 
 ## Testni podatki
 
-`seed.sql` (`98_seed_test_data.sql` v migracijah) vsebuje deterministične testne podatke v sveži bazo:
+`seed.sql` vsebuje deterministične testne podatke:
 
 | Entiteta | Število | Detajli |
 |----------|---------|---------|
 | Admin uporabnik | 1 | `admin_user` / `admin_geslo_123` |
-| Webuser participantje | 5 | `test_participant_1`..`_5` (geslo: `test123`) |
-| Študije | 2 | "Test Study Alpha", "Test Study Beta" |
-| Senzorji | 2 | "Test Sensor Alpha" (ATMOTUBE_PRO), "Test Sensor Beta" (ATMOAIR_V2) |
+| Webuser participantje | 5 | `test_participant_1..5` (geslo: `test123`) |
+| Študije | 2 | Test Study Alpha, Test Study Beta |
+| Senzorji | 2 | Test Sensor Alpha (ATMOTUBE_PRO), Test Sensor Beta (ATMOAIR_V2) |
 | Data streams | 10 | 5 na senzor (temperature, humidity, pm25, pm10, voc) |
 | Lokacije | 2 | Ljubljana, Maribor |
 | Observations | 10 | 5 streams × 2 časovni točki za Sensor Alpha |
 
-**Test izolacija**: Vsak test spec file ustvari svoje dodatne podatke preko API-ja (`api.add_participant`, `api.bulk_import_participants`, POST na `/sensors`, itd.). To zagotavlja:
-- **Izolacijo testov**: vsak test poveže na svoje podatke, brez interference med testi
-- **Paralelni zagon**: več workerjev lahko teče brez težav
-- **Determinizem**: vsak test poteka v svežem kontekstu z lastnimi podatki
-
-**CI poganjanje**: GitHub Action pred zagonom baze zamenja migracije 98_atmotubes.sql in 99_*.sql z seed.sql (`rm -f src/db/migrations/9[89]_*.sql && cp tests/e2e/seed.sql src/db/migrations/98_seed_test_data.sql`), tako da baza vsebuje deterministične testne podatke že od začetka.
+Vsak test spec file ustvari dodatne podatke z unikatnimi identifikatorji
+(`Date.now()`), kar zagotavlja izolacijo med testi.
 
 ## CI
 
-Za GitHub Actions uporabi `docker compose up --wait`:
-
-```yaml
-- name: Start test stack
-  run: |
-    cp .env.example .env
-    docker compose -f docker-compose.yml -f docker-compose.test.yml up -d --wait
-
-- name: Run E2E tests
-  working-directory: tests/e2e
-  run: |
-    npm ci
-    npx playwright install chromium
-    npm test
-
-- name: Cleanup
-  if: always()
-  run: docker compose -f docker-compose.yml -f docker-compose.test.yml down -v
-```
+Testi se avtomatsko poženejo ob vsakem PR-ju na `dev`/`master`.
+CI workflow (`.github/workflows/pr-dev.yml`) uporablja Docker stack —
+enako kot Način A.
 
 ## Selektorska strategija
 
@@ -115,15 +142,19 @@ Testi uporabljajo **samo semantic selectors**:
 | `getByText('Ana Test')` | `page.locator('td:nth-child(3)')` |
 | `getByPlaceholder('Search participants...')` | `page.locator('[class*="input"]')` |
 
+Dokumentirane CSS izjeme: `.toast`, `.alert-success`, `.alert-error`,
+`#type-filter`, `#status-filter`.
+
 ## Dodajanje novih testov
 
 1. Ustvari novo datoteko v `specs/`
-2. Uporabi `import { test } from '../fixtures/auth'` za avtenticirane teste
-3. Uporabi `import { test } from '@playwright/test'` za neavtenticirane teste
-4. Uporabljaj semantic selectors (nikoli CSS razredov)
-5. Vsak test, ki ustvarja podatke, naj uporabi unikaten identifikator (`Date.now()`)
+2. Za avtenticirane teste: `import { test } from '../fixtures/auth'`
+3. Za neavtenticirane: `import { test } from '@playwright/test'`
+4. Uporabljaj semantic selectors (glej tabelo zgoraj)
+5. Testni ID-ji: `XXX-NN` format (npr. `DEV-01`, `PRT-12`)
+6. Vsak test naj uporablja unikaten identifikator (`Date.now()`)
 
 ## Znane omejitve
 
-- **Brisanje podatkov**: testi ne brišejo ustvarjenih podatkov (vsak uporabi unikaten username)
-- **Serial execution**: testi se izvajajo zaporedno (`workers: 1`)
+- **Brisanje podatkov**: testi ne brišejo ustvarjenih podatkov
+- **Serial execution**: `workers: 1` lokalno (deljena baza), `workers: 3` v CI

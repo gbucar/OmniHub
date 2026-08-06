@@ -1,10 +1,10 @@
 /**
- * Participants E2E tests — search, filter, pagination, details panel,
- * add participant, add to study, assign device, edit, validation.
+ * Participants E2E tests — two describe blocks:
+ *   1. Participants — Table basics (PRT-01 to PRT-08): read-only table interactions
+ *   2. Participants — CRUD & Sidebar (PRT-09 to PRT-22): create, edit, study, device
  *
  * Uses the auth fixture (already logged in as admin_user).
  * All selectors are semantic (getByRole, getByLabel, getByText, getByPlaceholder).
- * Each test creates its own participant data for isolation.
  */
 
 import { test } from '../fixtures/auth';
@@ -20,17 +20,110 @@ import {
 	createParticipant
 } from '../helpers/selectors';
 
-test.describe('Participants', () => {
+// =============================================================================
+// Block A — Table basics (read-only, relies on seeded data)
+// =============================================================================
+
+test.describe('Participants — Table basics', () => {
+	test.beforeEach(async ({ authenticatedPage: page }) => {
+		await navigateTo(page, 'Participants');
+		await waitForParticipantsTable(page);
+	});
+
+	// -----------------------------------------------------------------------
+	// Table loading & seeded data
+	// -----------------------------------------------------------------------
+
+	test('PRT-01 — Table loads with seeded participants', async ({ authenticatedPage: page }) => {
+		await expect(page.getByText('Ana Test')).toBeVisible();
+		await expect(page.getByText('Bojan Test')).toBeVisible();
+	});
+
+	test('PRT-02 — Record counter', async ({ authenticatedPage: page }) => {
+		await expect(page.getByText(/records/)).toBeVisible();
+	});
+
+	// -----------------------------------------------------------------------
+	// Search
+	// -----------------------------------------------------------------------
+
+	test('PRT-03 — Search by username', async ({ authenticatedPage: page }) => {
+		await page.getByLabel('Search').fill('test_participant_1');
+		await page.waitForTimeout(400);
+
+		await expect(page.getByText('test_participant_1')).toBeVisible();
+		await expect(page.getByText('test_participant_2')).not.toBeVisible();
+	});
+
+	test('PRT-04 — Search by name', async ({ authenticatedPage: page }) => {
+		await page.getByLabel('Search').fill('Ana');
+		await page.waitForTimeout(400);
+
+		await expect(page.getByText('Ana Test')).toBeVisible();
+		await expect(page.getByText('Bojan Test')).not.toBeVisible();
+	});
+
+	test('PRT-05 — Empty state on non-existent search', async ({ authenticatedPage: page }) => {
+		await page.getByLabel('Search').fill('ZZZ_NONEXISTENT');
+		await page.waitForTimeout(400);
+
+		await expect(page.getByText('No participants found')).toBeVisible();
+	});
+
+	// -----------------------------------------------------------------------
+	// Filter
+	// -----------------------------------------------------------------------
+
+	test('PRT-06 — Filter by study', async ({ authenticatedPage: page }) => {
+		await page.locator('#study-filter').selectOption('Test Study Alpha');
+		await page.waitForTimeout(400);
+
+		// Ana and Bojan are in Test Study Alpha
+		await expect(page.getByText('Ana Test')).toBeVisible();
+		await expect(page.getByText('Bojan Test')).toBeVisible();
+	});
+
+	// -----------------------------------------------------------------------
+	// Pagination
+	// -----------------------------------------------------------------------
+
+	test('PRT-07 — Prev/Next buttons disabled on single page', async ({ authenticatedPage: page }) => {
+		// Set the largest page size so all records fit on one page
+		await page.getByLabel('Records per page').selectOption('500');
+
+		// With all records on one page, both buttons should be disabled
+		await expect(page.getByRole('button', { name: 'Previous page' })).toBeDisabled();
+		await expect(page.getByRole('button', { name: 'Next page' })).toBeDisabled();
+	});
+
+	test('PRT-08 — Change page size', async ({ authenticatedPage: page }) => {
+		await page.getByLabel('Records per page').selectOption('10');
+
+		// Table should still display results after page-size change
+		await expect(page.getByText('Ana Test')).toBeVisible();
+	});
+});
+
+// =============================================================================
+// Block B — CRUD & Sidebar (creates a fresh participant per test run)
+// =============================================================================
+
+test.describe('Participants — CRUD & Sidebar', () => {
 	let createdUsername: string;
+	let createdName: string;
 
 	test.beforeEach(async ({ authenticatedPage: page }) => {
-		// Auth fixture navigates to /devices — redirect to /users for participants
+		// Auth fixture starts on dashboard (/). Navigate to participants page.
 		await navigateTo(page, 'Participants');
 		await waitForParticipantsTable(page);
 
-		// Create a new participant for this test suite
-		createdUsername = `e2e_participant_${Date.now()}`;
-		await createParticipant(page, createdUsername, 'testpass123', 'Test User', '30', 'male');
+		// Create a new participant with a unique, letters-only name
+		// (edit validation rejects digits — "Name can only contain letters")
+		const ts = Date.now();
+		const letters = 'abcdefghijklmnopqrstuvwxyz';
+		createdName = `Test User ${letters[ts % 26]}${letters[Math.floor(ts / 26) % 26]}`;
+		createdUsername = `e2e_participant_${ts}`;
+		await createParticipant(page, createdUsername, 'testpass123', createdName, '30', 'male');
 	});
 
 	// ---------------------------------------------------------------------------
@@ -40,7 +133,7 @@ test.describe('Participants', () => {
 	test('PRT-09 — Dodajanje novega participanta', async ({ authenticatedPage: page }) => {
 		const uniqueUsername = `e2e_new_user_${Date.now()}`;
 
-		await expect(page.getByText('Test User')).toBeVisible();
+		await expect(page.getByText(createdName)).toBeVisible();
 		await page.getByRole('button', { name: 'Add Participant' }).click();
 
 		// Wait for the dialog heading to appear before scoping
@@ -50,7 +143,7 @@ test.describe('Participants', () => {
 		await dialog.getByLabel('Username').fill(uniqueUsername);
 		// PasswordInput component uses placeholder, not a label association
 		await dialog.getByPlaceholder('Enter password').fill('testpass123');
-		await dialog.locator('#modal-name').fill('Test User');
+		await dialog.locator('#modal-name').fill(createdName);
 		await dialog.locator('#modal-age').fill('30');
 		await dialog.locator('#modal-sex').selectOption('male');
 
@@ -77,17 +170,16 @@ test.describe('Participants', () => {
 
 		await dialog.getByPlaceholder('Enter password').fill('testpass123');
 
-		// Click Create — form validation prevents submission with empty username
+		// Click Create — API rejects empty username, dialog stays open
 		const createBtn = dialog.getByRole('button', { name: 'Create' });
 		await createBtn.waitFor({ state: 'visible' });
-		await createBtn.click({ force: true });
+		await createBtn.click();
 
-		// Dialog stays open (form was not submitted or API returned error)
+		// Dialog stays open (API returned error — empty username not allowed)
 		await expect(dialog).toBeVisible();
 
-		// Close dialog via Cancel. Use force:true — sidebar z-10 elements
-		// from previous tests may intercept pointer events.
-		await dialog.getByRole('button', { name: 'Cancel' }).click({ force: true });
+		// Close dialog via Cancel
+		await dialog.getByRole('button', { name: 'Cancel' }).click();
 		await expect(dialog).not.toBeVisible();
 	});
 
@@ -99,7 +191,7 @@ test.describe('Participants', () => {
 		await openParticipantDetails(page, createdUsername);
 
 		// Sidebar heading shows participant name
-		await expect(page.getByRole('heading', { name: 'Test User' })).toBeVisible();
+		await expect(page.getByRole('heading', { name: createdName })).toBeVisible();
 		// Username with @ prefix only appears in sidebar
 		await expect(page.getByText(`@${createdUsername}`)).toBeVisible();
 	});
@@ -134,8 +226,9 @@ test.describe('Participants', () => {
 		await editButton.click();
 
 		// Wait for form fields to appear after clicking Edit
+		const modifiedName = `${createdName} Modified`;
 		await page.locator('#edit-name').waitFor({ state: 'visible' });
-		await page.locator('#edit-name').fill('Test User Modified');
+		await page.locator('#edit-name').fill(modifiedName);
 		await page.locator('#edit-age').waitFor({ state: 'visible' });
 		await page.locator('#edit-age').fill('31');
 		await page.getByRole('button', { name: 'Save' }).first().click();
@@ -143,12 +236,12 @@ test.describe('Participants', () => {
 		await expectSuccessToast(page, 'updated');
 
 		// Sidebar stays open with updated heading
-		await expect(page.getByRole('heading', { name: 'Test User Modified' })).toBeVisible();
+		await expect(page.getByRole('heading', { name: modifiedName })).toBeVisible();
 
 		// Close and reopen to verify persistence in database
 		await closeDetailsPanelWithButton(page);
 		await openParticipantDetails(page, createdUsername);
-		await expect(page.getByRole('heading', { name: 'Test User Modified' })).toBeVisible();
+		await expect(page.getByRole('heading', { name: modifiedName })).toBeVisible();
 	});
 
 	test('PRT-13 — Sidebar — validacija imena (samo črke)', async ({ authenticatedPage: page }) => {
@@ -186,7 +279,7 @@ test.describe('Participants', () => {
 		// The temp name should NOT be visible anywhere
 		await expect(page.getByText('Temp Name')).not.toBeVisible();
 		// The original name should still show
-		await expect(page.getByRole('heading', { name: 'Test User' })).toBeVisible();
+		await expect(page.getByRole('heading', { name: createdName })).toBeVisible();
 	});
 
 	// ---------------------------------------------------------------------------
@@ -359,7 +452,7 @@ test.describe('Participants', () => {
 
 		await dialog.getByLabel('Username').fill(uniqueUsername);
 		await dialog.getByPlaceholder('Enter password').fill('testpass123');
-		await dialog.locator('#modal-name').fill('Toast User');
+		await dialog.locator('#modal-name').fill(createdName);
 		await dialog.locator('#modal-age').fill('25');
 		await dialog.locator('#modal-sex').selectOption('female');
 

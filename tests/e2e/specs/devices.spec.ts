@@ -17,7 +17,7 @@ import {
 
 test.describe('Devices', () => {
 	test.beforeEach(async ({ authenticatedPage: page }) => {
-		// Fixture logs in and navigates to /users. Navigate to /devices.
+		// Auth fixture starts on dashboard (/). Navigate to devices page.
 		await navigateTo(page, 'Devices');
 		await waitForDevicesTable(page);
 	});

@@ -10,7 +10,7 @@ test.describe('Studies', () => {
 	let createdStudyName: string;
 
 	test.beforeEach(async ({ authenticatedPage: page }) => {
-		// Auth fixture navigates to /devices — redirect to /users where studies are managed
+		// Auth fixture starts on dashboard (/). Navigate to participants where studies are managed.
 		await navigateTo(page, 'Participants');
 		await page.waitForLoadState('networkidle');
 	});

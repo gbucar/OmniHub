@@ -23,7 +23,7 @@ tests/e2e/
 ├── specs/
 │   ├── auth.spec.ts           # 6 testov: login, logout, redirect
 │   ├── navigation.spec.ts     # 4 testi: navbar, hamburger, theme toggle
-│   ├── participants.spec.ts   # 22 testov: CRUD, search, filter, pagination, sidebar
+│   ├── participants.spec.ts   # 22 testov: tabela, search, filter, paginacija, sidebar, CRUD
 │   ├── studies.spec.ts        # 3 testi: add study, validation
 │   └── devices.spec.ts        # 25 testov: tabela, filtri, paginacija, sidebar detajli
 └── README.md
@@ -31,47 +31,71 @@ tests/e2e/
 
 ## Poganjanje testov
 
-### Način 1: S kontejnerji (podman/docker) — priporočeno
+Obstajajo **trije načini** poganjanja testov, odvisno od tega, kaj že
+imaš nameščeno lokalno.
 
-To je najbolj zanesljiv način, ker ustvari popolnoma izolirano okolje
-z lastno bazo, seed podatki in svežim buildom admin dashboarda.
+---
+
+### Način 1: Vse v Dockerju (priporočeno za CI in zanesljivost)
+
+Celoten stack (DB, API, admin dashboard, Playwright) teče v Docker
+kontejnerjih. Ne potrebuješ lokalnega Node.js, npm, ali Playwright-a —
+samo `podman` ali `docker`.
 
 ```bash
 # Iz korenskega direktorija repozitorija
 cp .env.example .env
 podman compose -f docker-compose.yml -f docker-compose.test.yml up -d
-cd tests/e2e && npm ci && npm test
+podman compose -f docker-compose.yml -f docker-compose.test.yml run --rm playwright-tests
 podman compose -f docker-compose.yml -f docker-compose.test.yml down -v
 ```
 
-> **Opomba**: Če imaš `docker compose` namesto `podman compose`, ukazi so
-> enaki — samo zamenjaj `podman` z `docker`.
+> **Opomba**: `podman compose` lahko nadomestiš z `docker compose` —
+> ukazi so identični.
 
-### Način 2: Bearbones (brez kontejnerjev)
+#### Poganjanje samo določenih testov znotraj Dockerja
 
-Če že imaš lokalno bazo (TimescaleDB) in PostgREST na `localhost:3000`:
-
-```bash
-# 1. Poženi seed (opcijsko — če rabiš sveže podatke)
-PGPASSWORD=postgres psql -h localhost -U postgres -f tests/e2e/seed.sql
-
-# 2. Zaženi admin-dashboard (Vite dev server na localhost:5173)
-cd src/admin-dashboard && npm run dev
-
-# 3. Poženi teste (v ločenem terminalu)
-cd tests/e2e && npx playwright test
-```
-
-Admin dashboard mora biti dostopen na `http://localhost:5173` (privzeti
-Vite port). Če uporabljaš drug port, nastavi `TEST_BASE_URL`:
+Playwright runner v Dockerju sprejema vse standardne Playwright argumente:
 
 ```bash
-TEST_BASE_URL=http://localhost:3001 npx playwright test
+# Samo en spec file
+podman compose -f docker-compose.yml -f docker-compose.test.yml \
+  run --rm playwright-tests specs/devices.spec.ts
+
+# En specifičen test po ID-ju
+podman compose -f docker-compose.yml -f docker-compose.test.yml \
+  run --rm playwright-tests -g "DEV-01"
+
+# Skupina testov po patternu (regex)
+podman compose -f docker-compose.yml -f docker-compose.test.yml \
+  run --rm playwright-tests -g "PRT-0[1-8]"
+
+# Z --headed flagom (ni podprto v headless Dockerju, uporabi Način 2)
 ```
 
-### Poganjanje samo določenih testov
+---
 
-Ko razvijaš novo funkcionalnost in želiš pognati samo relevantne teste:
+### Način 2: API/DB v Dockerju, testi lokalno (priporočeno za hiter razvoj)
+
+API in baza tečeta v Dockerju, Playwright teste pa poženeš lokalno.
+Potrebuješ lokalni Node.js in Playwright.
+
+```bash
+# 1. Zaženi samo infrastrukturo (brez playwright-tests)
+cp .env.example .env
+podman compose -f docker-compose.yml -f docker-compose.test.yml up -d
+
+# 2. Namesti testne odvisnosti (samo prvič)
+cd tests/e2e && npm ci
+
+# 3. Poženi teste lokalno (proti http://localhost:3001)
+cd tests/e2e && npm test
+
+# 4. Počisti
+podman compose -f docker-compose.yml -f docker-compose.test.yml down -v
+```
+
+#### Poganjanje samo določenih testov (lokalno)
 
 ```bash
 # Samo en spec file (npr. devices)
@@ -82,7 +106,7 @@ npx playwright test -g "DEV-01"
 
 # Skupina testov po patternu (regex)
 npx playwright test -g "DEV-0[1-5]"     # Group 1 only
-npx playwright test -g "DEV-1[5-9]"     # Group 4
+npx playwright test -g "PRT-1[5-9]"     # Group 4
 
 # Interaktivni UI mode — omogoča ročno izbiranje testov
 npm run test:ui
@@ -95,23 +119,42 @@ npx playwright test -g "AUTH-"
 
 # Samo navigacijski testi
 npx playwright test -g "NAV-"
+
+# Samo participants tabela testi (PRT-01 do PRT-08)
+npx playwright test -g "PRT-0[1-8]"
+
+# Samo participants CRUD testi (PRT-09 do PRT-22)
+npx playwright test -g "PRT-(09|1[0-9]|2[0-2])"
 ```
 
-### Najhitrejši način za preverjanje specifičnega feature-a
+---
 
-Recimo, da delaš na Devices strani in želiš čim hitrejšo povratno
-informacijo. Idealni workflow:
+### Način 3: Bearbones (brez kontejnerjev)
+
+Če že imaš lokalno bazo (TimescaleDB) in PostgREST na `localhost:3000`:
 
 ```bash
-# 1. Zaženi stack enkrat (če še ni)
-podman compose -f docker-compose.yml -f docker-compose.test.yml up -d
+# 1. Poženi seed (opcijsko — če rabiš sveže podatke)
+PGPASSWORD=postgres psql -h localhost -U postgres -f tests/e2e/seed.sql
 
-# 2. Med razvojem poženi samo sveže teste
-npx playwright test specs/devices.spec.ts --headed
+# 2. Zaženi admin-dashboard (Vite dev server na localhost:5173)
+cd src/admin-dashboard && npm run dev
 
-# 3. Ko si zadovoljen, poženi celotno zbirko
-npm test
+# 3. Poženi teste (v ločenem terminalu)
+#    Privzeta baseURL (3001) je za Docker — za barebones nastavi 5173:
+cd tests/e2e && TEST_BASE_URL=http://localhost:5173 npx playwright test
 ```
+
+Admin dashboard mora biti dostopen na `http://localhost:5173` (privzeti
+Vite port). Če uporabljaš drug port, ustrezno nastavi `TEST_BASE_URL`:
+
+```bash
+TEST_BASE_URL=http://localhost:3001 npx playwright test   # če uporabljaš port 3001
+TEST_BASE_URL=http://localhost:5173 npx playwright test   # privzeti Vite port
+```
+
+Vsi ukazi za selektivno poganjanje testov (spec file, `-g` pattern,
+`--headed`, `test:ui`) delujejo enako kot v Načinu 2.
 
 ## CI/CD
 
@@ -168,10 +211,10 @@ Izjeme (kjer je CSS dovoljen):
 
 ## Znane omejitve
 
-- **Paginacija z več stranmi**: Seed ima samo 2 senzorja, zato testi za
-  multi-page paginacijo trenutno niso izvedljivi brez dodajanja več
-  testnih podatkov.
-- **Paralelizem**: `workers: 1` — testi se izvajajo zaporedno zaradi
-  deljenja baze med testi.
+- **Paginacija z več stranmi**: Seed ima samo 2 senzorja in 5 participantov, zato
+  testi za multi-page paginacijo uporabljajo največji page size (500) za združevanje
+  vseh zapisov na eno stran.
+- **Paralelizem**: `workers: 1` lokalno, `workers: 3` v CI — testi znotraj
+  posameznega spec file-a se izvajajo zaporedno.
 - **Brisanje podatkov**: Testi ne brišejo ustvarjenih podatkov (vsak
   uporabi unikaten identifikator).

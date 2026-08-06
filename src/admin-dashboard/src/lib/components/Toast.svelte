@@ -5,6 +5,7 @@
 {#if $toast.visible}
 	<div class="toast toast-start toast-bottom z-50">
 		<div
+			role="alert"
 			class="toast-animate alert max-w-md shadow-lg {$toast.type === 'success'
 				? 'alert-success'
 				: 'alert-error'}"

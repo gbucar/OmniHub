@@ -30,12 +30,10 @@ export const test = base.extend<AuthFixtures>({
 		await page.getByPlaceholder('Enter your password').fill(ADMIN_PASSWORD);
 		await page.getByRole('button', { name: 'Sign In' }).click();
 		await page.waitForURL('/');
-
-		// Navigate to devices via SvelteKit client-side link (preserves auth)
-		// /users would be empty since seed now only has admin_user
-		await page.getByRole('link', { name: /Devices/ }).first().click();
-		await page.waitForURL('/devices');
 		await page.waitForLoadState('networkidle');
+
+		// Each spec's beforeEach navigates to its own page — no need
+		// to force a specific route here.
 		await use(page);
 	}
 });
