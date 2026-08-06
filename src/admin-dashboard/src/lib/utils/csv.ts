@@ -119,8 +119,12 @@ export function parseCSV(text: string, _delimiter: string = DELIM): CsvParseResu
  * in cell values.
  */
 function quoteField(value: string): string {
-	// Doubling quotes is the only escape required.
-	const escaped = value.replace(/"/g, '""');
+	// Defensive: ensure we always call .replace() on a string.
+	// When building CSV rows from parsed DB data, some fields
+	// (e.g. `age` from jsonb `properties`) may arrive as numbers
+	// instead of strings.
+	const str = String(value ?? '');
+	const escaped = str.replace(/"/g, '""');
 	return `"${escaped}"`;
 }
 
