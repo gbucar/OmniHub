@@ -1,7 +1,9 @@
 -- Migration 21: Fix list_participants view to show participants without study
 -- assignments and return one row per user with aggregated studies (JSON array).
 
-CREATE OR REPLACE VIEW api.list_participants
+DROP VIEW IF EXISTS api.list_participants CASCADE;
+
+CREATE VIEW api.list_participants
 WITH (security_invoker=true)
 AS
 SELECT p.user_id,
