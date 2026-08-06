@@ -102,6 +102,45 @@ test.describe('Participants — Table basics', () => {
 		// Table should still display results after page-size change
 		await expect(page.getByText('Ana Test')).toBeVisible();
 	});
+
+	test('PRT-23 — Page navigation with 3 records per page', async ({ authenticatedPage: page }) => {
+		// Add one extra participant so we have 6 total (5 seeded + 1 new).
+		// With pageSize=3 that gives 2 pages to navigate between.
+		const ts = Date.now();
+		await createParticipant(
+			page,
+			`e2e_paginate_${ts}`,
+			'testpass123',
+			`Paginate User ${ts}`,
+			30,
+			'male'
+		);
+
+		// createParticipant leaves the search field filled with the new username.
+		// Clear it so we see ALL participants.
+		await page.getByLabel('Search').clear();
+		await page.waitForTimeout(400);
+
+		// Set page size to 3 — should produce 2 pages (6 participants)
+		await page.getByLabel('Records per page').selectOption('3');
+		await page.waitForTimeout(500);
+
+		// Page 1: Next should be enabled, Previous disabled
+		await expect(page.getByText(/Page 1 of/)).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Next page' })).toBeEnabled();
+		await expect(page.getByRole('button', { name: 'Previous page' })).toBeDisabled();
+
+		// Navigate to page 2
+		await page.getByRole('button', { name: 'Next page' }).click();
+		await page.waitForTimeout(500);
+		await expect(page.getByText(/Page 2 of/)).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Previous page' })).toBeEnabled();
+
+		// Navigate back to page 1
+		await page.getByRole('button', { name: 'Previous page' }).click();
+		await page.waitForTimeout(500);
+		await expect(page.getByText(/Page 1 of/)).toBeVisible();
+	});
 });
 
 // =============================================================================
