@@ -26,3 +26,6 @@ LEFT JOIN data.studies s ON s.id = mps.study_id
 GROUP BY p.user_id, p.properties, p.sys_created_at, p.sys_changed_at, u.username, u.role;
 
 ALTER VIEW api.list_participants OWNER TO postgres;
+
+-- Restore grants dropped by CASCADE above
+GRANT SELECT ON api.list_participants TO admin;
