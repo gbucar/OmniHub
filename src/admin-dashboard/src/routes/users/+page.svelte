@@ -87,15 +87,14 @@
 		filterSearch;
 		filterStudy;
 		pageSize;
-		// Reset to page 1 only if we are not already there. Svelte 5
-		// detects the no-op write and does not re-run downstream effects
-		// when the value is unchanged, but the explicit guard is clearer
-		// and avoids any spurious pagination resets.
-		if (currentPage !== 1) currentPage = 1;
+		currentPage = 1;
 	});
 
 	$effect(() => {
+		filterSearch;
+		filterStudy;
 		currentPage;
+		pageSize;
 		if (!isInitialLoad) {
 			loadParticipants();
 		} else {
