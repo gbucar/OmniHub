@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+set -eu
 
 # Generate a secure .env file for an OmniHub test deploy.
 # Run this from the repository root.
