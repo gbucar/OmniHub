@@ -7,9 +7,9 @@
 - Roles: `webuser` (own data), `researcher` (read data), `admin` (manage), `integration` (write), `anon` (login)
 
 ## Development Setup
-- Copy `.env.example` to `.env` for database passwords
-- Run `docker-compose up` to start db, API, and Swagger docs (localhost:8080)
-- Admin dashboard: `cd src/admin-dashboard && npm install && npm run dev`
+- Generate a secure `.env`: `bash scripts/generate-env.sh` (or copy `.env.example` and fill it in)
+- Run `docker compose up --build` to start db, API, Swagger docs (localhost:8080), admin dashboard, and pipelines
+- Admin dashboard dev server: `cd src/admin-dashboard && npm install && npm run dev`
 
 ## Design System
 
@@ -96,7 +96,7 @@ Two themes are defined: `omnihub` (light) and `omnihub-dark` (dark). The app res
 - Lint admin dashboard: `npm run lint`
 - Format admin dashboard: `npm run format`
 - Build admin dashboard: `npm run build`
-- Populate db with sample data: run `src/db/populate.sql` after migrations
+- Populate db with sample data: run `src/db/dev/populate.sql` after migrations
 
 ## Testing
 - OmniHub has an extensive E2E test suite (Playwright) covering all major features: auth,

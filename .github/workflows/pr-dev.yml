@@ -68,11 +68,12 @@ jobs:
 
       # --- Start test infrastructure ---
 
-      # Replace dev populate migrations (98_atmotubes.sql, 99_*.sql) with deterministic test seed.
-      # Seed contains all test data - delete old migrations, copy seed.sql as new migration.
-      - name: Swap dev data with test seed
+      # Remove deploy-only files (Atmotube device inventory and deploy bootstrap)
+      # and replace them with deterministic E2E test seed data.
+      - name: Swap deploy data with test seed
         run: |
           rm -f src/db/migrations/9[89]_*.sql
+          rm -f src/db/migrations/99z_bootstrap_deploy.sh
           cp tests/e2e/seed.sql src/db/migrations/98_seed_test_data.sql
 
       - name: Start database
