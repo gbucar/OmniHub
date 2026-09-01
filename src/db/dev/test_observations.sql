@@ -1,7 +1,7 @@
 -- Test: realistic observations spread across last 30 days
 -- Compatible with pipeline stream names so pipeline finds and reuses them.
 -- Pipeline streams: voc, pm1, pm25, pm10, t, h, p
--- Run: PGPASSWORD=postgres123 psql -h localhost -U postgres -d postgres -f 99_test_observations.sql
+-- Run: PGPASSWORD=postgres123 psql -h localhost -U postgres -d postgres -f src/db/dev/test_observations.sql
 SET search_path TO data, public, postgis;
 
 BEGIN;
