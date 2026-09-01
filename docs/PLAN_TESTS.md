@@ -442,7 +442,7 @@ Predpogoj: migracija `22_views_and_grants.sql` v `src/db/migrations/`
 
 ### 5.2. Zakaj `test-seed` service in ne mount v init?
 
-Obstoječe migracije se izvedejo avtomatsko ob prvem zagonu DB containerja (TimescaleDB entrypoint sortira datoteke v `/docker-entrypoint-initdb.d/`). Če bi dodali seed tja, bi moral imeti pravilno ime (npr. `99_test_seed.sql`), a že obstaja `99_populate.sql`. Namesto tega uporabimo **ločen enkratni service**, ki:
+Obstoječe migracije se izvedejo avtomatsko ob prvem zagonu DB containerja (TimescaleDB entrypoint sortira datoteke v `/docker-entrypoint-initdb.d/`). Če bi dodali seed tja, bi moral imeti pravilno ime (npr. `99_test_seed.sql`), a dev seed datoteke so zdaj v `src/db/dev/` in se ne izvajajo avtomatsko. Namesto tega uporabimo **ločen enkratni service**, ki:
 
 1. Počaka na `db: service_healthy` (migracije so že končane)
 2. Izvede `psql -f seed.sql` — transakcijsko, deterministično
